@@ -7,6 +7,7 @@
 
 use crate::serde::Role;
 use snafu::{Backtrace, Snafu};
+use std::fmt::{self, Debug, Display};
 use std::path::PathBuf;
 
 /// Alias for `Result<T, Error>`.
@@ -72,6 +73,13 @@ pub enum Error {
     HashMismatch {
         calculated: String,
         expected: String,
+        backtrace: Backtrace,
+    },
+
+    /// Failed to decode a hexadecimal-encoded string.
+    #[snafu(display("Invalid hex string: {}", source))]
+    HexDecode {
+        source: hex::FromHexError,
         backtrace: Backtrace,
     },
 
@@ -146,6 +154,13 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    /// Failed to decode a PEM-encoded key.
+    #[snafu(display("Invalid PEM string: {}", source))]
+    PemDecode {
+        source: Compat<pem::PemError>,
+        backtrace: Backtrace,
+    },
+
     /// An HTTP request failed.
     #[snafu(display("Failed to request \"{}\": {}", url, source))]
     Request {
@@ -195,6 +210,25 @@ pub enum Error {
         backtrace: Backtrace,
     },
 }
+
+/// Wrapper for error types that don't impl [`std::error::Error`].
+///
+/// This should not have to exist, and yet...
+pub struct Compat<T>(pub T);
+
+impl<T: Debug> Debug for Compat<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(&self.0, f)
+    }
+}
+
+impl<T: Display> Display for Compat<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl<T: Debug + Display> std::error::Error for Compat<T> {}
 
 impl From<Error> for std::io::Error {
     fn from(err: Error) -> Self {

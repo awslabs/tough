@@ -1,7 +1,9 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use crate::error::{self, Compat, Error};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
+use snafu::ResultExt;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
@@ -34,20 +36,19 @@ impl<T: Decode> Decoded<T> {
 /// Generally structs that implement `Decode` will be unit-like structs that just implement the one
 /// required method.
 pub(crate) trait Decode {
-    fn parse<'de, D>(s: &str) -> Result<Vec<u8>, D::Error>
-    where
-        D: Deserializer<'de>;
+    /// Convert a string to bytes.
+    ///
+    /// The "error" string returned from this method will immediately be wrapped into a
+    /// [`serde::de::Error`].
+    fn parse(s: &str) -> Result<Vec<u8>, Error>;
 }
 
 /// [`Decode`] implementation for hex-encoded strings.
 pub(crate) struct Hex;
 
 impl Decode for Hex {
-    fn parse<'de, D>(s: &str) -> Result<Vec<u8>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        hex::decode(s).map_err(|err| D::Error::custom(format!("invalid hex string: {}", err)))
+    fn parse(s: &str) -> Result<Vec<u8>, Error> {
+        hex::decode(s).context(error::HexDecode)
     }
 }
 
@@ -55,13 +56,11 @@ impl Decode for Hex {
 pub(crate) struct Pem;
 
 impl Decode for Pem {
-    fn parse<'de, D>(s: &str) -> Result<Vec<u8>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+    fn parse(s: &str) -> Result<Vec<u8>, Error> {
         pem::parse(s)
             .map(|pem| pem.contents)
-            .map_err(|err| D::Error::custom(format!("invalid PEM string: {}", err)))
+            .map_err(Compat)
+            .context(error::PemDecode)
     }
 }
 
@@ -74,7 +73,7 @@ impl<'de, T: Decode> Deserialize<'de> for Decoded<T> {
     {
         let original = String::deserialize(deserializer)?;
         Ok(Self {
-            bytes: T::parse::<D>(&original)?,
+            bytes: T::parse(&original).map_err(D::Error::custom)?,
             original,
             spooky: PhantomData,
         })
