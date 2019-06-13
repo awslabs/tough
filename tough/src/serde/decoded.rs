@@ -5,6 +5,7 @@ use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display};
 use std::marker::PhantomData;
+use std::ops::Deref;
 
 pub(crate) struct Decoded<T> {
     bytes: Vec<u8>,
@@ -13,12 +14,16 @@ pub(crate) struct Decoded<T> {
 }
 
 impl<T> Decoded<T> {
-    pub(crate) fn as_slice(&self) -> &[u8] {
-        &self.bytes
-    }
-
     pub(crate) fn into_vec(self) -> Vec<u8> {
         self.bytes
+    }
+}
+
+impl<T> Deref for Decoded<T> {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        &self.bytes
     }
 }
 
