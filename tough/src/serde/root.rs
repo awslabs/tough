@@ -1,7 +1,7 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::serde::conv::{Conv, Hex};
+use crate::serde::decoded::{Decoded, Hex};
 use crate::serde::key::Key;
 use crate::serde::{Metadata, Role};
 use chrono::{DateTime, Utc};
@@ -15,7 +15,7 @@ use std::num::NonZeroU64;
 pub(crate) struct Root {
     pub(crate) consistent_snapshot: bool,
     pub(crate) expires: DateTime<Utc>,
-    pub(crate) keys: BTreeMap<Conv<Hex>, Key>,
+    pub(crate) keys: BTreeMap<Decoded<Hex>, Key>,
     pub(crate) roles: BTreeMap<Role, RoleKeys>,
     pub(crate) spec_version: String,
     pub(crate) version: NonZeroU64,
@@ -44,6 +44,6 @@ impl Metadata for Root {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct RoleKeys {
-    pub(crate) keyids: Vec<Conv<Hex>>,
+    pub(crate) keyids: Vec<Decoded<Hex>>,
     pub(crate) threshold: NonZeroU64,
 }

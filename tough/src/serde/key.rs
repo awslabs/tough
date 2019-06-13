@@ -1,7 +1,7 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::serde::conv::{Conv, Hex, Pem};
+use crate::serde::decoded::{Decoded, Hex, Pem};
 use ring::signature::VerificationAlgorithm;
 use serde::{Deserialize, Serialize};
 use untrusted::Input;
@@ -32,7 +32,7 @@ pub enum EcdsaScheme {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct EcdsaKey {
-    public: Conv<Pem>,
+    public: Decoded<Pem>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -43,7 +43,7 @@ pub enum Ed25519Scheme {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Ed25519Key {
-    public: Conv<Hex>,
+    public: Decoded<Hex>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -54,7 +54,7 @@ pub enum RsaScheme {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RsaKey {
-    public: Conv<Pem>,
+    public: Decoded<Pem>,
 }
 
 impl Key {
