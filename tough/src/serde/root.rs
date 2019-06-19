@@ -1,11 +1,14 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use crate::error;
 use crate::serde::decoded::{Decoded, Hex};
 use crate::serde::key::Key;
 use crate::serde::{Metadata, Role};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
+use sha2::{Digest, Sha256};
+use snafu::ResultExt;
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
@@ -15,6 +18,7 @@ use std::num::NonZeroU64;
 pub(crate) struct Root {
     pub(crate) consistent_snapshot: bool,
     pub(crate) expires: DateTime<Utc>,
+    #[serde(deserialize_with = "deserialize_keys")]
     pub(crate) keys: BTreeMap<Decoded<Hex>, Key>,
     pub(crate) roles: BTreeMap<Role, RoleKeys>,
     pub(crate) spec_version: String,
@@ -46,4 +50,28 @@ impl Metadata for Root {
 pub(crate) struct RoleKeys {
     pub(crate) keyids: Vec<Decoded<Hex>>,
     pub(crate) threshold: NonZeroU64,
+}
+
+/// Validates the key ID for each key during deserialization and fails if any don't match.
+fn deserialize_keys<'de, D>(deserializer: D) -> Result<BTreeMap<Decoded<Hex>, Key>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let keys: BTreeMap<Decoded<Hex>, Key> = BTreeMap::deserialize(deserializer)?;
+    for (keyid, key) in &keys {
+        let digest = Sha256::digest(
+            &serde_json::to_vec(key)
+                .context(error::JsonSerialization)
+                .map_err(D::Error::custom)?,
+        );
+        if keyid != digest.as_slice() {
+            error::HashMismatch {
+                calculated: hex::encode(digest),
+                expected: hex::encode(keyid),
+            }
+            .fail()
+            .map_err(D::Error::custom)?;
+        }
+    }
+    Ok(keys)
 }
