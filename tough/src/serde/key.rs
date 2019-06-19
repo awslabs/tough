@@ -1,7 +1,7 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::serde::decoded::{Decoded, Hex, Pem};
+use crate::serde::decoded::{Decoded, Hex, Pem, RsaPem};
 use ring::signature::VerificationAlgorithm;
 use serde::{Deserialize, Serialize};
 use untrusted::Input;
@@ -11,16 +11,16 @@ use untrusted::Input;
 #[serde(tag = "keytype")]
 pub enum Key {
     Ecdsa {
-        scheme: EcdsaScheme,
         keyval: EcdsaKey,
+        scheme: EcdsaScheme,
     },
     Ed25519 {
-        scheme: Ed25519Scheme,
         keyval: Ed25519Key,
+        scheme: Ed25519Scheme,
     },
     Rsa {
-        scheme: RsaScheme,
         keyval: RsaKey,
+        scheme: RsaScheme,
     },
 }
 
@@ -32,6 +32,8 @@ pub enum EcdsaScheme {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct EcdsaKey {
+    // FIXME: there's probably a difference between what TUF thinks is a valid ECDSA key and what
+    // ring thinks is a valid ECDSA key (similar to the issue we had with RSA).
     public: Decoded<Pem>,
 }
 
@@ -54,7 +56,7 @@ pub enum RsaScheme {
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RsaKey {
-    public: Decoded<Pem>,
+    public: Decoded<RsaPem>,
 }
 
 impl Key {
