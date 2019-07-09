@@ -88,7 +88,7 @@ pub enum Error {
     },
 
     /// The library failed to create a URL from a base URL and a path.
-    #[snafu(display("Failed to join {:?} to URL \"{}\": {}", path, url, source))]
+    #[snafu(display("Failed to join \"{}\" to URL \"{}\": {}", path, url, source))]
     JoinUrl {
         path: String,
         url: reqwest::Url,
