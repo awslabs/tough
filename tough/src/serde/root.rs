@@ -77,6 +77,7 @@ where
         ensure!(
             &keyid == digest.as_slice(),
             error::HashMismatch {
+                context: format!("key {}", keyid),
                 calculated: hex::encode(digest),
                 expected: hex::encode(&keyid),
             }
