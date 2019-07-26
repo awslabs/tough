@@ -11,6 +11,7 @@ edition = "2018"
 [dependencies]
 chrono = { version = "0.4.6", features = ["serde"] }
 hex = "0.3.2"
+olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
 pem = "0.6.0"
 reqwest = { version = "0.9.17", default-features = false }
 ring = "0.14.6"
