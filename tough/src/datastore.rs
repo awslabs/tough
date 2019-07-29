@@ -8,6 +8,7 @@ use std::fs::{self, File};
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone)]
 pub(crate) struct Datastore(PathBuf);
 
 impl Datastore {
