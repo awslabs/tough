@@ -1,0 +1,26 @@
+[package]
+name = "tuftool"
+version = "0.1.0"
+description = "Utility for creating and signing The Update Framework (TUF) repositories"
+authors = ["iliana destroyer of worlds <iweller@amazon.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/awslabs/tough"
+keywords = ["tuf", "update", "repository"]
+edition = "2018"
+
+[dependencies]
+chrono = "0.4.6"
+digest = "0.8.1"
+hex = "0.3.2"
+maplit = "1.0.1"
+pem = "0.6.0"
+rayon = "1.1"
+ring = { version = "0.16.7", features = ["std"] }
+serde = "1.0.99"
+serde_json = "1.0.39"
+sha2 = "0.8.0"
+snafu = { version = "0.5.0", features = ["backtrace-crate"] }
+structopt = "0.2.18"
+tough_schema = { version = "0.1.0", path = "../tough_schema" }
+olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
+walkdir = "2.2.9"
