@@ -9,3 +9,15 @@ members = [
 [profile.release]
 debug = 1
 lto = true
+
+# FIXME drop this when next rusoto releases with
+# https://github.com/rusoto/rusoto/pull/1494
+[patch.crates-io.rusoto_core]
+git = "https://github.com/rusoto/rusoto.git"
+rev = "958d9fa439770f94d330d8e06d4ada58e76b3823"
+[patch.crates-io.rusoto_credential]
+git = "https://github.com/rusoto/rusoto.git"
+rev = "958d9fa439770f94d330d8e06d4ada58e76b3823"
+[patch.crates-io.rusoto_ssm]
+git = "https://github.com/rusoto/rusoto.git"
+rev = "958d9fa439770f94d330d8e06d4ada58e76b3823"
