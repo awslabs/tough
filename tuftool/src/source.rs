@@ -10,7 +10,7 @@
 
 use crate::error::{self, Error, Result};
 use crate::key::KeyPair;
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use std::path::PathBuf;
 use std::str::FromStr;
 use url::Url;
@@ -53,7 +53,16 @@ impl KeySource {
                         profile: profile.clone(),
                         parameter_name,
                     })?;
-                KeyPair::parse(response.parameter.unwrap().value.unwrap().as_bytes())
+                KeyPair::parse(
+                    response
+                        .parameter
+                        .context(error::SsmMissingField { field: "parameter" })?
+                        .value
+                        .context(error::SsmMissingField {
+                            field: "parameter.value",
+                        })?
+                        .as_bytes(),
+                )
             }
         }
     }
