@@ -241,6 +241,12 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Version number overflow"))]
+    VersionOverflow { backtrace: Backtrace },
+
+    #[snafu(display("Version number is zero"))]
+    VersionZero { backtrace: Backtrace },
+
     #[snafu(display("Failed to walk directory tree: {}", source))]
     WalkDir {
         source: walkdir::Error,
