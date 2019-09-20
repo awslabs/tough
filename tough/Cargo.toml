@@ -20,6 +20,7 @@ tough_schema = { version = "0.1.0", path = "../tough_schema" }
 
 [dev-dependencies]
 hex-literal = "0.2.0"
+tempfile = "3.1.0"
 
 [features]
 default = ["default-tls"]
