@@ -141,6 +141,26 @@ pub(crate) enum Error {
     #[snafu(display("Unrecognized private key format"))]
     KeyUnrecognized { backtrace: Backtrace },
 
+    #[snafu(display("Metadata error: {}", source))]
+    Metadata {
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to open file {}: {}", path.display(), source))]
+    OpenFile {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to open trusted root metadata file {}: {}", path.display(), source))]
+    OpenRoot {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Path {} is not valid UTF-8", path.display()))]
     PathUtf8 { path: PathBuf, backtrace: Backtrace },
 
@@ -153,6 +173,18 @@ pub(crate) enum Error {
         path: PathBuf,
         base: PathBuf,
         source: std::path::StripPrefixError,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to copy from response: {}", source))]
+    ReqwestCopy {
+        source: reqwest::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Error making request: {}", source))]
+    ReqwestGet {
+        source: reqwest::Error,
         backtrace: Backtrace,
     },
 
@@ -225,6 +257,18 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Target not found: {}", target))]
+    TargetNotFound {
+        target: String,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to create temporary directory: {}", source))]
+    TempDir {
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Unrecognized or invalid public key"))]
     UnrecognizedKey { backtrace: Backtrace },
 
@@ -250,6 +294,12 @@ pub(crate) enum Error {
     #[snafu(display("Failed to walk directory tree: {}", source))]
     WalkDir {
         source: walkdir::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed writing target data to disk: {}", source))]
+    WriteTarget {
+        source: std::io::Error,
         backtrace: Backtrace,
     },
 }
