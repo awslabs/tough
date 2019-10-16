@@ -30,8 +30,22 @@ pub(crate) struct DownloadArgs {
     #[structopt(short = "t", long = "target-url")]
     target_base_url: String,
 
+    /// Allow downloading the root.json file (unsafe)
+    #[structopt(long)]
+    allow_root_download: bool,
+
     /// Output directory of targets
     indir: PathBuf,
+}
+
+fn root_warning(path: &PathBuf) {
+    #[rustfmt::skip]
+    eprintln!("\
+=================================================================
+WARNING: Downloading root.json to {:?}
+This is unsafe and will not establish trust, use only for testing
+=================================================================",
+    path);
 }
 
 impl DownloadArgs {
@@ -39,7 +53,7 @@ impl DownloadArgs {
         // use local root.json or download from repository
         let root_path = if let Some(path) = &self.root {
             PathBuf::from(path)
-        } else {
+        } else if self.allow_root_download {
             let name = if let Some(version) = self.root_version {
                 format!("{}.root.json", version)
             } else {
@@ -56,7 +70,9 @@ impl DownloadArgs {
                 .context(error::UrlParse {
                     url: &self.metadata_base_url,
                 })?;
-            println!("Downloading {} to {:?}", &name, &path);
+
+            root_warning(&path);
+
             let mut f = OpenOptions::new()
                 .write(true)
                 .create(true)
@@ -67,6 +83,9 @@ impl DownloadArgs {
                 .copy_to(&mut f)
                 .context(error::ReqwestCopy)?;
             path
+        } else {
+            eprintln!("No root.json available");
+            std::process::exit(1);
         };
 
         // load repository
