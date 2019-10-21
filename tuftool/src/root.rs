@@ -1,6 +1,7 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::key::KeyPair;
 use crate::source::KeySource;
@@ -32,7 +33,9 @@ pub(crate) enum Command {
     Expire {
         /// Path to root.json
         path: PathBuf,
-        /// When to expire
+        /// Expiration of root; can be in full RFC 3339 format, or something like 'in
+        /// 7 days'
+        #[structopt(parse(try_from_str = parse_datetime))]
         time: DateTime<Utc>,
     },
     /// Set the signature count threshold for a role

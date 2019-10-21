@@ -8,6 +8,7 @@
 
 mod copylike;
 mod create;
+mod datetime;
 mod deref;
 mod download;
 mod error;
