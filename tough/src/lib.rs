@@ -109,7 +109,7 @@ impl Default for Limits {
 /// You can create a `Repository` using the `load` method.
 #[derive(Debug, Clone)]
 pub struct Repository<'a, T: Transport> {
-    transport: T,
+    transport: &'a T,
     consistent_snapshot: bool,
     datastore: Datastore<'a>,
     earliest_expiration: DateTime<Utc>,
@@ -139,7 +139,7 @@ impl<'a, T: Transport> Repository<'a, T> {
     ///
     /// `metadata_base_url` and `target_base_url` are the HTTP(S) base URLs for where the client
     /// can find metadata (such as root.json) and targets (as listed in targets.json).
-    pub fn load<R: Read>(transport: T, settings: Settings<'a, R>) -> Result<Self> {
+    pub fn load<R: Read>(transport: &'a T, settings: Settings<'a, R>) -> Result<Self> {
         let metadata_base_url = parse_url(settings.metadata_base_url)?;
         let target_base_url = parse_url(settings.target_base_url)?;
 
@@ -147,7 +147,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 
         // 0. Load the trusted root metadata file + 1. Update the root metadata file
         let root = load_root(
-            &transport,
+            transport,
             settings.root,
             &datastore,
             settings.limits.max_root_size,
@@ -157,7 +157,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 
         // 2. Download the timestamp metadata file
         let timestamp = load_timestamp(
-            &transport,
+            transport,
             &root,
             &datastore,
             settings.limits.max_timestamp_size,
@@ -165,17 +165,11 @@ impl<'a, T: Transport> Repository<'a, T> {
         )?;
 
         // 3. Download the snapshot metadata file
-        let snapshot = load_snapshot(
-            &transport,
-            &root,
-            &timestamp,
-            &datastore,
-            &metadata_base_url,
-        )?;
+        let snapshot = load_snapshot(transport, &root, &timestamp, &datastore, &metadata_base_url)?;
 
         // 4. Download the targets metadata file
         let targets = load_targets(
-            &transport,
+            transport,
             &root,
             &snapshot,
             &datastore,
@@ -258,7 +252,7 @@ impl<'a, T: Transport> Repository<'a, T> {
             };
 
             Some(fetch_sha256(
-                &self.transport,
+                self.transport,
                 self.target_base_url.join(&file).context(error::JoinUrl {
                     path: file,
                     url: self.target_base_url.to_owned(),
