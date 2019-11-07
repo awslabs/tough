@@ -1,11 +1,8 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: MIT OR Apache-2.0
-
 //! Contains the error type for this library.
 
 #![allow(clippy::default_trait_access)]
 
-use crate::RoleType;
+use crate::schema::RoleType;
 use snafu::{Backtrace, Snafu};
 use std::fmt::{self, Debug, Display};
 
@@ -14,7 +11,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// The error type for this library.
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility = "pub(super)")]
 pub enum Error {
     /// A duplicate key ID was present in the root metadata.
     #[snafu(display("Duplicate key ID: {}", keyid))]

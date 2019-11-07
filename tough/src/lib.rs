@@ -19,6 +19,7 @@ mod datastore;
 pub mod error;
 mod fetch;
 mod io;
+pub mod schema;
 mod transport;
 
 #[cfg(feature = "http")]
@@ -28,13 +29,13 @@ pub use crate::transport::{FilesystemTransport, Transport};
 use crate::datastore::Datastore;
 use crate::error::Result;
 use crate::fetch::{fetch_max_size, fetch_sha256};
+use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
-use tough_schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
 use url::Url;
 
 /// Repository fetch settings, provided to [`Repository::load`].
@@ -279,8 +280,8 @@ pub struct Target {
     pub length: u64,
 }
 
-impl From<tough_schema::Target> for Target {
-    fn from(target: tough_schema::Target) -> Self {
+impl From<crate::schema::Target> for Target {
+    fn from(target: crate::schema::Target) -> Self {
         Self {
             custom: target.custom,
             sha256: target.hashes.sha256.into_vec(),
@@ -701,7 +702,7 @@ fn load_targets<T: Transport>(
     datastore: &Datastore<'_>,
     max_targets_size: u64,
     metadata_base_url: &Url,
-) -> Result<Signed<tough_schema::Targets>> {
+) -> Result<Signed<crate::schema::Targets>> {
     // 4. Download the top-level targets metadata file, up to either the number of bytes specified
     //    in the snapshot metadata file, or some Z number of bytes. The value for Z is set by the
     //    authors of the application using TUF. For example, Z may be tens of kilobytes. If
@@ -748,7 +749,7 @@ fn load_targets<T: Transport>(
             specifier,
         )?)
     };
-    let targets: Signed<tough_schema::Targets> =
+    let targets: Signed<crate::schema::Targets> =
         serde_json::from_reader(reader).context(error::ParseMetadata {
             role: RoleType::Targets,
         })?;
@@ -784,7 +785,7 @@ fn load_targets<T: Transport>(
     //   it, abort the update cycle, and report the potential rollback attack.
     if let Some(Ok(old_targets)) = datastore
         .reader("targets.json")?
-        .map(serde_json::from_reader::<_, Signed<tough_schema::Targets>>)
+        .map(serde_json::from_reader::<_, Signed<crate::schema::Targets>>)
     {
         if root.signed.verify_role(&old_targets).is_ok() {
             ensure!(
