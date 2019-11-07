@@ -37,4 +37,4 @@ tough_schema = { version = "0.1.0", path = "../tough_schema" }
 url = "2.1.0"
 walkdir = "2.2.9"
 tempdir = "0.3.7"
-tough = { version = "0.1.0", path = "../tough" }
+tough = { version = "0.1.0", path = "../tough", features = ["http"] }
