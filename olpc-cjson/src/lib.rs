@@ -16,7 +16,7 @@
 //! This crate is not developed or endorsed by OLPC; use of the term is solely to distinguish this
 //! specification of canonical JSON from [other specifications of canonical JSON][xkcd].
 //!
-//! [xkcd]: (https://xkcd.com/927/)
+//! [xkcd]: https://xkcd.com/927/
 //!
 //! ```rust
 //! use olpc_cjson::CanonicalFormatter;
