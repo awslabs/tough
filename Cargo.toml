@@ -4,7 +4,3 @@ members = [
     "tough",
     "tuftool",
 ]
-
-[profile.release]
-debug = 1
-lto = true
