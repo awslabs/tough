@@ -688,7 +688,7 @@ fn load_snapshot<T: Transport>(
     //   it, abort the update cycle, and report the potential freeze attack.
     check_expired(datastore, &snapshot.signed)?;
 
-    // Now that everything seems okay, write the timestamp file to the datastore.
+    // Now that everything seems okay, write the snapshot file to the datastore.
     datastore.create("snapshot.json", &snapshot)?;
 
     Ok(snapshot)
@@ -811,7 +811,7 @@ fn load_targets<T: Transport>(
     // (This library does not yet handle delegated roles, so we just use the parsed targets from
     // targets.json.)
 
-    // Now that everything seems okay, write the timestamp file to the datastore.
+    // Now that everything seems okay, write the targets file to the datastore.
     datastore.create("targets.json", &targets)?;
 
     Ok(targets)
