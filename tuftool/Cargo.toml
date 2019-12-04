@@ -36,4 +36,4 @@ tempfile = "3.1.0"
 url = "2.1.0"
 walkdir = "2.2.9"
 tempdir = "0.3.7"
-tough = { version = "0.1.0", path = "../tough", features = ["http"] }
+tough = { version = "0.2.0", path = "../tough", features = ["http"] }
