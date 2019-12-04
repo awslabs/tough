@@ -107,7 +107,7 @@ impl DownloadArgs {
 
         // copy all available targets
         println!("Downloading targets to {:?}", &self.indir);
-        for target in repository.targets().keys() {
+        for target in repository.targets().signed.targets.keys() {
             let path = PathBuf::from(&self.indir).join(target);
             println!("\t-> {}", &target);
             let mut reader = repository

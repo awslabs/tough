@@ -33,7 +33,6 @@ use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 use url::Url;
@@ -115,8 +114,11 @@ pub struct Repository<'a, T: Transport> {
     datastore: Datastore<'a>,
     earliest_expiration: DateTime<Utc>,
     earliest_expiration_role: RoleType,
+    root: Signed<Root>,
+    snapshot: Signed<Snapshot>,
+    timestamp: Signed<Timestamp>,
+    targets: Signed<crate::schema::Targets>,
     target_base_url: Url,
-    targets: HashMap<String, Target>,
 }
 
 impl<'a, T: Transport> Repository<'a, T> {
@@ -193,19 +195,32 @@ impl<'a, T: Transport> Repository<'a, T> {
             datastore,
             earliest_expiration: earliest_expiration.to_owned(),
             earliest_expiration_role: *earliest_expiration_role,
+            root,
+            snapshot,
+            timestamp,
+            targets,
             target_base_url,
-            targets: targets
-                .signed
-                .targets
-                .into_iter()
-                .map(|(key, value)| (key, value.into()))
-                .collect(),
         })
     }
 
     /// Returns the list of targets present in the repository.
-    pub fn targets(&self) -> &HashMap<String, Target> {
+    pub fn targets(&self) -> &Signed<crate::schema::Targets> {
         &self.targets
+    }
+
+    /// Returns a reference to the signed root
+    pub fn root(&self) -> &Signed<Root> {
+        &self.root
+    }
+
+    /// Returns a reference to the signed snapshot
+    pub fn snapshot(&self) -> &Signed<Snapshot> {
+        &self.snapshot
+    }
+
+    /// Returns a reference to the signed timestamp
+    pub fn timestamp(&self) -> &Signed<Timestamp> {
+        &self.timestamp
     }
 
     /// Fetches a target from the repository.
@@ -245,9 +260,11 @@ impl<'a, T: Transport> Repository<'a, T> {
         //   HASH is one of the hashes of the targets file listed in the targets metadata file
         //   found earlier in step 4. In either case, the client MUST write the file to
         //   non-volatile storage as FILENAME.EXT.
-        Ok(if let Some(target) = self.targets.get(name) {
+        let targets = &self.targets.signed.targets;
+        Ok(if let Some(target) = targets.get(name) {
+            let sha256 = &target.hashes.sha256.clone().into_vec();
             let file = if self.consistent_snapshot {
-                format!("{}.{}", hex::encode(&target.sha256), name)
+                format!("{}.{}", hex::encode(sha256), name)
             } else {
                 name.to_owned()
             };
@@ -260,33 +277,11 @@ impl<'a, T: Transport> Repository<'a, T> {
                 })?,
                 target.length,
                 "targets.json",
-                &target.sha256,
+                sha256,
             )?)
         } else {
             None
         })
-    }
-}
-
-/// A target from a repository.
-#[derive(Debug, Clone)]
-pub struct Target {
-    /// Custom metadata for this target from the repository.
-    pub custom: HashMap<String, serde_json::Value>,
-    /// The SHA-256 checksum for this target.
-    pub sha256: Vec<u8>,
-    /// The maximum size in bytes for this target. This is an upper bound on size, and not
-    /// necessarily the actual size.
-    pub length: u64,
-}
-
-impl From<crate::schema::Target> for Target {
-    fn from(target: crate::schema::Target) -> Self {
-        Self {
-            custom: target.custom,
-            sha256: target.hashes.sha256.into_vec(),
-            length: target.length,
-        }
     }
 }
 

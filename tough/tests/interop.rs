@@ -58,6 +58,8 @@ fn test_tuf_reference_impl() {
     );
     assert_eq!(
         repo.targets()
+            .signed
+            .targets
             .get("file1.txt")
             .unwrap()
             .custom
