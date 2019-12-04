@@ -2,29 +2,29 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::error;
-use sha2::{Digest, Sha256};
+use ring::digest::{Context, SHA256};
 use std::io::{self, Read};
 use url::Url;
 
-pub(crate) struct DigestAdapter<T, D> {
+pub(crate) struct DigestAdapter<T> {
     url: Url,
     reader: T,
     hash: Vec<u8>,
-    digest: Option<D>,
+    digest: Option<Context>,
 }
 
-impl<T: Read> DigestAdapter<T, Sha256> {
+impl<T: Read> DigestAdapter<T> {
     pub(crate) fn sha256(reader: T, hash: &[u8], url: Url) -> Self {
         Self {
             url,
             reader,
             hash: hash.to_owned(),
-            digest: Some(Sha256::new()),
+            digest: Some(Context::new(&SHA256)),
         }
     }
 }
 
-impl<T: Read, D: Digest> Read for DigestAdapter<T, D> {
+impl<T: Read> Read for DigestAdapter<T> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         assert!(
             self.digest.is_some(),
@@ -33,8 +33,8 @@ impl<T: Read, D: Digest> Read for DigestAdapter<T, D> {
 
         let size = self.reader.read(buf)?;
         if size == 0 {
-            let result = std::mem::replace(&mut self.digest, None).unwrap().result();
-            if result.as_slice() != self.hash.as_slice() {
+            let result = std::mem::replace(&mut self.digest, None).unwrap().finish();
+            if result.as_ref() != self.hash.as_slice() {
                 error::HashMismatch {
                     context: self.url.to_string(),
                     calculated: hex::encode(result),
@@ -44,7 +44,7 @@ impl<T: Read, D: Digest> Read for DigestAdapter<T, D> {
             }
             Ok(size)
         } else if let Some(digest) = &mut self.digest {
-            digest.input(&buf[..size]);
+            digest.update(&buf[..size]);
             Ok(size)
         } else {
             unreachable!();
