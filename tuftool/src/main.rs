@@ -81,7 +81,7 @@ fn main() -> ! {
             if let Some(var) = std::env::var_os("RUST_BACKTRACE") {
                 if var != "0" {
                     if let Some(backtrace) = err.backtrace() {
-                        eprintln!("\n{:?}", backtrace.as_ref());
+                        eprintln!("\n{:?}", backtrace);
                     }
                 }
             }
