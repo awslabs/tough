@@ -11,6 +11,7 @@
 //! [TUF repositories]: https://theupdateframework.github.io/
 //! [spec]: https://github.com/theupdateframework/specification/blob/9f148556ca15da2ec5c022c8b3e6f99a028e5fe5/tuf-spec.md
 
+#![forbid(missing_debug_implementations, missing_copy_implementations)]
 #![deny(rust_2018_idioms)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
@@ -76,7 +77,7 @@ pub struct Settings<'a, R: Read> {
 /// * `max_targets_size`: 10 MiB
 /// * `max_timestamp_size`: 1 MiB
 /// * `max_root_updates`: 1024
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Limits {
     /// The maximum allowable size in bytes for downloaded root.json files.
     pub max_root_size: u64,

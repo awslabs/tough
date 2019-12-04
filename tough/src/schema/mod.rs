@@ -1,3 +1,5 @@
+#![allow(clippy::used_underscore_binding)] // #20
+
 mod de;
 pub mod decoded;
 mod error;
