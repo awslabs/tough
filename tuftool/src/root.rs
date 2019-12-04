@@ -100,6 +100,7 @@ macro_rules! role_keys {
 }
 
 impl Command {
+    #[allow(clippy::too_many_lines)] // #21
     pub(crate) fn run(&self) -> Result<()> {
         match self {
             Command::Init { path } => write_file(
