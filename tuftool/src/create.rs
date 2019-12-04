@@ -9,12 +9,13 @@ use crate::source::KeySource;
 use chrono::{DateTime, Utc};
 use maplit::hashmap;
 use rayon::prelude::*;
+use ring::digest::{digest, Context, SHA256, SHA256_OUTPUT_LEN};
 use ring::rand::SystemRandom;
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use snafu::{OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::Read;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
@@ -92,8 +93,8 @@ impl CreateArgs {
         let root = serde_json::from_slice::<Signed<Root>>(&root_buf)
             .context(error::FileParseJson { path: &self.root })?
             .signed;
-        let mut root_sha256 = [0; 32];
-        root_sha256.copy_from_slice(Sha256::digest(&root_buf).as_slice());
+        let mut root_sha256 = [0; SHA256_OUTPUT_LEN];
+        root_sha256.copy_from_slice(digest(&SHA256, &root_buf).as_ref());
         let root_length = root_buf.len() as u64;
 
         CreateProcess {
@@ -112,7 +113,7 @@ struct CreateProcess<'a> {
     args: &'a CreateArgs,
     rng: SystemRandom,
     root: Root,
-    root_sha256: [u8; 32],
+    root_sha256: [u8; SHA256_OUTPUT_LEN],
     root_length: u64,
     keys: RootKeys,
 }
@@ -239,13 +240,23 @@ impl<'a> CreateProcess<'a> {
             .to_owned();
 
         let mut file = File::open(path).context(error::FileOpen { path })?;
-        let mut digest = Sha256::new();
-        let length = std::io::copy(&mut file, &mut digest).context(error::FileRead { path })?;
+        let mut digest = Context::new(&SHA256);
+        let mut buf = [0; 8 * 1024];
+        let mut length = 0;
+        loop {
+            match file.read(&mut buf).context(error::FileRead { path })? {
+                0 => break,
+                n => {
+                    digest.update(&buf[..n]);
+                    length += n as u64;
+                }
+            }
+        }
 
         let target = Target {
             length,
             hashes: Hashes {
-                sha256: Decoded::from(digest.result().as_slice().to_vec()),
+                sha256: Decoded::from(digest.finish().as_ref().to_vec()),
                 _extra: HashMap::new(),
             },
             custom: HashMap::new(),
@@ -279,7 +290,7 @@ impl<'a> CreateProcess<'a> {
         role: T,
         version: NonZeroU64,
         filename: &'static str,
-    ) -> Result<([u8; 32], u64)> {
+    ) -> Result<([u8; SHA256_OUTPUT_LEN], u64)> {
         let metadir = self.args.outdir.join("metadata");
         std::fs::create_dir_all(&metadir).context(error::FileCreate { path: &metadir })?;
 
@@ -302,8 +313,8 @@ impl<'a> CreateProcess<'a> {
         buf.push(b'\n');
         std::fs::write(&path, &buf).context(error::FileCreate { path: &path })?;
 
-        let mut sha256 = [0; 32];
-        sha256.copy_from_slice(Sha256::digest(&buf).as_slice());
+        let mut sha256 = [0; SHA256_OUTPUT_LEN];
+        sha256.copy_from_slice(digest(&SHA256, &buf).as_ref());
         Ok((sha256, buf.len() as u64))
     }
 
