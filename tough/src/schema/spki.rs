@@ -48,7 +48,7 @@ pub(super) fn encode(algorithm_oid: &[u64], parameters_oid: Option<&[u64]>, b: &
             tag: "PUBLIC KEY".to_owned(),
             contents: spki,
         },
-        &pem::EncodeConfig {
+        pem::EncodeConfig {
             line_ending: pem::LineEnding::LF,
         },
     )
