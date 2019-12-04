@@ -20,7 +20,7 @@ digest = "0.8.1"
 hex = "0.4.0"
 maplit = "1.0.1"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
-pem = "0.6.0"
+pem = "0.7.0"
 rayon = "1.2"
 reqwest = "0.9.20"
 ring = { version = "0.16.7", features = ["std"] }

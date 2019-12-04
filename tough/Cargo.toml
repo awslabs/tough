@@ -12,7 +12,7 @@ edition = "2018"
 chrono = { version = "0.4.6", features = ["serde"] }
 hex = "0.4.0"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
-pem = "0.6.0"
+pem = "0.7.0"
 reqwest = { version = "0.9.17", optional = true, default-features = false }
 ring = "0.16.7"
 serde = { version = "1.0.92", features = ["derive"] }
