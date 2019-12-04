@@ -3,10 +3,10 @@
 use crate::schema::decoded::{Decoded, EcdsaPem, Hex, RsaPem};
 use crate::schema::error::{self, Result};
 use olpc_cjson::CanonicalFormatter;
+use ring::digest::{digest, SHA256};
 use ring::signature::VerificationAlgorithm;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::fmt;
@@ -89,7 +89,7 @@ impl Key {
         self.serialize(&mut ser).context(error::JsonSerialization {
             what: "key".to_owned(),
         })?;
-        Ok(Sha256::digest(&buf).as_slice().to_vec().into())
+        Ok(digest(&SHA256, &buf).as_ref().to_vec().into())
     }
 
     /// Verify a signature of an object made with this key.
