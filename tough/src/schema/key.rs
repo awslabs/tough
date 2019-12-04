@@ -39,7 +39,7 @@ pub enum Key {
     },
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum RsaScheme {
     RsassaPssSha256,
@@ -53,7 +53,7 @@ pub struct RsaKey {
     pub _extra: HashMap<String, Value>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Ed25519Scheme {
     Ed25519,
@@ -67,7 +67,7 @@ pub struct Ed25519Key {
     pub _extra: HashMap<String, Value>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum EcdsaScheme {
     EcdsaSha2Nistp256,
@@ -171,7 +171,7 @@ impl FromStr for Key {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct KeyParseError(());
 
 impl fmt::Display for KeyParseError {

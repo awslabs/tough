@@ -8,6 +8,7 @@ pub trait Transport {
     fn fetch(&self, url: Url) -> Result<Self::Stream, Self::Error>;
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct FilesystemTransport;
 
 impl Transport for FilesystemTransport {

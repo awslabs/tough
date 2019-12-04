@@ -67,7 +67,7 @@ pub trait Encode {
 }
 
 /// [`Decode`]/[`Encode`] implementation for hex-encoded strings.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Hex;
 
 impl Decode for Hex {
@@ -85,7 +85,7 @@ impl Encode for Hex {
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
 /// [`Decode`]/[`Encode`] implementation for PEM-encoded RSA public keys.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct RsaPem;
 
 impl Decode for RsaPem {
@@ -101,7 +101,7 @@ impl Encode for RsaPem {
 }
 
 /// [`Decode`]/[`Encode`] implementation for PEM-encoded ECDSA public keys.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct EcdsaPem;
 
 impl Decode for EcdsaPem {
