@@ -8,7 +8,7 @@ use std::io::{self};
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use tempdir::TempDir;
+use tempfile::tempdir;
 use tough::{HttpTransport, Limits, Repository, Settings};
 use url::Url;
 
@@ -90,7 +90,7 @@ impl DownloadArgs {
 
         // load repository
         let transport = HttpTransport::new();
-        let repo_dir = TempDir::new("tuf").context(error::TempDir)?;
+        let repo_dir = tempdir().context(error::TempDir)?;
         let repository = Repository::load(
             &transport,
             Settings {
