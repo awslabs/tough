@@ -9,11 +9,11 @@
 //! then matches the URL scheme against ones we understand.
 
 use crate::error::{self, Error, Result};
-use crate::key::KeyPair;
 use snafu::{OptionExt, ResultExt};
 use std::path::PathBuf;
 use std::str::FromStr;
 use tough::schema::key::Key;
+use tough::sign::{parse_keypair, Sign};
 use url::Url;
 
 #[derive(Debug)]
@@ -28,14 +28,15 @@ pub(crate) enum KeySource {
 }
 
 impl KeySource {
-    pub(crate) fn as_keypair(&self) -> Result<KeyPair> {
-        KeyPair::parse(&self.read()?)
+    pub(crate) fn as_sign(&self) -> Result<Box<dyn Sign>> {
+        let keypair = parse_keypair(&self.read()?).context(error::KeyPairParse)?;
+        Ok(Box::new(keypair))
     }
 
     pub(crate) fn as_public_key(&self) -> Result<Key> {
         let data = self.read()?;
-        if let Ok(key_pair) = KeyPair::parse(&data) {
-            Ok(key_pair.public_key())
+        if let Ok(key_pair) = parse_keypair(&data) {
+            Ok(key_pair.tuf_key())
         } else {
             let data = String::from_utf8(data)
                 .ok()

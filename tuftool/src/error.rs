@@ -145,14 +145,11 @@ pub(crate) enum Error {
         source: tough::schema::Error,
     },
 
-    #[snafu(display("Private key rejected: {}", source))]
-    KeyRejected {
-        source: ring::error::KeyRejected,
+    #[snafu(display("Unable to parse keypair: {}", source))]
+    KeyPairParse {
+        source: tough::error::Error,
         backtrace: Backtrace,
     },
-
-    #[snafu(display("Unrecognized private key format"))]
-    KeyUnrecognized { backtrace: Backtrace },
 
     #[snafu(display("Metadata error: {}", source))]
     Metadata {
@@ -225,7 +222,7 @@ pub(crate) enum Error {
 
     #[snafu(display("Failed to sign message"))]
     Sign {
-        source: ring::error::Unspecified,
+        source: tough::error::Error,
         backtrace: Backtrace,
     },
 

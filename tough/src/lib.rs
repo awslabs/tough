@@ -21,6 +21,7 @@ pub mod error;
 mod fetch;
 mod io;
 pub mod schema;
+pub mod sign;
 mod transport;
 
 #[cfg(feature = "http")]

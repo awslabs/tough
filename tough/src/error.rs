@@ -81,6 +81,15 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Private key rejected: {}", source))]
+    KeyRejected {
+        source: ring::error::KeyRejected,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Unrecognized private key format"))]
+    KeyUnrecognized { backtrace: Backtrace },
+
     /// A file's maximum size exceeded a limit set by the consumer of this library or the metadata.
     #[snafu(display("Maximum size {} (specified by {}) exceeded", max_size, specifier))]
     MaxSizeExceeded {
@@ -149,6 +158,12 @@ pub enum Error {
     ParseUrl {
         url: String,
         source: url::ParseError,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to sign message"))]
+    Sign {
+        source: ring::error::Unspecified,
         backtrace: Backtrace,
     },
 
