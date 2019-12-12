@@ -1,6 +1,6 @@
 [package]
 name = "tuftool"
-version = "0.1.1"
+version = "0.2.0"
 description = "Utility for creating and signing The Update Framework (TUF) repositories"
 authors = ["iliana destroyer of worlds <iweller@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -33,4 +33,4 @@ structopt = "0.3"
 tempfile = "3.1.0"
 url = "2.1.0"
 walkdir = "2.2.9"
-tough = { version = "0.2.0", path = "../tough", features = ["http"] }
+tough = { version = "0.3.0", path = "../tough", features = ["http"] }

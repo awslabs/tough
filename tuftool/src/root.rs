@@ -3,7 +3,6 @@
 
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
-use crate::key::KeyPair;
 use crate::source::KeySource;
 use crate::{load_file, write_file};
 use chrono::{DateTime, Timelike, Utc};
@@ -15,6 +14,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 use tough::schema::decoded::{Decoded, Hex};
 use tough::schema::{key::Key, RoleKeys, RoleType, Root, Signed};
+use tough::sign::{parse_keypair, Sign};
 
 #[derive(Debug, StructOpt)]
 pub(crate) enum Command {
@@ -222,8 +222,8 @@ impl Command {
                 let stdout =
                     String::from_utf8(output.stdout).context(error::CommandUtf8 { command_str })?;
 
-                let key_pair = KeyPair::parse(stdout.as_bytes())?;
-                let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.public_key())?);
+                let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParse)?;
+                let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
                 key_path.write(&stdout, &key_id)?;
                 clear_sigs(&mut root);
                 println!("{}", key_id);

@@ -8,15 +8,17 @@ pub mod key;
 mod spki;
 mod verify;
 
-pub use crate::schema::error::Error;
+pub use crate::schema::error::{Error, Result};
 
 use crate::schema::decoded::{Decoded, Hex};
 use crate::schema::iter::KeysIter;
 use crate::schema::key::Key;
 use chrono::{DateTime, Utc};
+use olpc_cjson::CanonicalFormatter;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_plain::{forward_display_to_serde, forward_from_str_to_serde};
+use snafu::ResultExt;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 
@@ -34,10 +36,18 @@ forward_display_to_serde!(RoleType);
 forward_from_str_to_serde!(RoleType);
 
 /// Common trait implemented by all roles.
-pub trait Role {
+pub trait Role: Serialize {
     const TYPE: RoleType;
 
     fn expires(&self) -> DateTime<Utc>;
+
+    fn canonical_form(&self) -> Result<Vec<u8>> {
+        let mut data = Vec::new();
+        let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
+        self.serialize(&mut ser)
+            .context(error::JsonSerialization { what: "role" })?;
+        Ok(data)
+    }
 }
 
 /// A signed metadata object.
