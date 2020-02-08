@@ -32,6 +32,7 @@
 
 #![deny(rust_2018_idioms)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::must_use_candidate)]
 
 use serde::Serialize;
 use serde_json::ser::{CharEscape, CompactFormatter, Formatter, Serializer};

@@ -78,7 +78,7 @@ impl DownloadArgs {
                 .create(true)
                 .open(&path)
                 .context(error::OpenFile { path: &path })?;
-            reqwest::get(url.as_str())
+            reqwest::blocking::get(url.as_str())
                 .context(error::ReqwestGet)?
                 .copy_to(&mut f)
                 .context(error::ReqwestCopy)?;

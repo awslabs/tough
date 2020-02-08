@@ -30,11 +30,11 @@ impl Transport for FilesystemTransport {
 }
 
 #[cfg(feature = "http")]
-pub type HttpTransport = reqwest::Client;
+pub type HttpTransport = reqwest::blocking::Client;
 
 #[cfg(feature = "http")]
-impl Transport for reqwest::Client {
-    type Stream = reqwest::Response;
+impl Transport for reqwest::blocking::Client {
+    type Stream = reqwest::blocking::Response;
     type Error = reqwest::Error;
 
     fn fetch(&self, url: Url) -> Result<Self::Stream, Self::Error> {
