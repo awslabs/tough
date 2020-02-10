@@ -32,7 +32,7 @@ snafu = { version = "0.6.0", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
 tempfile = "3.1.0"
 url = "2.1.0"
-walkdir = "2.2.9"
+walkdir = "2.3.1"
 tough = { version = "0.4.0", path = "../tough", features = ["http"] }
 
 [dev-dependencies]
