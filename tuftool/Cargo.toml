@@ -20,7 +20,7 @@ hex = "0.4.0"
 maplit = "1.0.1"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
 pem = "0.7.0"
-rayon = "1.2"
+rayon = "1.3"
 reqwest = { version = "0.10.1", features = ["blocking"] }
 ring = { version = "0.16.7", features = ["std"] }
 rusoto_core = { version = "0.42", optional = true, default-features = false }
