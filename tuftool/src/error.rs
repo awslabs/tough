@@ -151,6 +151,9 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to match any of the provided keys with root.json"))]
+    KeysNotFoundInRoot { backtrace: Backtrace },
+
     #[snafu(display("Metadata error: {}", source))]
     Metadata {
         source: tough::error::Error,
