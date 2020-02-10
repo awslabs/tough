@@ -15,6 +15,7 @@
 #![deny(rust_2018_idioms)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::must_use_candidate)]
 
 mod datastore;
 pub mod error;
