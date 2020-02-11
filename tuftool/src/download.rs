@@ -35,7 +35,7 @@ pub(crate) struct DownloadArgs {
     allow_root_download: bool,
 
     /// Output directory of targets
-    indir: PathBuf,
+    outdir: PathBuf,
 }
 
 fn root_warning<P: AsRef<Path>>(path: P) {
@@ -106,9 +106,9 @@ impl DownloadArgs {
         .context(error::Metadata)?;
 
         // copy all available targets
-        println!("Downloading targets to {:?}", &self.indir);
+        println!("Downloading targets to {:?}", &self.outdir);
         for target in repository.targets().signed.targets.keys() {
-            let path = PathBuf::from(&self.indir).join(target);
+            let path = PathBuf::from(&self.outdir).join(target);
             println!("\t-> {}", &target);
             let mut reader = repository
                 .read_target(target)
