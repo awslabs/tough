@@ -11,7 +11,6 @@
     clippy::used_underscore_binding,
 )]
 
-mod copylike;
 mod create;
 mod datetime;
 mod deref;

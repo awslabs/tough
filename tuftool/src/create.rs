@@ -1,7 +1,6 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::copylike::Copylike;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::key::RootKeys;
@@ -16,7 +15,7 @@ use ring::rand::SystemRandom;
 use serde::Serialize;
 use snafu::{OptionExt, ResultExt};
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Read;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
@@ -29,13 +28,6 @@ use walkdir::WalkDir;
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct CreateArgs {
-    /// Copy files into `outdir` instead of symlinking them
-    #[structopt(short = "c", long = "copy")]
-    copy: bool,
-    /// Hardlink files into `outdir` instead of symlinking them
-    #[structopt(short = "H", long = "hardlink")]
-    hardlink: bool,
-
     /// Follow symbolic links in `indir`
     #[structopt(short = "f", long = "follow")]
     follow: bool,
@@ -118,13 +110,7 @@ impl<'a> CreateProcess<'a> {
             .outdir
             .join("metadata")
             .join(format!("{}.root.json", self.root_digest.root.version));
-        self.copy_action()
-            .run(&self.args.root, &root_path)
-            .context(error::FileCopy {
-                action: self.copy_action(),
-                src: &self.args.root,
-                dst: root_path,
-            })?;
+        copy(&self.args.root, &root_path)?;
 
         let (targets_sha256, targets_length) = self.write_metadata(
             Targets {
@@ -196,14 +182,6 @@ impl<'a> CreateProcess<'a> {
 
     // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
-    fn copy_action(&self) -> Copylike {
-        match (self.args.copy, self.args.hardlink) {
-            (true, _) => Copylike::Copy, // --copy overrides --hardlink
-            (false, true) => Copylike::Hardlink,
-            (false, false) => Copylike::Symlink,
-        }
-    }
-
     fn build_targets(&self) -> Result<HashMap<String, Target>> {
         WalkDir::new(&self.args.indir)
             .follow_links(self.args.follow)
@@ -265,13 +243,7 @@ impl<'a> CreateProcess<'a> {
         } else {
             self.args.outdir.join("targets").join(&target_name)
         };
-        self.copy_action()
-            .run(path, &dst)
-            .context(error::FileCopy {
-                action: self.copy_action(),
-                src: path,
-                dst,
-            })?;
+        copy(path, &dst)?;
 
         Ok((target_name, target))
     }
@@ -294,4 +266,12 @@ impl<'a> CreateProcess<'a> {
             &self.rng,
         )
     }
+}
+
+fn copy(src: &Path, dst: &Path) -> Result<()> {
+    if let Some(parent) = dst.parent() {
+        fs::create_dir_all(parent).context(error::FileCopy { src, dst })?;
+    }
+    fs::copy(src, dst).context(error::FileCopy { src, dst })?;
+    Ok(())
 }

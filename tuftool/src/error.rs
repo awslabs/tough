@@ -54,9 +54,8 @@ pub(crate) enum Error {
         source: std::num::ParseIntError,
     },
 
-    #[snafu(display("Failed to {} {} to {}: {}", action, src.display(), dst.display(), source))]
+    #[snafu(display("Failed to copy {} to {}: {}", src.display(), dst.display(), source))]
     FileCopy {
-        action: crate::copylike::Copylike,
         src: PathBuf,
         dst: PathBuf,
         source: std::io::Error,
