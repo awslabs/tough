@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+    - run: rustup update stable
     - run: cargo fmt -- --check
     - run: cargo clippy --locked -- -D warnings
     - run: cargo build --locked -p olpc-cjson

@@ -14,8 +14,11 @@
 #![forbid(missing_debug_implementations, missing_copy_implementations)]
 #![deny(rust_2018_idioms)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
-#![allow(clippy::must_use_candidate)]
+#![allow(
+    clippy::module_name_repetitions,
+    clippy::must_use_candidate,
+    clippy::missing_errors_doc
+)]
 
 mod datastore;
 pub mod error;
