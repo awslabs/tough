@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added the `refresh` command for refreshing metadata files.
 
+### Changed
+- `tuftool create` always copies files instead of (by default) making incorrect symlinks.
+
+### Removed
+- Removed the `--copy` and `--hardlink` options to `tuftool create`; `--copy` is now the normal behavior.
+
 ## [0.2.0] - 2019-12-16
 ### Added
 - Added integration test `create_verify_repo`, which creates a TUF repo with `tuftool` and verifies we can read its targets with `tough`.
