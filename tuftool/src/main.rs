@@ -3,10 +3,13 @@
 
 #![deny(rust_2018_idioms)]
 #![warn(clippy::pedantic)]
-// Identifiers like Command::Create are clearer than Self::Create regardless of context
-#![allow(clippy::use_self)]
-// Caused by interacting with tough::schema::*._extra
-#![allow(clippy::used_underscore_binding)]
+#![allow(
+    clippy::missing_errors_doc,
+    // Identifiers like Command::Create are clearer than Self::Create regardless of context
+    clippy::use_self,
+    // Caused by interacting with tough::schema::*._extra
+    clippy::used_underscore_binding,
+)]
 
 mod copylike;
 mod create;
