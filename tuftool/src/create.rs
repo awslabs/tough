@@ -4,12 +4,14 @@
 use crate::copylike::Copylike;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
-use crate::key::{keys_for_root, sign_metadata, RootKeys};
+use crate::key::RootKeys;
+use crate::metadata;
+use crate::root_digest::RootDigest;
 use crate::source::KeySource;
 use chrono::{DateTime, Utc};
 use maplit::hashmap;
 use rayon::prelude::*;
-use ring::digest::{digest, Context, SHA256, SHA256_OUTPUT_LEN};
+use ring::digest::{Context, SHA256, SHA256_OUTPUT_LEN};
 use ring::rand::SystemRandom;
 use serde::Serialize;
 use snafu::{OptionExt, ResultExt};
@@ -20,8 +22,8 @@ use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tough::schema::{
-    decoded::Decoded, Hashes, Role, RoleType, Root, Signed, Snapshot, SnapshotMeta, Target,
-    Targets, Timestamp, TimestampMeta,
+    decoded::Decoded, Hashes, Role, Snapshot, SnapshotMeta, Target, Targets, Timestamp,
+    TimestampMeta,
 };
 use walkdir::WalkDir;
 
@@ -43,7 +45,7 @@ pub(crate) struct CreateArgs {
     jobs: Option<NonZeroUsize>,
 
     /// Key files to sign with
-    #[structopt(short = "k", long = "key")]
+    #[structopt(short = "k", long = "key", required = true)]
     keys: Vec<KeySource>,
 
     /// Version of snapshot.json file
@@ -89,21 +91,14 @@ impl CreateArgs {
                 .context(error::InitializeThreadPool)?;
         }
 
-        let root_buf = std::fs::read(&self.root).context(error::FileRead { path: &self.root })?;
-        let root = serde_json::from_slice::<Signed<Root>>(&root_buf)
-            .context(error::FileParseJson { path: &self.root })?
-            .signed;
-        let mut root_sha256 = [0; SHA256_OUTPUT_LEN];
-        root_sha256.copy_from_slice(digest(&SHA256, &root_buf).as_ref());
-        let root_length = root_buf.len() as u64;
+        let root_digest = RootDigest::load(&self.root)?;
+        let key_pairs = root_digest.load_keys(&self.keys)?;
 
         CreateProcess {
             args: self,
-            keys: keys_for_root(&self.keys, &root)?,
+            keys: key_pairs,
             rng: SystemRandom::new(),
-            root,
-            root_sha256,
-            root_length,
+            root_digest,
         }
         .run()
     }
@@ -112,9 +107,7 @@ impl CreateArgs {
 struct CreateProcess<'a> {
     args: &'a CreateArgs,
     rng: SystemRandom,
-    root: Root,
-    root_sha256: [u8; SHA256_OUTPUT_LEN],
-    root_length: u64,
+    root_digest: RootDigest,
     keys: RootKeys,
 }
 
@@ -124,7 +117,7 @@ impl<'a> CreateProcess<'a> {
             .args
             .outdir
             .join("metadata")
-            .join(format!("{}.root.json", self.root.version));
+            .join(format!("{}.root.json", self.root_digest.root.version));
         self.copy_action()
             .run(&self.args.root, &root_path)
             .context(error::FileCopy {
@@ -153,11 +146,11 @@ impl<'a> CreateProcess<'a> {
                 meta: hashmap! {
                     "root.json".to_owned() => SnapshotMeta {
                         hashes: Some(Hashes {
-                            sha256: self.root_sha256.to_vec().into(),
+                            sha256: self.root_digest.digest.to_vec().into(),
                             _extra: HashMap::new(),
                         }),
-                        length: Some(self.root_length),
-                        version: self.root.version,
+                        length: Some(self.root_digest.size),
+                        version: self.root_digest.root.version,
                         _extra: HashMap::new(),
                     },
                     "targets.json".to_owned() => SnapshotMeta {
@@ -263,7 +256,7 @@ impl<'a> CreateProcess<'a> {
             _extra: HashMap::new(),
         };
 
-        let dst = if self.root.consistent_snapshot {
+        let dst = if self.root_digest.root.consistent_snapshot {
             self.args.outdir.join("targets").join(format!(
                 "{}.{}",
                 hex::encode(&target.hashes.sha256),
@@ -291,34 +284,14 @@ impl<'a> CreateProcess<'a> {
         version: NonZeroU64,
         filename: &'static str,
     ) -> Result<([u8; SHA256_OUTPUT_LEN], u64)> {
-        let metadir = self.args.outdir.join("metadata");
-        std::fs::create_dir_all(&metadir).context(error::FileCreate { path: &metadir })?;
-
-        let path = metadir.join(
-            if T::TYPE != RoleType::Timestamp && self.root.consistent_snapshot {
-                format!("{}.{}", version, filename)
-            } else {
-                filename.to_owned()
-            },
-        );
-
-        let mut role = Signed {
-            signed: role,
-            signatures: Vec::new(),
-        };
-        self.sign_metadata(&mut role)?;
-
-        let mut buf =
-            serde_json::to_vec_pretty(&role).context(error::FileWriteJson { path: &path })?;
-        buf.push(b'\n');
-        std::fs::write(&path, &buf).context(error::FileCreate { path: &path })?;
-
-        let mut sha256 = [0; SHA256_OUTPUT_LEN];
-        sha256.copy_from_slice(digest(&SHA256, &buf).as_ref());
-        Ok((sha256, buf.len() as u64))
-    }
-
-    fn sign_metadata<T: Role + Serialize>(&self, role: &mut Signed<T>) -> Result<()> {
-        sign_metadata(&self.root, &self.keys, role, &self.rng)
+        metadata::write_metadata(
+            &self.args.outdir,
+            &self.root_digest.root,
+            &self.keys,
+            role,
+            version,
+            filename,
+            &self.rng,
+        )
     }
 }

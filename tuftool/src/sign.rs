@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::error::Result;
-use crate::key::{keys_for_root, sign_metadata_inner};
+use crate::key::sign_metadata;
+use crate::root_digest::RootDigest;
 use crate::source::KeySource;
 use crate::{load_file, write_file};
 use ring::rand::SystemRandom;
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use tough::schema::{RoleType, Root, Signed};
+use tough::schema::{RoleType, Signed};
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct SignArgs {
@@ -37,11 +38,11 @@ struct PartialRole {
 
 impl SignArgs {
     pub(crate) fn run(&self) -> Result<()> {
-        let root: Signed<Root> = load_file(&self.root)?;
-        let keys = keys_for_root(&self.keys, &root.signed)?;
+        let root_digest = RootDigest::load(&self.root)?;
+        let keys = root_digest.load_keys(&self.keys)?;
         let mut metadata: Signed<PartialRole> = load_file(&self.metadata_file)?;
-        sign_metadata_inner(
-            &root.signed,
+        sign_metadata(
+            &root_digest.root,
             &keys,
             metadata.signed.type_,
             &mut metadata,

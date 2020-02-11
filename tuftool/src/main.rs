@@ -5,6 +5,8 @@
 #![warn(clippy::pedantic)]
 // Identifiers like Command::Create are clearer than Self::Create regardless of context
 #![allow(clippy::use_self)]
+// Caused by interacting with tough::schema::*._extra
+#![allow(clippy::used_underscore_binding)]
 
 mod copylike;
 mod create;
@@ -13,7 +15,10 @@ mod deref;
 mod download;
 mod error;
 mod key;
+mod metadata;
+mod refresh;
 mod root;
+mod root_digest;
 mod sign;
 mod source;
 mod ssm;
@@ -36,6 +41,8 @@ enum Command {
     Root(root::Command),
     /// Sign a metadata file
     Sign(sign::SignArgs),
+    /// Refresh metadata files
+    Refresh(refresh::RefreshArgs),
     /// Download a TUF repository's resources
     Download(download::DownloadArgs),
 }
@@ -46,6 +53,7 @@ impl Command {
             Command::Create(args) => args.run(),
             Command::Root(root_subcommand) => root_subcommand.run(),
             Command::Sign(args) => args.run(),
+            Command::Refresh(args) => args.run(),
             Command::Download(args) => args.run(),
         }
     }
