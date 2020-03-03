@@ -63,7 +63,7 @@ pub struct Settings<'a, R: Read> {
     pub metadata_base_url: &'a str,
 
     /// The URL base for targets.
-    pub target_base_url: &'a str,
+    pub targets_base_url: &'a str,
 
     /// Limits used when fetching repository metadata.
     ///
@@ -124,7 +124,7 @@ pub struct Repository<'a, T: Transport> {
     snapshot: Signed<Snapshot>,
     timestamp: Signed<Timestamp>,
     targets: Signed<crate::schema::Targets>,
-    target_base_url: Url,
+    targets_base_url: Url,
 }
 
 impl<'a, T: Transport> Repository<'a, T> {
@@ -146,11 +146,11 @@ impl<'a, T: Transport> Repository<'a, T> {
     /// endless data attack (defined by TUF as an attacker responding to clients with extremely
     /// large files that interfere with the client's system).
     ///
-    /// `metadata_base_url` and `target_base_url` are the HTTP(S) base URLs for where the client
+    /// `metadata_base_url` and `targets_base_url` are the HTTP(S) base URLs for where the client
     /// can find metadata (such as root.json) and targets (as listed in targets.json).
     pub fn load<R: Read>(transport: &'a T, settings: Settings<'a, R>) -> Result<Self> {
         let metadata_base_url = parse_url(settings.metadata_base_url)?;
-        let target_base_url = parse_url(settings.target_base_url)?;
+        let targets_base_url = parse_url(settings.targets_base_url)?;
 
         let datastore = Datastore::new(settings.datastore);
 
@@ -205,7 +205,7 @@ impl<'a, T: Transport> Repository<'a, T> {
             snapshot,
             timestamp,
             targets,
-            target_base_url,
+            targets_base_url,
         })
     }
 
@@ -277,9 +277,9 @@ impl<'a, T: Transport> Repository<'a, T> {
 
             Some(fetch_sha256(
                 self.transport,
-                self.target_base_url.join(&file).context(error::JoinUrl {
+                self.targets_base_url.join(&file).context(error::JoinUrl {
                     path: file,
-                    url: self.target_base_url.to_owned(),
+                    url: self.targets_base_url.to_owned(),
                 })?,
                 target.length,
                 "targets.json",

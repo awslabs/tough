@@ -28,7 +28,7 @@ pub(crate) struct DownloadArgs {
 
     /// TUF repository target base URL
     #[structopt(short = "t", long = "target-url")]
-    target_base_url: String,
+    targets_base_url: String,
 
     /// Allow downloading the root.json file (unsafe)
     #[structopt(long)]
@@ -97,7 +97,7 @@ impl DownloadArgs {
                 root: File::open(&root_path).context(error::OpenRoot { path: &root_path })?,
                 datastore: repo_dir.path(),
                 metadata_base_url: &self.metadata_base_url,
-                target_base_url: &self.target_base_url,
+                targets_base_url: &self.targets_base_url,
                 limits: Limits {
                     ..tough::Limits::default()
                 },
