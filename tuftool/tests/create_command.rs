@@ -53,14 +53,14 @@ fn create_command() {
 
     // Load our newly created repo
     let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
-    let target_base_url = &utl::dir_url(repo_dir.path().join("targets"));
+    let targets_base_url = &utl::dir_url(repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
             datastore: load_dir.as_ref(),
             metadata_base_url,
-            target_base_url,
+            targets_base_url,
             limits: Limits::default(),
         },
     )

@@ -34,7 +34,7 @@ fn test_tuf_reference_impl() {
     let datastore = TempDir::new().unwrap();
 
     let metadata_base_url = &dir_url(base.join("metadata"));
-    let target_base_url = &dir_url(base.join("targets"));
+    let targets_base_url = &dir_url(base.join("targets"));
 
     let repo = Repository::load(
         &tough::FilesystemTransport,
@@ -42,7 +42,7 @@ fn test_tuf_reference_impl() {
             root: File::open(base.join("metadata").join("1.root.json")).unwrap(),
             datastore: datastore.as_ref(),
             metadata_base_url,
-            target_base_url,
+            targets_base_url,
             limits: Limits::default(),
         },
     )

@@ -64,7 +64,7 @@ fn refresh_command() {
 
     // Use the refresh command to update the expiration dates.
     let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
-    let target_base_url = &utl::dir_url(repo_dir.path().join("targets"));
+    let targets_base_url = &utl::dir_url(repo_dir.path().join("targets"));
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
@@ -113,7 +113,7 @@ fn refresh_command() {
             root: File::open(root_json).unwrap(),
             datastore: load_dir.as_ref(),
             metadata_base_url,
-            target_base_url,
+            targets_base_url,
             limits: Limits::default(),
         },
     )

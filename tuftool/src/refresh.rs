@@ -83,7 +83,7 @@ impl RefreshArgs {
             root: File::open(&self.root).unwrap(),
             datastore: self.workdir.as_path(),
             metadata_base_url: self.metadata_base_url.as_str(),
-            target_base_url: self.metadata_base_url.as_str(),
+            targets_base_url: self.metadata_base_url.as_str(),
             limits: Limits::default(),
         };
 
