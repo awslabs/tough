@@ -14,3 +14,4 @@ jobs:
     - run: cargo build --locked -p tough
     - run: cargo build --locked -p tuftool
     - run: cargo test --locked
+    - run: cd tough && cargo test --all-features --locked
