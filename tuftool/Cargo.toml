@@ -15,7 +15,7 @@ rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/
 rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls"]
 
 [dependencies]
-chrono = "0.4.6"
+chrono = "0.4.11"
 hex = "0.4.2"
 maplit = "1.0.1"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
