@@ -16,6 +16,9 @@ use tough::schema::key::Key;
 use tough::sign::{parse_keypair, Sign};
 use url::Url;
 
+#[cfg(any(feature = "rusoto-native-tls", feature = "rusoto-rustls"))]
+use tokio;
+
 #[derive(Debug)]
 pub(crate) enum KeySource {
     Local(PathBuf),
@@ -53,32 +56,36 @@ impl KeySource {
                 profile,
                 parameter_name,
                 ..
-            } => {
-                use crate::deref::OptionDeref;
-                use rusoto_ssm::Ssm;
-
-                let ssm_client = crate::ssm::build_client(profile.deref_shim())?;
-                let response = ssm_client
-                    .get_parameter(rusoto_ssm::GetParameterRequest {
-                        name: parameter_name.to_owned(),
-                        with_decryption: Some(true),
-                    })
-                    .sync()
-                    .context(error::SsmGetParameter {
-                        profile: profile.clone(),
-                        parameter_name,
-                    })?;
-                Ok(response
-                    .parameter
-                    .context(error::SsmMissingField { field: "parameter" })?
-                    .value
-                    .context(error::SsmMissingField {
-                        field: "parameter.value",
-                    })?
-                    .as_bytes()
-                    .to_vec())
-            }
+            } => KeySource::read_with_ssm_key(profile, &parameter_name),
         }
+    }
+
+    #[cfg(any(feature = "rusoto-native-tls", feature = "rusoto-rustls"))]
+    fn read_with_ssm_key(profile: &Option<String>, parameter_name: &str) -> Result<Vec<u8>> {
+        use crate::deref::OptionDeref;
+        use rusoto_ssm::Ssm;
+
+        let ssm_client = crate::ssm::build_client(profile.deref_shim())?;
+        let fut = ssm_client.get_parameter(rusoto_ssm::GetParameterRequest {
+            name: parameter_name.to_owned(),
+            with_decryption: Some(true),
+        });
+        let response = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(fut)
+            .context(error::SsmGetParameter {
+                profile: profile.clone(),
+                parameter_name,
+            })?;
+        Ok(response
+            .parameter
+            .context(error::SsmMissingField { field: "parameter" })?
+            .value
+            .context(error::SsmMissingField {
+                field: "parameter.value",
+            })?
+            .as_bytes()
+            .to_vec())
     }
 
     #[cfg_attr(
@@ -95,29 +102,39 @@ impl KeySource {
                 profile,
                 parameter_name,
                 key_id,
-            } => {
-                use crate::deref::OptionDeref;
-                use rusoto_ssm::Ssm;
-
-                let ssm_client = crate::ssm::build_client(profile.deref_shim())?;
-                ssm_client
-                    .put_parameter(rusoto_ssm::PutParameterRequest {
-                        name: parameter_name.to_owned(),
-                        description: Some(key_id_hex.to_owned()),
-                        key_id: key_id.as_ref().cloned(),
-                        overwrite: Some(true),
-                        type_: "SecureString".to_owned(),
-                        value: value.to_owned(),
-                        ..rusoto_ssm::PutParameterRequest::default()
-                    })
-                    .sync()
-                    .context(error::SsmPutParameter {
-                        profile: profile.clone(),
-                        parameter_name,
-                    })?;
-                Ok(())
-            }
+            } => KeySource::write_with_ssm_key(value, key_id_hex, profile, &parameter_name, key_id),
         }
+    }
+
+    #[cfg(any(feature = "rusoto-native-tls", feature = "rusoto-rustls"))]
+    fn write_with_ssm_key(
+        value: &str,
+        key_id_hex: &str,
+        profile: &Option<String>,
+        parameter_name: &str,
+        key_id: &Option<String>,
+    ) -> Result<()> {
+        use crate::deref::OptionDeref;
+        use rusoto_ssm::Ssm;
+
+        let ssm_client = crate::ssm::build_client(profile.deref_shim())?;
+        let fut = ssm_client.put_parameter(rusoto_ssm::PutParameterRequest {
+            name: parameter_name.to_owned(),
+            description: Some(key_id_hex.to_owned()),
+            key_id: key_id.as_ref().cloned(),
+            overwrite: Some(true),
+            type_: "SecureString".to_owned(),
+            value: value.to_owned(),
+            ..rusoto_ssm::PutParameterRequest::default()
+        });
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(fut)
+            .context(error::SsmPutParameter {
+                profile: profile.clone(),
+                parameter_name,
+            })?;
+        Ok(())
     }
 }
 

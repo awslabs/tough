@@ -1,14 +1,21 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use mockito::mock;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use tempfile::TempDir;
-use tough::{HttpTransport, Limits, Repository, Settings};
+use tough::{Limits, Repository, Settings};
 use url::Url;
+
+#[cfg(feature = "http")]
+use tough::HttpTransport;
+
+#[cfg(feature = "http")]
+use mockito::mock;
+
+#[cfg(feature = "http")]
+use std::str::FromStr;
 
 fn test_data() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
