@@ -37,4 +37,4 @@ tough = { version = "0.5.0", path = "../tough", features = ["http"] }
 tokio = "0.2.13"
 
 [dev-dependencies]
-assert_cmd = "0.12"
+assert_cmd = "1.0"
