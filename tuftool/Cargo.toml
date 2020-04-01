@@ -34,7 +34,7 @@ tempfile = "3.1.0"
 url = "2.1.0"
 walkdir = "2.2.9"
 tough = { version = "0.5.0", path = "../tough", features = ["http"] }
-tokio = "0.2.13"
+tokio = "0.2.14"
 
 [dev-dependencies]
 assert_cmd = "1.0"
