@@ -25,7 +25,7 @@ url = "2.1.0"
 [dev-dependencies]
 hex-literal = "0.2.0"
 tempfile = "3.1.0"
-mockito = "0.23"
+mockito = "0.25"
 
 [features]
 http = ["reqwest"]
