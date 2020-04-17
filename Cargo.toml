@@ -2,5 +2,6 @@
 members = [
     "olpc-cjson",
     "tough",
+    "tough-ssm",
     "tuftool",
 ]

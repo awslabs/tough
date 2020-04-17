@@ -1868,6 +1868,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tough-ssm"
+version = "0.1.0"
+dependencies = [
+ "rusoto_core 0.43.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rusoto_credential 0.43.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rusoto_ssm 0.43.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.105 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.50 (registry+https://github.com/rust-lang/crates.io-index)",
+ "snafu 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tough 0.5.0",
+]
+
+[[package]]
 name = "tower-service"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1905,6 +1919,7 @@ dependencies = [
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "tough 0.5.0",
+ "tough-ssm 0.1.0",
  "url 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir 2.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

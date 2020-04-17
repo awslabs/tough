@@ -1,0 +1,21 @@
+[package]
+name = "tough-ssm"
+version = "0.1.0"
+authors = ["Zac Mrowicki <mrowicki@amazon.com>"]
+edition = "2018"
+
+[features]
+default = ["rusoto"]
+rusoto = ["rusoto-rustls"]
+rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/native-tls"]
+rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls"]
+
+[dependencies]
+tough = { version = "0.5.0", path = "../tough", features = ["http"] }
+rusoto_core = { version = "0.43", optional = true, default-features = false }
+rusoto_credential = { version = "0.43", optional = true }
+rusoto_ssm = { version = "0.43", optional = true, default-features = false }
+serde = "1.0.105"
+serde_json = "1.0.50"
+snafu = { version = "0.6.6", features = ["backtraces-impl-backtrace-crate"] }
+tokio = "0.2.13"
