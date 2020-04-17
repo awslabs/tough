@@ -4,13 +4,14 @@
 use crate::error::Result;
 use crate::key::sign_metadata;
 use crate::root_digest::RootDigest;
-use crate::source::KeySource;
+use crate::source::parse_key_source;
 use crate::{load_file, write_file};
 use ring::rand::SystemRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use tough::key_source::KeySource;
 use tough::schema::{RoleType, Signed};
 
 #[derive(Debug, StructOpt)]
@@ -20,8 +21,8 @@ pub(crate) struct SignArgs {
     root: PathBuf,
 
     /// Key files to sign with
-    #[structopt(short = "k", long = "key")]
-    keys: Vec<KeySource>,
+    #[structopt(short = "k", long = "key", parse(try_from_str = parse_key_source))]
+    keys: Vec<Box<dyn KeySource>>,
 
     /// Metadata file to sign
     metadata_file: PathBuf,

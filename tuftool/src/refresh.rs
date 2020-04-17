@@ -5,7 +5,7 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::metadata;
 use crate::root_digest::RootDigest;
-use crate::source::KeySource;
+use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
 use maplit::hashmap;
 use ring::rand::SystemRandom;
@@ -15,6 +15,7 @@ use std::fs::File;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use structopt::StructOpt;
+use tough::key_source::KeySource;
 use tough::schema::{Hashes, Snapshot, SnapshotMeta, Targets, Timestamp, TimestampMeta};
 use tough::{
     ExpirationEnforcement, FilesystemTransport, HttpTransport, Limits, Repository, Transport,
@@ -44,8 +45,8 @@ pub(crate) struct RefreshArgs {
     jobs: Option<NonZeroUsize>,
 
     /// Key files to sign with
-    #[structopt(short = "k", long = "key", required = true)]
-    keys: Vec<KeySource>,
+    #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
+    keys: Vec<Box<dyn KeySource>>,
 
     /// Version of snapshot.json file
     #[structopt(long = "snapshot-version")]
