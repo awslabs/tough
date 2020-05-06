@@ -20,6 +20,7 @@
     clippy::missing_errors_doc
 )]
 
+mod cache;
 mod datastore;
 pub mod error;
 mod fetch;
@@ -124,6 +125,8 @@ pub struct Repository<'a, T: Transport> {
     snapshot: Signed<Snapshot>,
     timestamp: Signed<Timestamp>,
     targets: Signed<crate::schema::Targets>,
+    limits: Limits,
+    metadata_base_url: Url,
     targets_base_url: Url,
 }
 
@@ -205,6 +208,8 @@ impl<'a, T: Transport> Repository<'a, T> {
             snapshot,
             timestamp,
             targets,
+            limits: settings.limits,
+            metadata_base_url,
             targets_base_url,
         })
     }
@@ -266,28 +271,14 @@ impl<'a, T: Transport> Repository<'a, T> {
         //   HASH is one of the hashes of the targets file listed in the targets metadata file
         //   found earlier in step 4. In either case, the client MUST write the file to
         //   non-volatile storage as FILENAME.EXT.
-        let targets = &self.targets.signed.targets;
-        Ok(if let Some(target) = targets.get(name) {
-            let sha256 = &target.hashes.sha256.clone().into_vec();
-            let file = if self.consistent_snapshot {
-                format!("{}.{}", hex::encode(sha256), name)
+        Ok(
+            if let Some(target) = self.targets.signed.targets.get(name) {
+                let (sha256, file) = self.target_digest_and_filename(target, name);
+                Some(self.fetch_target(target, &sha256, file.as_str())?)
             } else {
-                name.to_owned()
-            };
-
-            Some(fetch_sha256(
-                self.transport,
-                self.targets_base_url.join(&file).context(error::JoinUrl {
-                    path: file,
-                    url: self.targets_base_url.to_owned(),
-                })?,
-                target.length,
-                "targets.json",
-                sha256,
-            )?)
-        } else {
-            None
-        })
+                None
+            },
+        )
     }
 }
 

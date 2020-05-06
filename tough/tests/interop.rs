@@ -3,10 +3,11 @@
 
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
 use tempfile::TempDir;
+use test_utils::{dir_url, test_data};
 use tough::{Limits, Repository, Settings};
-use url::Url;
+
+mod test_utils;
 
 #[cfg(feature = "http")]
 use tough::HttpTransport;
@@ -17,15 +18,8 @@ use mockito::mock;
 #[cfg(feature = "http")]
 use std::str::FromStr;
 
-fn test_data() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("data")
-}
-
-fn dir_url<P: AsRef<Path>>(path: P) -> String {
-    Url::from_directory_path(path).unwrap().to_string()
-}
+#[cfg(feature = "http")]
+use url::Url;
 
 fn read_to_end<R: Read>(mut reader: R) -> Vec<u8> {
     let mut v = Vec::new();
