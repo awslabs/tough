@@ -15,12 +15,16 @@ use crate::schema::iter::KeysIter;
 use crate::schema::key::Key;
 use chrono::{DateTime, Utc};
 use olpc_cjson::CanonicalFormatter;
+use ring::digest::{Context, SHA256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_plain::{forward_display_to_serde, forward_from_str_to_serde};
 use snafu::ResultExt;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
 use std::num::NonZeroU64;
+use std::path::Path;
 
 /// A role type.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash)]
@@ -222,6 +226,45 @@ pub struct Target {
     /// If you're instantiating this struct, you should make this `HashMap::empty()`.
     #[serde(flatten)]
     pub _extra: HashMap<String, Value>,
+}
+
+impl Target {
+    /// Given a path, returns a Target struct
+    pub fn from_path<P>(path: P) -> Result<Target>
+    where
+        P: AsRef<Path>,
+    {
+        // Ensure the given path is a file
+        let path = path.as_ref();
+        if !path.is_file() {
+            return error::TargetNotAFile { path }.fail();
+        }
+
+        // Get the sha256 and length of the target
+        let mut file = File::open(path).context(error::FileOpen { path })?;
+        let mut digest = Context::new(&SHA256);
+        let mut buf = [0; 8 * 1024];
+        let mut length = 0;
+        loop {
+            match file.read(&mut buf).context(error::FileRead { path })? {
+                0 => break,
+                n => {
+                    digest.update(&buf[..n]);
+                    length += n as u64;
+                }
+            }
+        }
+
+        Ok(Target {
+            length,
+            hashes: Hashes {
+                sha256: Decoded::from(digest.finish().as_ref().to_vec()),
+                _extra: HashMap::new(),
+            },
+            custom: HashMap::new(),
+            _extra: HashMap::new(),
+        })
+    }
 }
 
 impl Role for Targets {

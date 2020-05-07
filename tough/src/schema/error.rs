@@ -5,6 +5,7 @@
 use crate::schema::RoleType;
 use snafu::{Backtrace, Snafu};
 use std::fmt::{self, Debug, Display};
+use std::path::PathBuf;
 
 /// Alias for `Result<T, Error>`.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -16,6 +17,22 @@ pub enum Error {
     /// A duplicate key ID was present in the root metadata.
     #[snafu(display("Duplicate key ID: {}", keyid))]
     DuplicateKeyId { keyid: String },
+
+    /// Unable to open a file
+    #[snafu(display("Failed to open '{}': {}", path.display(), source))]
+    FileOpen {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    /// Unable to read the file
+    #[snafu(display("Failed to read '{}': {}", path.display(), source))]
+    FileRead {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
 
     /// A downloaded target's checksum does not match the checksum listed in the repository
     /// metadata.
@@ -72,6 +89,10 @@ pub enum Error {
     /// Failed to extract a bit string from a `SubjectPublicKeyInfo` document.
     #[snafu(display("Invalid SubjectPublicKeyInfo document"))]
     SpkiDecode { backtrace: Backtrace },
+
+    /// Unable to create a TUF target from anything but a file
+    #[snafu(display("TUF targets must be files, given: '{}'", path.display()))]
+    TargetNotAFile { path: PathBuf, backtrace: Backtrace },
 }
 
 /// Wrapper for error types that don't impl [`std::error::Error`].
