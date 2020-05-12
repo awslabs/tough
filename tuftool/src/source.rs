@@ -16,9 +16,6 @@ use tough::schema::key::Key;
 use tough::sign::{parse_keypair, Sign};
 use url::Url;
 
-#[cfg(any(feature = "rusoto-native-tls", feature = "rusoto-rustls"))]
-use tokio;
-
 #[derive(Debug)]
 pub(crate) enum KeySource {
     Local(PathBuf),

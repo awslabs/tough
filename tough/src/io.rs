@@ -54,6 +54,9 @@ impl<T: Read> Read for DigestAdapter<T> {
 
 pub(crate) struct MaxSizeAdapter<T> {
     reader: T,
+    /// How the `max_size` was specified. For example the max size of `root.json` is specified by
+    /// the `max_root_size` argument in `Settings`. `specifier` is used to construct an error
+    /// message when the `MaxSizeAdapter` detects that too many bytes have been read.
     specifier: &'static str,
     max_size: u64,
     counter: u64,
