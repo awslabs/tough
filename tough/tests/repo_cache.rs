@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use test_utils::{dir_url, test_data};
-use tough::{FilesystemTransport, Limits, Repository, Settings};
+use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings};
 
 mod test_utils;
 
@@ -42,6 +42,7 @@ fn load_tuf_reference_impl<'a>(paths: &'a mut RepoPaths) -> Repository<'a, Files
             metadata_base_url: paths.metadata_base_url.as_str(),
             targets_base_url: paths.targets_base_url.as_str(),
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap()
@@ -78,6 +79,7 @@ fn test_repo_cache_all_targets() {
             metadata_base_url: metadata_base_url.as_str(),
             targets_base_url: targets_base_url.as_str(),
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap();
@@ -134,6 +136,7 @@ fn test_repo_cache_list_of_two_targets() {
             metadata_base_url: metadata_base_url.as_str(),
             targets_base_url: targets_base_url.as_str(),
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap();
@@ -190,6 +193,7 @@ fn test_repo_cache_some() {
             metadata_base_url: metadata_base_url.as_str(),
             targets_base_url: targets_base_url.as_str(),
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap();

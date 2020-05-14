@@ -7,7 +7,7 @@ use assert_cmd::Command;
 use chrono::{Duration, Utc};
 use std::fs::File;
 use tempfile::TempDir;
-use tough::{Limits, Repository, Settings};
+use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 #[test]
 // Ensure we can read a repo created by the `tuftool` binary using the `tough` library
@@ -62,6 +62,7 @@ fn create_command() {
             metadata_base_url,
             targets_base_url,
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap();

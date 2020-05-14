@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Read;
 use tempfile::TempDir;
 use test_utils::{dir_url, test_data};
-use tough::{Limits, Repository, Settings};
+use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 mod test_utils;
 
@@ -47,6 +47,7 @@ fn test_tuf_reference_impl() {
             metadata_base_url,
             targets_base_url,
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap();
@@ -108,6 +109,7 @@ fn test_tuf_http_transport() {
             metadata_base_url: metadata_base_url.as_str(),
             targets_base_url: targets_base_url.as_str(),
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap();

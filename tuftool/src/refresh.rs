@@ -16,7 +16,9 @@ use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tough::schema::{Hashes, Snapshot, SnapshotMeta, Targets, Timestamp, TimestampMeta};
-use tough::{FilesystemTransport, HttpTransport, Limits, Repository, Transport};
+use tough::{
+    ExpirationEnforcement, FilesystemTransport, HttpTransport, Limits, Repository, Transport,
+};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -85,6 +87,7 @@ impl RefreshArgs {
             metadata_base_url: self.metadata_base_url.as_str(),
             targets_base_url: self.metadata_base_url.as_str(),
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         };
 
         if self.metadata_base_url.scheme() == "file" {
