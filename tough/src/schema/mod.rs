@@ -13,6 +13,7 @@ pub use crate::schema::error::{Error, Result};
 use crate::schema::decoded::{Decoded, Hex};
 use crate::schema::iter::KeysIter;
 use crate::schema::key::Key;
+use crate::sign::Sign;
 use chrono::{DateTime, Utc};
 use olpc_cjson::CanonicalFormatter;
 use ring::digest::{Context, SHA256};
@@ -44,6 +45,8 @@ pub trait Role: Serialize {
     const TYPE: RoleType;
 
     fn expires(&self) -> DateTime<Utc>;
+
+    fn version(&self) -> NonZeroU64;
 
     fn canonical_form(&self) -> Result<Vec<u8>> {
         let mut data = Vec::new();
@@ -120,6 +123,17 @@ impl Root {
             keys: &self.keys,
         }
     }
+
+    /// Given an object/key that impls Sign, return the corresponding
+    /// key ID from Root
+    pub fn key_id(&self, key_pair: &dyn Sign) -> Option<Decoded<Hex>> {
+        for (key_id, key) in &self.keys {
+            if key_pair.tuf_key() == *key {
+                return Some(key_id.clone());
+            }
+        }
+        None
+    }
 }
 
 impl Role for Root {
@@ -127,6 +141,10 @@ impl Role for Root {
 
     fn expires(&self) -> DateTime<Utc> {
         self.expires
+    }
+
+    fn version(&self) -> NonZeroU64 {
+        self.version
     }
 }
 
@@ -181,11 +199,26 @@ pub struct Hashes {
     pub _extra: HashMap<String, Value>,
 }
 
+impl Snapshot {
+    pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
+        Snapshot {
+            spec_version,
+            version,
+            expires,
+            meta: HashMap::new(),
+            _extra: HashMap::new(),
+        }
+    }
+}
 impl Role for Snapshot {
     const TYPE: RoleType = RoleType::Snapshot;
 
     fn expires(&self) -> DateTime<Utc> {
         self.expires
+    }
+
+    fn version(&self) -> NonZeroU64 {
+        self.version
     }
 }
 
@@ -267,11 +300,27 @@ impl Target {
     }
 }
 
+impl Targets {
+    pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
+        Targets {
+            spec_version,
+            version,
+            expires,
+            targets: HashMap::new(),
+            _extra: HashMap::new(),
+        }
+    }
+}
+
 impl Role for Targets {
     const TYPE: RoleType = RoleType::Targets;
 
     fn expires(&self) -> DateTime<Utc> {
         self.expires
+    }
+
+    fn version(&self) -> NonZeroU64 {
+        self.version
     }
 }
 
@@ -311,10 +360,26 @@ pub struct TimestampMeta {
     pub _extra: HashMap<String, Value>,
 }
 
+impl Timestamp {
+    pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
+        Timestamp {
+            spec_version,
+            version,
+            expires,
+            meta: HashMap::new(),
+            _extra: HashMap::new(),
+        }
+    }
+}
+
 impl Role for Timestamp {
     const TYPE: RoleType = RoleType::Timestamp;
 
     fn expires(&self) -> DateTime<Utc> {
         self.expires
+    }
+
+    fn version(&self) -> NonZeroU64 {
+        self.version
     }
 }
