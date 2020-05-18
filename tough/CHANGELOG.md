@@ -4,8 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0] - (Unreleased)
+## [0.5.0] - 2020-05-18
+
+For changes that require modification of calling code see #120 and #121.
+
+### Added
+- Add optional ability to load an expired repository.
+
+### Changed
 - Rename `target_base_url` to `targets_base_url`.
+- Dependency updates.
 
 ## [0.4.0] - 2020-02-11
 - Updated `reqwest` to `0.10.1` to fix an issue with https failures. Note this requires use of `reqwest::blocking::*` instead of `reqwest::*` in code that is using HttpTransport.
@@ -31,7 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
-[0.4.0]: https://github.com/awslabs/tough/compare/tuftool-v0.3.0...tough-v0.4.0
+[0.5.0]: https://github.com/awslabs/tough/compare/tough-v0.4.0...tough-v0.5.0
+[0.4.0]: https://github.com/awslabs/tough/compare/tough-v0.3.0...tough-v0.4.0
 [0.3.0]: https://github.com/awslabs/tough/compare/tough-v0.2.0...tough-v0.3.0
 [0.2.0]: https://github.com/awslabs/tough/compare/tough-v0.1.0...tough-v0.2.0
 [0.1.0]: https://github.com/awslabs/tough/releases/tag/tough-v0.1.0
