@@ -9,7 +9,7 @@ use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tempfile::tempdir;
-use tough::{HttpTransport, Limits, Repository, Settings};
+use tough::{ExpirationEnforcement, HttpTransport, Limits, Repository, Settings};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -45,7 +45,7 @@ fn root_warning<P: AsRef<Path>>(path: P) {
 WARNING: Downloading root.json to {}
 This is unsafe and will not establish trust, use only for testing
 =================================================================",
-    path.as_ref().display());
+              path.as_ref().display());
 }
 
 impl DownloadArgs {
@@ -101,6 +101,7 @@ impl DownloadArgs {
                 limits: Limits {
                     ..tough::Limits::default()
                 },
+                expiration_enforcement: ExpirationEnforcement::Safe,
             },
         )
         .context(error::Metadata)?;

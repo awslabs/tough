@@ -8,7 +8,7 @@ use chrono::{Duration, Utc};
 use std::fs;
 use std::fs::File;
 use tempfile::TempDir;
-use tough::{Limits, Repository, Settings};
+use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 #[test]
 // Ensure we can read a repo that has been refreshed by the `tuftool refresh`
@@ -115,6 +115,7 @@ fn refresh_command() {
             metadata_base_url,
             targets_base_url,
             limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
         },
     )
     .unwrap();

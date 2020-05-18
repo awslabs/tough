@@ -44,6 +44,37 @@ use std::io::Read;
 use std::path::Path;
 use url::Url;
 
+/// Represents whether a Repository should fail to load when metadata is expired (`Safe`) or whether
+/// it should ignore expired metadata (`Unsafe`). Only use `Unsafe` if you are sure you need it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExpirationEnforcement {
+    Safe,
+    Unsafe,
+}
+
+/// `ExpirationEnforcement` defaults to `Safe` mode.
+impl Default for ExpirationEnforcement {
+    fn default() -> Self {
+        ExpirationEnforcement::Safe
+    }
+}
+
+impl From<bool> for ExpirationEnforcement {
+    fn from(b: bool) -> Self {
+        if b {
+            ExpirationEnforcement::Safe
+        } else {
+            ExpirationEnforcement::Unsafe
+        }
+    }
+}
+
+impl From<ExpirationEnforcement> for bool {
+    fn from(ee: ExpirationEnforcement) -> Self {
+        ee == ExpirationEnforcement::Safe
+    }
+}
+
 /// Repository fetch settings, provided to [`Repository::load`].
 #[derive(Debug, Clone)]
 pub struct Settings<'a, R: Read> {
@@ -70,6 +101,16 @@ pub struct Settings<'a, R: Read> {
     ///
     /// This parameter implements [`Default`]; see its documentation for details.
     pub limits: Limits,
+
+    /// Metadata expiration enforcement.
+    ///
+    /// When this parameter is set to `Unsafe`, a `Repository` will succeed in loading even if it
+    /// has expired metadata files.
+    ///
+    /// CAUTION: TUF metadata expiration dates, particularly `timestamp.json`, are designed to
+    /// limit a replay attack window. By setting `expiration_enforcement` to `Unsafe`, you are
+    /// disabling this feature of TUF. Use `Safe` unless you have a good reason to use `Unsafe`.
+    pub expiration_enforcement: ExpirationEnforcement,
 }
 
 /// Limits used when fetching repository metadata.
@@ -128,6 +169,7 @@ pub struct Repository<'a, T: Transport> {
     limits: Limits,
     metadata_base_url: Url,
     targets_base_url: Url,
+    expiration_enforcement: ExpirationEnforcement,
 }
 
 impl<'a, T: Transport> Repository<'a, T> {
@@ -165,6 +207,7 @@ impl<'a, T: Transport> Repository<'a, T> {
             settings.limits.max_root_size,
             settings.limits.max_root_updates,
             &metadata_base_url,
+            settings.expiration_enforcement,
         )?;
 
         // 2. Download the timestamp metadata file
@@ -174,10 +217,18 @@ impl<'a, T: Transport> Repository<'a, T> {
             &datastore,
             settings.limits.max_timestamp_size,
             &metadata_base_url,
+            settings.expiration_enforcement,
         )?;
 
         // 3. Download the snapshot metadata file
-        let snapshot = load_snapshot(transport, &root, &timestamp, &datastore, &metadata_base_url)?;
+        let snapshot = load_snapshot(
+            transport,
+            &root,
+            &timestamp,
+            &datastore,
+            &metadata_base_url,
+            settings.expiration_enforcement,
+        )?;
 
         // 4. Download the targets metadata file
         let targets = load_targets(
@@ -187,6 +238,7 @@ impl<'a, T: Transport> Repository<'a, T> {
             &datastore,
             settings.limits.max_targets_size,
             &metadata_base_url,
+            settings.expiration_enforcement,
         )?;
 
         let expires_iter = [
@@ -211,6 +263,7 @@ impl<'a, T: Transport> Repository<'a, T> {
             limits: settings.limits,
             metadata_base_url,
             targets_base_url,
+            expiration_enforcement: settings.expiration_enforcement,
         })
     }
 
@@ -247,12 +300,14 @@ impl<'a, T: Transport> Repository<'a, T> {
     /// data from the reader if it returns an error.**
     pub fn read_target(&self, name: &str) -> Result<Option<impl Read>> {
         // Check for repository metadata expiration.
-        ensure!(
-            system_time(&self.datastore)? < self.earliest_expiration,
-            error::ExpiredMetadata {
-                role: self.earliest_expiration_role
-            }
-        );
+        if self.expiration_enforcement == ExpirationEnforcement::Safe {
+            ensure!(
+                system_time(&self.datastore)? < self.earliest_expiration,
+                error::ExpiredMetadata {
+                    role: self.earliest_expiration_role
+                }
+            );
+        }
 
         // 5. Verify the desired target against its targets metadata.
         //
@@ -332,6 +387,7 @@ fn load_root<R: Read, T: Transport>(
     max_root_size: u64,
     max_root_updates: u64,
     metadata_base_url: &Url,
+    expiration_enforcement: ExpirationEnforcement,
 ) -> Result<Signed<Root>> {
     // 0. Load the trusted root metadata file. We assume that a good, trusted copy of this file was
     //    shipped with the package manager or software updater using an out-of-band process. Note
@@ -458,7 +514,9 @@ fn load_root<R: Read, T: Transport>(
     //   timestamp in the trusted root metadata file (version N). If the trusted root metadata file
     //   has expired, abort the update cycle, report the potential freeze attack. On the next
     //   update cycle, begin at step 0 and version N of the root metadata file.
-    check_expired(datastore, &root.signed)?;
+    if expiration_enforcement == ExpirationEnforcement::Safe {
+        check_expired(datastore, &root.signed)?;
+    }
 
     // 1.9. If the timestamp and / or snapshot keys have been rotated, then delete the trusted
     //   timestamp and snapshot metadata files. This is done in order to recover from fast-forward
@@ -494,6 +552,7 @@ fn load_timestamp<T: Transport>(
     datastore: &Datastore<'_>,
     max_timestamp_size: u64,
     metadata_base_url: &Url,
+    expiration_enforcement: ExpirationEnforcement,
 ) -> Result<Signed<Timestamp>> {
     // 2. Download the timestamp metadata file, up to Y number of bytes (because the size is
     //    unknown.) The value for Y is set by the authors of the application using TUF. For
@@ -547,7 +606,9 @@ fn load_timestamp<T: Transport>(
     //   timestamp in the new timestamp metadata file. If so, the new timestamp metadata file
     //   becomes the trusted timestamp metadata file. If the new timestamp metadata file has
     //   expired, discard it, abort the update cycle, and report the potential freeze attack.
-    check_expired(datastore, &timestamp.signed)?;
+    if expiration_enforcement == ExpirationEnforcement::Safe {
+        check_expired(datastore, &timestamp.signed)?;
+    }
 
     // Now that everything seems okay, write the timestamp file to the datastore.
     datastore.create("timestamp.json", &timestamp)?;
@@ -562,6 +623,7 @@ fn load_snapshot<T: Transport>(
     timestamp: &Signed<Timestamp>,
     datastore: &Datastore<'_>,
     metadata_base_url: &Url,
+    expiration_enforcement: ExpirationEnforcement,
 ) -> Result<Signed<Snapshot>> {
     // 3. Download snapshot metadata file, up to the number of bytes specified in the timestamp
     //    metadata file. If consistent snapshots are not used (see Section 7), then the filename
@@ -678,7 +740,9 @@ fn load_snapshot<T: Transport>(
     //   timestamp in the new snapshot metadata file. If so, the new snapshot metadata file becomes
     //   the trusted snapshot metadata file. If the new snapshot metadata file is expired, discard
     //   it, abort the update cycle, and report the potential freeze attack.
-    check_expired(datastore, &snapshot.signed)?;
+    if expiration_enforcement == ExpirationEnforcement::Safe {
+        check_expired(datastore, &snapshot.signed)?;
+    }
 
     // Now that everything seems okay, write the snapshot file to the datastore.
     datastore.create("snapshot.json", &snapshot)?;
@@ -694,6 +758,7 @@ fn load_targets<T: Transport>(
     datastore: &Datastore<'_>,
     max_targets_size: u64,
     metadata_base_url: &Url,
+    expiration_enforcement: ExpirationEnforcement,
 ) -> Result<Signed<crate::schema::Targets>> {
     // 4. Download the top-level targets metadata file, up to either the number of bytes specified
     //    in the snapshot metadata file, or some Z number of bytes. The value for Z is set by the
@@ -795,7 +860,9 @@ fn load_targets<T: Transport>(
     //   timestamp in the new targets metadata file. If so, the new targets metadata file becomes
     //   the trusted targets metadata file. If the new targets metadata file is expired, discard
     //   it, abort the update cycle, and report the potential freeze attack.
-    check_expired(datastore, &targets.signed)?;
+    if expiration_enforcement == ExpirationEnforcement::Safe {
+        check_expired(datastore, &targets.signed)?;
+    }
 
     // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
     //   with the top-level targets role.
@@ -822,5 +889,22 @@ mod tests {
             parsed_url_without_trailing_slash,
             parsed_url_with_trailing_slash
         )
+    }
+
+    // Ensure that the `ExpirationEnforcement` traits are not changed by mistake.
+    #[test]
+    fn expiration_enforcement_traits() {
+        let enforce = true;
+        let safe: ExpirationEnforcement = enforce.into();
+        assert_eq!(safe, ExpirationEnforcement::Safe);
+        let not_enforce = false;
+        let not_safe: ExpirationEnforcement = not_enforce.into();
+        assert_eq!(not_safe, ExpirationEnforcement::Unsafe);
+        let enforcing: bool = ExpirationEnforcement::Safe.into();
+        assert!(enforcing);
+        let non_enforcing: bool = ExpirationEnforcement::Unsafe.into();
+        assert!(!non_enforcing);
+        let default = ExpirationEnforcement::default();
+        assert_eq!(default, ExpirationEnforcement::Safe);
     }
 }
