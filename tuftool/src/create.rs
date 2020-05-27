@@ -3,28 +3,17 @@
 
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
-use crate::key::RootKeys;
-use crate::metadata;
-use crate::root_digest::RootDigest;
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
-use maplit::hashmap;
 use rayon::prelude::*;
-use ring::digest::{Context, SHA256, SHA256_OUTPUT_LEN};
-use ring::rand::SystemRandom;
-use serde::Serialize;
 use snafu::{OptionExt, ResultExt};
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::Read;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
+use tough::editor::RepositoryEditor;
 use tough::key_source::KeySource;
-use tough::schema::{
-    decoded::Decoded, Hashes, Role, Snapshot, SnapshotMeta, Target, Targets, Timestamp,
-    TimestampMeta,
-};
+use tough::schema::Target;
 use walkdir::WalkDir;
 
 #[derive(Debug, StructOpt)]
@@ -34,6 +23,9 @@ pub(crate) struct CreateArgs {
     follow: bool,
 
     /// Number of target hashing threads to run (default: number of cores)
+    // No default is specified in structopt here. This is because rayon
+    // automatically spawns the same number of threads as cores when any
+    // of its parallel methods are called.
     #[structopt(short = "j", long = "jobs")]
     jobs: Option<NonZeroUsize>,
 
@@ -77,6 +69,8 @@ pub(crate) struct CreateArgs {
 
 impl CreateArgs {
     pub(crate) fn run(&self) -> Result<()> {
+        // If a user specifies job count we override the default, which is
+        // the number of cores.
         if let Some(jobs) = self.jobs {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(usize::from(jobs))
@@ -84,195 +78,72 @@ impl CreateArgs {
                 .context(error::InitializeThreadPool)?;
         }
 
-        let root_digest = RootDigest::load(&self.root)?;
-        let key_pairs = root_digest.load_keys(&self.keys)?;
+        let targets = self.build_targets()?;
+        let mut editor =
+            RepositoryEditor::new(&self.root).context(error::EditorCreate { path: &self.root })?;
 
-        CreateProcess {
-            args: self,
-            keys: key_pairs,
-            rng: SystemRandom::new(),
-            root_digest,
+        editor
+            .targets_version(self.targets_version)
+            .targets_expires(self.targets_expires)
+            .snapshot_version(self.snapshot_version)
+            .snapshot_expires(self.snapshot_expires)
+            .timestamp_version(self.timestamp_version)
+            .timestamp_expires(self.timestamp_expires);
+
+        for (filename, target) in targets {
+            editor.add_target(filename, target);
         }
-        .run()
-    }
-}
 
-struct CreateProcess<'a> {
-    args: &'a CreateArgs,
-    rng: SystemRandom,
-    root_digest: RootDigest,
-    keys: RootKeys,
-}
+        let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
 
-impl<'a> CreateProcess<'a> {
-    fn run(self) -> Result<()> {
-        let root_path = self
-            .args
-            .outdir
-            .join("metadata")
-            .join(format!("{}.root.json", self.root_digest.root.version));
-        copy(&self.args.root, &root_path)?;
-
-        let (targets_sha256, targets_length) = self.write_metadata(
-            Targets {
-                spec_version: crate::SPEC_VERSION.to_owned(),
-                version: self.args.targets_version,
-                expires: self.args.targets_expires,
-                targets: self.build_targets()?,
-                _extra: HashMap::new(),
-            },
-            self.args.targets_version,
-            "targets.json",
-        )?;
-
-        let (snapshot_sha256, snapshot_length) = self.write_metadata(
-            Snapshot {
-                spec_version: crate::SPEC_VERSION.to_owned(),
-                version: self.args.snapshot_version,
-                expires: self.args.snapshot_expires,
-                meta: hashmap! {
-                    "root.json".to_owned() => SnapshotMeta {
-                        hashes: Some(Hashes {
-                            sha256: self.root_digest.digest.to_vec().into(),
-                            _extra: HashMap::new(),
-                        }),
-                        length: Some(self.root_digest.size),
-                        version: self.root_digest.root.version,
-                        _extra: HashMap::new(),
-                    },
-                    "targets.json".to_owned() => SnapshotMeta {
-                        hashes: Some(Hashes {
-                            sha256: targets_sha256.to_vec().into(),
-                            _extra: HashMap::new(),
-                        }),
-                        length: Some(targets_length),
-                        version: self.args.targets_version,
-                        _extra: HashMap::new(),
-                    },
-                },
-                _extra: HashMap::new(),
-            },
-            self.args.snapshot_version,
-            "snapshot.json",
-        )?;
-
-        self.write_metadata(
-            Timestamp {
-                spec_version: crate::SPEC_VERSION.to_owned(),
-                version: self.args.timestamp_version,
-                expires: self.args.timestamp_expires,
-                meta: hashmap! {
-                    "snapshot.json".to_owned() => TimestampMeta {
-                        hashes: Hashes {
-                            sha256: snapshot_sha256.to_vec().into(),
-                            _extra: HashMap::new(),
-                        },
-                        length: snapshot_length,
-                        version: self.args.snapshot_version,
-                        _extra: HashMap::new(),
-                    }
-                },
-                _extra: HashMap::new(),
-            },
-            self.args.timestamp_version,
-            "timestamp.json",
-        )?;
+        let metadata_dir = &self.outdir.join("metadata");
+        let targets_dir = &self.outdir.join("targets");
+        signed_repo
+            .link_targets(&self.indir, targets_dir)
+            .context(error::LinkTargets {
+                indir: &self.indir,
+                outdir: targets_dir,
+            })?;
+        signed_repo.write(metadata_dir).context(error::WriteRepo {
+            directory: metadata_dir,
+        })?;
 
         Ok(())
     }
 
-    // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
-
+    // Build a map of filename to Target structs, doing the hashing
+    // of the targets in parallel.
     fn build_targets(&self) -> Result<HashMap<String, Target>> {
-        WalkDir::new(&self.args.indir)
-            .follow_links(self.args.follow)
+        WalkDir::new(&self.indir)
+            .follow_links(self.follow)
             .into_iter()
             .par_bridge()
             .filter_map(|entry| match entry {
                 Ok(entry) => {
                     if entry.file_type().is_file() {
-                        Some(self.process_target(entry.path()))
+                        Some(Self::process_target(entry.path()))
                     } else {
                         None
                     }
                 }
-                Err(err) => Some(Err(err).context(error::WalkDir)),
+                Err(err) => Some(Err(err).context(error::WalkDir {
+                    directory: &self.indir,
+                })),
             })
             .collect()
     }
 
-    fn process_target(&self, path: &Path) -> Result<(String, Target)> {
-        let target_name = path.strip_prefix(&self.args.indir).context(error::Prefix {
-            path,
-            base: &self.args.indir,
-        })?;
-        let target_name = target_name
+    fn process_target(path: &Path) -> Result<(String, Target)> {
+        // Build a Target from the path given. If it is not a file, this will fail
+        let target = Target::from_path(path).context(error::TargetFromPath { path })?;
+
+        // Get the file name as a string
+        let target_name = path
+            .file_name()
+            .context(error::NoFileName { path })?
             .to_str()
-            .context(error::PathUtf8 { path: target_name })?
+            .context(error::PathUtf8 { path })?
             .to_owned();
-
-        let mut file = File::open(path).context(error::FileOpen { path })?;
-        let mut digest = Context::new(&SHA256);
-        let mut buf = [0; 8 * 1024];
-        let mut length = 0;
-        loop {
-            match file.read(&mut buf).context(error::FileRead { path })? {
-                0 => break,
-                n => {
-                    digest.update(&buf[..n]);
-                    length += n as u64;
-                }
-            }
-        }
-
-        let target = Target {
-            length,
-            hashes: Hashes {
-                sha256: Decoded::from(digest.finish().as_ref().to_vec()),
-                _extra: HashMap::new(),
-            },
-            custom: HashMap::new(),
-            _extra: HashMap::new(),
-        };
-
-        let dst = if self.root_digest.root.consistent_snapshot {
-            self.args.outdir.join("targets").join(format!(
-                "{}.{}",
-                hex::encode(&target.hashes.sha256),
-                target_name
-            ))
-        } else {
-            self.args.outdir.join("targets").join(&target_name)
-        };
-        copy(path, &dst)?;
-
         Ok((target_name, target))
     }
-
-    // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
-
-    fn write_metadata<T: Role + Serialize>(
-        &self,
-        role: T,
-        version: NonZeroU64,
-        filename: &'static str,
-    ) -> Result<([u8; SHA256_OUTPUT_LEN], u64)> {
-        metadata::write_metadata(
-            &self.args.outdir,
-            &self.root_digest.root,
-            &self.keys,
-            role,
-            version,
-            filename,
-            &self.rng,
-        )
-    }
-}
-
-fn copy(src: &Path, dst: &Path) -> Result<()> {
-    if let Some(parent) = dst.parent() {
-        fs::create_dir_all(parent).context(error::FileCopy { src, dst })?;
-    }
-    fs::copy(src, dst).context(error::FileCopy { src, dst })?;
-    Ok(())
 }

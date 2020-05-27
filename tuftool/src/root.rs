@@ -7,11 +7,15 @@ use crate::source::parse_key_source;
 use crate::{load_file, write_file};
 use chrono::{DateTime, Timelike, Utc};
 use maplit::hashmap;
+use ring::rand::SystemRandom;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
+use std::io::Write;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use tempfile::NamedTempFile;
+use tough::editor::signed::SignedRole;
 use tough::key_source::KeySource;
 use tough::schema::decoded::{Decoded, Hex};
 use tough::schema::{key::Key, RoleKeys, RoleType, Root, Signed};
@@ -85,6 +89,13 @@ pub(crate) enum Command {
         #[structopt(short = "r", long = "role")]
         roles: Vec<RoleType>,
     },
+    /// Sign the given root.json
+    Sign {
+        /// Path to root.json
+        path: PathBuf,
+        #[structopt(parse(try_from_str = parse_key_source))]
+        key_source: Box<dyn KeySource>,
+    },
 }
 
 macro_rules! role_keys {
@@ -103,29 +114,30 @@ macro_rules! role_keys {
 }
 
 impl Command {
-    pub(crate) fn run(&self) -> Result<()> {
+    pub(crate) fn run(self) -> Result<()> {
         match self {
-            Command::Init { path } => Command::init(path),
-            Command::BumpVersion { path } => Command::bump_version(path),
-            Command::Expire { path, time } => Command::expire(path, time),
+            Command::Init { path } => Command::init(&path),
+            Command::BumpVersion { path } => Command::bump_version(&path),
+            Command::Expire { path, time } => Command::expire(&path, &time),
             Command::SetThreshold {
                 path,
                 role,
                 threshold,
-            } => Command::set_threshold(path, *role, *threshold),
+            } => Command::set_threshold(&path, role, threshold),
             Command::AddKey {
                 path,
                 roles,
                 key_source,
-            } => Command::add_key(path, roles, key_source),
-            Command::RemoveKey { path, key_id, role } => Command::remove_key(path, key_id, *role),
+            } => Command::add_key(&path, &roles, &key_source),
+            Command::RemoveKey { path, key_id, role } => Command::remove_key(&path, &key_id, role),
             Command::GenRsaKey {
                 path,
                 roles,
                 key_source,
                 bits,
                 exponent,
-            } => Command::gen_rsa_key(path, roles, key_source, *bits, *exponent),
+            } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent),
+            Command::Sign { path, key_source } => Command::sign(&path, key_source),
         }
     }
 
@@ -261,6 +273,28 @@ impl Command {
         clear_sigs(&mut root);
         println!("{}", key_id);
         write_file(path, &root)
+    }
+
+    fn sign(path: &PathBuf, key_source: Box<dyn KeySource>) -> Result<()> {
+        let root: Signed<Root> = load_file(path)?;
+
+        let signed_root = SignedRole::new(
+            root.signed.clone(),
+            &root.signed,
+            &[key_source],
+            &SystemRandom::new(),
+        )
+        .context(error::SignRoot { path })?;
+
+        // Use `tempfile::NamedTempFile::persist` to perform an atomic file write.
+        let parent = path.parent().context(error::PathParent { path })?;
+        let mut writer =
+            NamedTempFile::new_in(parent).context(error::FileTempCreate { path: parent })?;
+        writer
+            .write_all(signed_root.buffer())
+            .context(error::FileWrite { path })?;
+        writer.persist(path).context(error::FilePersist { path })?;
+        Ok(())
     }
 }
 

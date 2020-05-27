@@ -3,23 +3,16 @@
 
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
-use crate::metadata;
-use crate::root_digest::RootDigest;
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
-use maplit::hashmap;
-use ring::rand::SystemRandom;
 use snafu::ResultExt;
-use std::collections::HashMap;
 use std::fs::File;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use structopt::StructOpt;
+use tough::editor::RepositoryEditor;
 use tough::key_source::KeySource;
-use tough::schema::{Hashes, Snapshot, SnapshotMeta, Targets, Timestamp, TimestampMeta};
-use tough::{
-    ExpirationEnforcement, FilesystemTransport, HttpTransport, Limits, Repository, Transport,
-};
+use tough::{ExpirationEnforcement, FilesystemTransport, HttpTransport, Limits, Repository};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -75,15 +68,8 @@ pub(crate) struct RefreshArgs {
 
 impl RefreshArgs {
     pub(crate) fn run(&self) -> Result<()> {
-        if let Some(jobs) = self.jobs {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(usize::from(jobs))
-                .build_global()
-                .context(error::InitializeThreadPool)?;
-        }
-
         let settings = tough::Settings {
-            root: File::open(&self.root).unwrap(),
+            root: File::open(&self.root).context(error::FileOpen { path: &self.root })?,
             datastore: self.workdir.as_path(),
             metadata_base_url: self.metadata_base_url.as_str(),
             targets_base_url: self.metadata_base_url.as_str(),
@@ -91,108 +77,34 @@ impl RefreshArgs {
             expiration_enforcement: ExpirationEnforcement::Safe,
         };
 
-        if self.metadata_base_url.scheme() == "file" {
+        // Load the `Repository` into the `RepositoryEditor`
+        // Loading a `Repository` with different `Transport`s results in
+        // different types. This is why we can't assign the `Repository`
+        // to a variable with the if statement.
+        let mut editor = if self.metadata_base_url.scheme() == "file" {
             let repository =
-                Repository::load(&FilesystemTransport, settings).context(error::Metadata)?;
-            self.refresh(&repository)
+                Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+            RepositoryEditor::from_repo(&self.root, repository)
         } else {
             let transport = HttpTransport::new();
-            let repository = Repository::load(&transport, settings).context(error::Metadata)?;
-            self.refresh(&repository)
+            let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+            RepositoryEditor::from_repo(&self.root, repository)
         }
-    }
+        .context(error::EditorFromRepo { path: &self.root })?;
 
-    fn refresh<'a, T: Transport>(&self, repository: &Repository<'a, T>) -> Result<()> {
-        // clone the targets.json file but with a new version number and expiration date
-        let new_targets = Targets {
-            spec_version: crate::SPEC_VERSION.to_owned(),
-            version: self.targets_version,
-            expires: self.targets_expires,
-            targets: repository.targets().signed.targets.clone(),
-            _extra: repository.targets().signed._extra.clone(),
-        };
+        editor
+            .targets_expires(self.targets_expires)
+            .targets_version(self.targets_version)
+            .snapshot_expires(self.snapshot_expires)
+            .snapshot_version(self.snapshot_version)
+            .timestamp_expires(self.timestamp_expires)
+            .timestamp_version(self.timestamp_version);
 
-        // load the root.json file
-        let root_digest = RootDigest::load(&self.root)?;
+        let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
 
-        // match the command line keys to the root.json keys
-        let keys = root_digest.load_keys(&self.keys)?;
-
-        // sign and write out the new targets.json file
-        let rng = SystemRandom::new();
-        let (targets_sha256, targets_length) = metadata::write_metadata(
-            &self.outdir,
-            &repository.root().signed,
-            &keys,
-            new_targets,
-            self.targets_version,
-            "targets.json",
-            &rng,
-        )?;
-
-        // create, sign and write out the snapshot file
-        let (snapshot_sha256, snapshot_length) = metadata::write_metadata(
-            &self.outdir,
-            &repository.root().signed,
-            &keys,
-            Snapshot {
-                spec_version: crate::SPEC_VERSION.to_owned(),
-                version: self.snapshot_version,
-                expires: self.snapshot_expires,
-                meta: hashmap! {
-                    "root.json".to_owned() => SnapshotMeta {
-                        hashes: Some(Hashes {
-                            sha256: root_digest.digest.to_vec().into(),
-                            _extra: HashMap::new(),
-                        }),
-                        length: Some(root_digest.size),
-                        version: repository.root().signed.version,
-                        _extra: HashMap::new(),
-                    },
-                    "targets.json".to_owned() => SnapshotMeta {
-                        hashes: Some(Hashes {
-                            sha256: targets_sha256.to_vec().into(),
-                            _extra: HashMap::new(),
-                        }),
-                        length: Some(targets_length),
-                        version: self.targets_version,
-                        _extra: HashMap::new(),
-                    },
-                },
-                _extra: HashMap::new(),
-            },
-            self.snapshot_version,
-            "snapshot.json",
-            &rng,
-        )?;
-
-        // create, sign and write out the timestamp file
-        metadata::write_metadata(
-            &self.outdir,
-            &repository.root().signed,
-            &keys,
-            Timestamp {
-                spec_version: crate::SPEC_VERSION.to_owned(),
-                version: self.timestamp_version,
-                expires: self.timestamp_expires,
-                meta: hashmap! {
-                    "snapshot.json".to_owned() => TimestampMeta {
-                        hashes: Hashes {
-                            sha256: snapshot_sha256.to_vec().into(),
-                            _extra: HashMap::new(),
-                        },
-                        length: snapshot_length,
-                        version: self.snapshot_version,
-                        _extra: HashMap::new(),
-                    }
-                },
-                _extra: HashMap::new(),
-            },
-            self.timestamp_version,
-            "timestamp.json",
-            &rng,
-        )?;
-
-        Ok(())
+        let metadata_dir = &self.outdir.join("metadata");
+        signed_repo.write(metadata_dir).context(error::WriteRepo {
+            directory: metadata_dir,
+        })
     }
 }
