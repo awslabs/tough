@@ -21,6 +21,13 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to determine region from profile '{}': {}", profile, source))]
+    RusotoRegionFromProfile {
+        profile: String,
+        source: rusoto_credential::CredentialsError,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Unknown AWS region \"{}\": {}", region, source))]
     RusotoRegion {
         region: String,

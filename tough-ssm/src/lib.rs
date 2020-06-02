@@ -63,7 +63,7 @@ impl KeySource for SsmKeySource {
             description: Some(key_id_hex.to_owned()),
             key_id: self.key_id.as_ref().cloned(),
             overwrite: Some(true),
-            type_: "SecureString".to_owned(),
+            type_: Some("SecureString".to_owned()),
             value: value.to_owned(),
             ..rusoto_ssm::PutParameterRequest::default()
         });
