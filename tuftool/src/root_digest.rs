@@ -1,12 +1,12 @@
 use crate::error;
 use crate::error::Result;
 use crate::key::RootKeys;
-use crate::source::KeySource;
 use ring::digest::{SHA256, SHA256_OUTPUT_LEN};
 use snafu::ensure;
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tough::key_source::KeySource;
 use tough::schema::{Root, Signed};
 
 /// Represents a loaded root.json file along with its sha256 digest and size in bytes
@@ -56,10 +56,10 @@ impl RootDigest {
     ///
     /// * An error can occur for io reasons
     ///
-    pub(crate) fn load_keys(&self, keys: &[KeySource]) -> Result<RootKeys> {
+    pub(crate) fn load_keys(&self, keys: &[Box<dyn KeySource>]) -> Result<RootKeys> {
         let mut map = HashMap::new();
         for source in keys {
-            let key_pair = source.as_sign()?;
+            let key_pair = source.as_sign().context(error::KeyPairFromKeySource)?;
             if let Some((keyid, _)) = self
                 .root
                 .keys

@@ -13,7 +13,6 @@
 
 mod create;
 mod datetime;
-mod deref;
 mod download;
 mod error;
 mod key;
@@ -23,7 +22,6 @@ mod root;
 mod root_digest;
 mod sign;
 mod source;
-mod ssm;
 
 use crate::error::Result;
 use snafu::{ErrorCompat, OptionExt, ResultExt};

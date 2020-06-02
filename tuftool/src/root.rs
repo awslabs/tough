@@ -3,7 +3,7 @@
 
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
-use crate::source::KeySource;
+use crate::source::parse_key_source;
 use crate::{load_file, write_file};
 use chrono::{DateTime, Timelike, Utc};
 use maplit::hashmap;
@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use tough::key_source::KeySource;
 use tough::schema::decoded::{Decoded, Hex};
 use tough::schema::{key::Key, RoleKeys, RoleType, Root, Signed};
 use tough::sign::{parse_keypair, Sign};
@@ -51,7 +52,8 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// The new key
-        key_path: KeySource,
+        #[structopt(parse(try_from_str = parse_key_source))]
+        key_source: Box<dyn KeySource>,
         /// The role to add the key to
         #[structopt(short = "r", long = "role")]
         roles: Vec<RoleType>,
@@ -71,7 +73,8 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// Where to write the new key
-        key_path: KeySource,
+        #[structopt(parse(try_from_str = parse_key_source))]
+        key_source: Box<dyn KeySource>,
         /// Bit length of new key
         #[structopt(short = "b", long = "bits", default_value = "2048")]
         bits: u16,
@@ -113,16 +116,16 @@ impl Command {
             Command::AddKey {
                 path,
                 roles,
-                key_path,
-            } => Command::add_key(path, roles, key_path),
+                key_source,
+            } => Command::add_key(path, roles, key_source),
             Command::RemoveKey { path, key_id, role } => Command::remove_key(path, key_id, *role),
             Command::GenRsaKey {
                 path,
                 roles,
-                key_path,
+                key_source,
                 bits,
                 exponent,
-            } => Command::gen_rsa_key(path, roles, key_path, *bits, *exponent),
+            } => Command::gen_rsa_key(path, roles, key_source, *bits, *exponent),
         }
     }
 
@@ -181,9 +184,13 @@ impl Command {
         write_file(path, &root)
     }
 
-    fn add_key(path: &PathBuf, roles: &[RoleType], key_path: &KeySource) -> Result<()> {
+    #[allow(clippy::borrowed_box)]
+    fn add_key(path: &PathBuf, roles: &[RoleType], key_source: &Box<dyn KeySource>) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
-        let key_pair = key_path.as_public_key()?;
+        let key_pair = key_source
+            .as_sign()
+            .context(error::KeyPairFromKeySource)?
+            .tuf_key();
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair)?);
         clear_sigs(&mut root);
         println!("{}", key_id);
@@ -214,10 +221,11 @@ impl Command {
         write_file(path, &root)
     }
 
+    #[allow(clippy::borrowed_box)]
     fn gen_rsa_key(
         path: &PathBuf,
         roles: &[RoleType],
-        key_path: &KeySource,
+        key_source: &Box<dyn KeySource>,
         bits: u16,
         exponent: u32,
     ) -> Result<()> {
@@ -247,7 +255,9 @@ impl Command {
 
         let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParse)?;
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
-        key_path.write(&stdout, &key_id)?;
+        key_source
+            .write(&stdout, &key_id)
+            .context(error::WriteKeySource)?;
         clear_sigs(&mut root);
         println!("{}", key_id);
         write_file(path, &root)

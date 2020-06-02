@@ -6,7 +6,7 @@ use crate::error::{self, Result};
 use crate::key::RootKeys;
 use crate::metadata;
 use crate::root_digest::RootDigest;
-use crate::source::KeySource;
+use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
 use maplit::hashmap;
 use rayon::prelude::*;
@@ -20,6 +20,7 @@ use std::io::Read;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
+use tough::key_source::KeySource;
 use tough::schema::{
     decoded::Decoded, Hashes, Role, Snapshot, SnapshotMeta, Target, Targets, Timestamp,
     TimestampMeta,
@@ -37,8 +38,8 @@ pub(crate) struct CreateArgs {
     jobs: Option<NonZeroUsize>,
 
     /// Key files to sign with
-    #[structopt(short = "k", long = "key", required = true)]
-    keys: Vec<KeySource>,
+    #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
+    keys: Vec<Box<dyn KeySource>>,
 
     /// Version of snapshot.json file
     #[structopt(long = "snapshot-version")]
