@@ -8,6 +8,7 @@
 use crate::schema::RoleType;
 use chrono::{DateTime, Utc};
 use snafu::{Backtrace, Snafu};
+use std::io;
 use std::path::PathBuf;
 use url::Url;
 
@@ -18,6 +19,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub enum Error {
+    #[snafu(display("Unable to canonicalize path '{}': {}", path.display(), source))]
+    AbsolutePath {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
     /// The library failed to create a file in the datastore.
     #[snafu(display("Failed to create file at datastore path {}: {}", path.display(), source))]
     DatastoreCreate {
@@ -51,6 +59,13 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Failed to create directory '{}': {}", path.display(), source))]
+    DirCreate {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
     /// A metadata file has expired.
     #[snafu(display("{} metadata is expired", role))]
     ExpiredMetadata {
@@ -62,6 +77,13 @@ pub enum Error {
     FileRead {
         path: PathBuf,
         source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to parse {}: {}", path.display(), source))]
+    FileParseJson {
+        path: PathBuf,
+        source: serde_json::Error,
         backtrace: Backtrace,
     },
 
@@ -96,14 +118,30 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to parse keypair: {}", source))]
+    KeyPairFromKeySource {
+        source: Box<dyn std::error::Error + Send + Sync + 'static>,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Private key rejected: {}", source))]
     KeyRejected {
         source: ring::error::KeyRejected,
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to match any of the provided keys with root.json"))]
+    KeysNotFoundInRoot { backtrace: Backtrace },
+
     #[snafu(display("Unrecognized private key format"))]
     KeyUnrecognized { backtrace: Backtrace },
+
+    #[snafu(display("Failed to create symlink at '{}': {}", path.display(), source))]
+    LinkCreate {
+        path: PathBuf,
+        source: io::Error,
+        backtrace: Backtrace,
+    },
 
     /// A file's maximum size exceeded a limit set by the consumer of this library or the metadata.
     #[snafu(display("Maximum size {} (specified by {}) exceeded", max_size, specifier))]
@@ -127,6 +165,16 @@ pub enum Error {
         role: RoleType,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Missing '{}' when building repo from RepositoryEditor", field))]
+    Missing { field: String, backtrace: Backtrace },
+
+    /// Unable to determine file name (path ends in '..' or is '/')
+    #[snafu(display("Unable to determine file name from path: '{}'", path.display()))]
+    NoFileName { path: PathBuf, backtrace: Backtrace },
+
+    #[snafu(display("Key for role '{}' doesn't exist in root.json", role))]
+    NoRoleKeysinRoot { role: String },
 
     /// A downloaded metadata file has an older version than a previously downloaded metadata file.
     #[snafu(display(
@@ -176,9 +224,41 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    /// Path isn't a valid UTF8 string
+    #[snafu(display("Path {} is not valid UTF-8", path.display()))]
+    PathUtf8 { path: PathBuf, backtrace: Backtrace },
+
+    #[snafu(display("Failed to serialize role '{}' for signing: {}", role, source))]
+    SerializeRole {
+        role: String,
+        source: serde_json::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to serialize signed role '{}': {}", role, source))]
+    SerializeSignedRole {
+        role: String,
+        source: serde_json::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Failed to sign message"))]
     Sign {
         source: ring::error::Unspecified,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Unable to find signing keys for role '{}'", role))]
+    SigningKeysNotFound { role: String },
+
+    #[snafu(display(
+        "Tried to use role metadata with spec version '{}', version '{}' is supported",
+        given,
+        supported
+    ))]
+    SpecVersion {
+        given: String,
+        supported: String,
         backtrace: Backtrace,
     },
 
@@ -191,6 +271,13 @@ pub enum Error {
     SystemTimeSteppedBackward {
         sys_time: DateTime<Utc>,
         latest_known_time: DateTime<Utc>,
+    },
+
+    #[snafu(display("Unable to create Target from path '{}': {}", path.display(), source))]
+    TargetFromPath {
+        path: PathBuf,
+        source: crate::schema::Error,
+        backtrace: Backtrace,
     },
 
     /// A transport error occurred while fetching a URL.
@@ -261,6 +348,13 @@ pub enum Error {
     #[snafu(display("The target '{}' was not found", target_name))]
     CacheTargetMissing {
         target_name: String,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to walk directory tree '{}': {}", directory.display(), source))]
+    WalkDir {
+        directory: PathBuf,
+        source: walkdir::Error,
         backtrace: Backtrace,
     },
 }
