@@ -108,6 +108,7 @@ impl DownloadArgs {
 
         // copy all available targets
         println!("Downloading targets to {:?}", &self.outdir);
+        std::fs::create_dir_all(&self.outdir).context(error::DirCreate { path: &self.outdir })?;
         for target in repository.targets().signed.targets.keys() {
             let path = PathBuf::from(&self.outdir).join(target);
             println!("\t-> {}", &target);
