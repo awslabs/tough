@@ -51,6 +51,13 @@ pub(crate) enum Error {
         source: std::num::ParseIntError,
     },
 
+    #[snafu(display("Failed to create directory '{}': {}", path.display(), source))]
+    DirCreate {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Failed to copy {} to {}: {}", src.display(), dst.display(), source))]
     FileCopy {
         src: PathBuf,
