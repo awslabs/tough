@@ -18,14 +18,19 @@ mod error;
 mod refresh;
 mod root;
 mod source;
+mod update;
 
 use crate::error::Result;
+use rayon::prelude::*;
 use snafu::{ErrorCompat, OptionExt, ResultExt};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use structopt::StructOpt;
 use tempfile::NamedTempFile;
+use tough::schema::Target;
+use walkdir::WalkDir;
 
 static SPEC_VERSION: &str = "1.0.0";
 
@@ -39,6 +44,8 @@ enum Command {
     Refresh(refresh::RefreshArgs),
     /// Download a TUF repository's resources
     Download(download::DownloadArgs),
+    /// Update a TUF repository's metadata and optionally add targets
+    Update(update::UpdateArgs),
 }
 
 impl Command {
@@ -48,6 +55,7 @@ impl Command {
             Command::Root(root_subcommand) => root_subcommand.run(),
             Command::Refresh(args) => args.run(),
             Command::Download(args) => args.run(),
+            Command::Update(args) => args.run(),
         }
     }
 }
@@ -72,6 +80,44 @@ where
     writer.write_all(b"\n").context(error::FileWrite { path })?;
     writer.persist(path).context(error::FilePersist { path })?;
     Ok(())
+}
+
+// Walk the directory specified, building a map of filename to Target structs.
+// Hashing of the targets is done in parallel
+fn build_targets<P>(indir: P, follow_links: bool) -> Result<HashMap<String, Target>>
+where
+    P: AsRef<Path>,
+{
+    let indir = indir.as_ref();
+    WalkDir::new(indir)
+        .follow_links(follow_links)
+        .into_iter()
+        .par_bridge()
+        .filter_map(|entry| match entry {
+            Ok(entry) => {
+                if entry.file_type().is_file() {
+                    Some(process_target(entry.path()))
+                } else {
+                    None
+                }
+            }
+            Err(err) => Some(Err(err).context(error::WalkDir { directory: indir })),
+        })
+        .collect()
+}
+
+fn process_target(path: &Path) -> Result<(String, Target)> {
+    // Build a Target from the path given. If it is not a file, this will fail
+    let target = Target::from_path(path).context(error::TargetFromPath { path })?;
+
+    // Get the file name as a string
+    let target_name = path
+        .file_name()
+        .context(error::NoFileName { path })?
+        .to_str()
+        .context(error::PathUtf8 { path })?
+        .to_owned();
+    Ok((target_name, target))
 }
 
 fn main() -> ! {
