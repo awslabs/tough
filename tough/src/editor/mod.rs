@@ -189,8 +189,21 @@ impl RepositoryEditor {
         Ok(self)
     }
 
+    /// Add a `Target` to the repository
+    pub fn add_target(&mut self, name: String, target: Target) -> &mut Self {
+        self.new_targets
+            .get_or_insert_with(HashMap::new)
+            .insert(name, target);
+        self
+    }
+
     /// Add a target to the repository using its path
-    pub fn add_target<P>(&mut self, target_path: P) -> Result<&mut Self>
+    ///
+    /// Note: This function builds a `Target` synchronously;
+    /// no multithreading or parallelism is used. If you have a large number
+    /// of targets to add, and require advanced performance, you may want to
+    /// construct `Target`s directly in parallel and use `add_target()`.
+    pub fn add_target_path<P>(&mut self, target_path: P) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
@@ -208,19 +221,19 @@ impl RepositoryEditor {
             .context(error::PathUtf8 { path: target_path })?
             .to_owned();
 
-        self.new_targets
-            .get_or_insert_with(HashMap::new)
-            .insert(target_name, target);
+        self.add_target(target_name, target);
         Ok(self)
     }
 
     /// Add a list of target paths to the repository
-    pub fn add_targets<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
+    ///
+    /// See the note on `add_target_path()` regarding performance.
+    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
         for target in targets {
-            self.add_target(target)?;
+            self.add_target_path(target)?;
         }
         Ok(self)
     }
