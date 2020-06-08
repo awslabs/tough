@@ -101,6 +101,22 @@ where
         Ok(signed_role)
     }
 
+    pub fn signed(&self) -> &Signed<T> {
+        &self.signed
+    }
+
+    pub fn buffer(&self) -> &Vec<u8> {
+        &self.buffer
+    }
+
+    pub fn sha256(&self) -> &[u8] {
+        &self.sha256
+    }
+
+    pub fn length(&self) -> &u64 {
+        &self.length
+    }
+
     /// Write the current role's buffer to the given directory with the
     /// appropriate file name.
     pub(crate) fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>

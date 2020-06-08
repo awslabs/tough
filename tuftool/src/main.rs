@@ -15,12 +15,8 @@ mod create;
 mod datetime;
 mod download;
 mod error;
-mod key;
-mod metadata;
 mod refresh;
 mod root;
-mod root_digest;
-mod sign;
 mod source;
 
 use crate::error::Result;
@@ -39,8 +35,6 @@ enum Command {
     Create(create::CreateArgs),
     /// Manipulate a root.json metadata file
     Root(root::Command),
-    /// Sign a metadata file
-    Sign(sign::SignArgs),
     /// Refresh metadata files
     Refresh(refresh::RefreshArgs),
     /// Download a TUF repository's resources
@@ -48,11 +42,10 @@ enum Command {
 }
 
 impl Command {
-    fn run(&self) -> Result<()> {
+    fn run(self) -> Result<()> {
         match self {
             Command::Create(args) => args.run(),
             Command::Root(root_subcommand) => root_subcommand.run(),
-            Command::Sign(args) => args.run(),
             Command::Refresh(args) => args.run(),
             Command::Download(args) => args.run(),
         }

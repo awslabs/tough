@@ -5,7 +5,7 @@
 mod tests {
     use crate::editor::RepositoryEditor;
     use crate::key_source::LocalKeySource;
-    use crate::schema::{Signed, Snapshot, Targets, Timestamp};
+    use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp};
     use chrono::{Duration, Utc};
     use std::num::NonZeroU64;
     use std::path::PathBuf;
@@ -58,19 +58,23 @@ mod tests {
 
     // Make sure we can add targets from different sources
     #[test]
-    fn add_targets() {
+    fn add_targets_from_multiple_sources() {
         let targets: Signed<Targets> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/targets.json"
         ))
         .unwrap();
-        let target3 = targets_path().join("file3.txt");
+        let target3_path = targets_path().join("file3.txt");
+        let target2_path = targets_path().join("file2.txt");
+        // Use file2.txt to create a "new" target
+        let target4 = Target::from_path(target2_path).unwrap();
         let root_path = tuf_root_path();
 
         let mut editor = RepositoryEditor::new(&root_path).unwrap();
         editor
             .targets(targets.signed)
             .unwrap()
-            .add_target(target3)
+            .add_target("file4.txt".to_string(), target4)
+            .add_target_path(target3_path)
             .unwrap();
 
         let existing_targets = editor.existing_targets.unwrap();
@@ -79,8 +83,9 @@ mod tests {
         assert!(existing_targets.get("file2.txt").is_some());
 
         let new_targets = editor.new_targets.unwrap();
-        assert_eq!(new_targets.len(), 1);
+        assert_eq!(new_targets.len(), 2);
         assert!(new_targets.get("file3.txt").is_some());
+        assert!(new_targets.get("file4.txt").is_some());
     }
 
     #[test]
@@ -96,7 +101,7 @@ mod tests {
         editor
             .targets(targets.signed)
             .unwrap()
-            .add_target(target3)
+            .add_target_path(target3)
             .unwrap()
             .clear_targets();
 
@@ -129,7 +134,7 @@ mod tests {
             .snapshot_version(snapshot_version)
             .timestamp_expires(timestamp_expiration)
             .timestamp_version(timestamp_version)
-            .add_targets(target_list)
+            .add_target_paths(target_list)
             .unwrap();
 
         assert!(editor.sign(&[Box::new(key_source)]).is_ok());

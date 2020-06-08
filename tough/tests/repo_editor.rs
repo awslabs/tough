@@ -100,7 +100,7 @@ fn repo_load_edit_write_load() {
         .timestamp_expires(timestamp_expiration)
         .timestamp_version(timestamp_version)
         .clear_targets()
-        .add_target(target3)
+        .add_target_path(target3)
         .unwrap();
 
     // Sign the newly updated repo
