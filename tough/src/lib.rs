@@ -25,14 +25,18 @@ mod datastore;
 pub mod editor;
 pub mod error;
 mod fetch;
+#[cfg(feature = "http")]
+pub mod http;
 mod io;
 pub mod key_source;
 pub mod schema;
 pub mod sign;
 mod transport;
 
+/// An HTTP transport that includes retries.
 #[cfg(feature = "http")]
-pub use crate::transport::HttpTransport;
+pub use crate::http::{ClientSettings, HttpTransport, RetryRead};
+
 pub use crate::transport::{FilesystemTransport, Transport};
 
 use crate::datastore::Datastore;

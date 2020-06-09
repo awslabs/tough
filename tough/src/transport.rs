@@ -28,16 +28,3 @@ impl Transport for FilesystemTransport {
         }
     }
 }
-
-#[cfg(feature = "http")]
-pub type HttpTransport = reqwest::blocking::Client;
-
-#[cfg(feature = "http")]
-impl Transport for reqwest::blocking::Client {
-    type Stream = reqwest::blocking::Response;
-    type Error = reqwest::Error;
-
-    fn fetch(&self, url: Url) -> Result<Self::Stream, Self::Error> {
-        self.get(url.as_str()).send()?.error_for_status()
-    }
-}

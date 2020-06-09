@@ -25,8 +25,8 @@ walkdir = "2.2.9"
 
 [dev-dependencies]
 hex-literal = "0.2.0"
-tempfile = "3.1.0"
 mockito = "0.25"
+tempfile = "3.1.0"
 
 [features]
 http = ["reqwest"]

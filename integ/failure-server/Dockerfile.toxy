@@ -1,0 +1,4 @@
+FROM node:12-stretch
+COPY ./toxy/index.js ./toxy/yarn.lock ./toxy/package.json ./
+RUN yarn
+ENTRYPOINT yarn start
