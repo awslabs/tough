@@ -66,7 +66,9 @@ fn update_command() {
         .unwrap()
         .args(&[
             "update",
+            "-t",
             new_targets_input_dir.to_str().unwrap(),
+            "-o",
             update_out.path().to_str().unwrap(),
             "-k",
             root_key.to_str().unwrap(),
@@ -131,4 +133,70 @@ fn update_command() {
     assert_eq!(repo.snapshot().signed.expires, new_snapshot_expiration);
     assert_eq!(repo.timestamp().signed.version.get(), new_timestamp_version);
     assert_eq!(repo.timestamp().signed.expires, new_timestamp_expiration);
+}
+
+#[test]
+// Ensure that the update command fails if none of the keys we give it match up with root.json.
+fn update_with_incorrect_key() {
+    let base = utl::test_data().join("tuf-reference-impl");
+    let root_json = base.join("metadata").join("1.root.json");
+    let bad_key = utl::test_data().join("snakeoil.pem");
+
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "update",
+            "--outdir",
+            "/outdir/does/not/matter",
+            "-k",
+            bad_key.to_str().unwrap(),
+            "--root",
+            root_json.clone().to_str().unwrap(),
+            "--metadata-url",
+            "https://metadata.url.does.not.matter",
+            "--targets-expires",
+            "in 7 days",
+            "--targets-version",
+            "1234",
+            "--snapshot-expires",
+            "in 7 days",
+            "--snapshot-version",
+            "1234",
+            "--timestamp-expires",
+            "in 7 days",
+            "--timestamp-version",
+            "1234",
+        ])
+        .assert()
+        .failure();
+}
+
+#[test]
+// Ensure we fail if no key is provided
+fn update_with_no_key() {
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "update",
+            "--outdir",
+            "/outdir/does/not/matter",
+            "--root",
+            "/root/does/not/matter",
+            "--metadata-url",
+            "https://metadata.url.does.not.matter",
+            "--targets-expires",
+            "in 7 days",
+            "--targets-version",
+            "1234",
+            "--snapshot-expires",
+            "in 7 days",
+            "--snapshot-version",
+            "1234",
+            "--timestamp-expires",
+            "in 7 days",
+            "--timestamp-version",
+            "1234",
+        ])
+        .assert()
+        .failure();
 }
