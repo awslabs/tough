@@ -13,8 +13,9 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 use tempfile::tempdir;
 use tough::editor::RepositoryEditor;
+use tough::http::HttpTransport;
 use tough::key_source::KeySource;
-use tough::{ExpirationEnforcement, FilesystemTransport, HttpTransport, Limits, Repository};
+use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
 #[derive(Debug, StructOpt)]

@@ -1,0 +1,6 @@
+# a one-shot process that sets up toxiproxy for our test
+FROM shopify/toxiproxy:2.1.4
+ENV PATH "/go/bin:${PATH}"
+COPY ./toxiproxy/setup.sh ./
+RUN chmod +x ./setup.sh
+ENTRYPOINT ./setup.sh
