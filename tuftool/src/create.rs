@@ -15,17 +15,6 @@ use tough::key_source::KeySource;
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct CreateArgs {
-    /// Follow symbolic links in `indir`
-    #[structopt(short = "f", long = "follow")]
-    follow: bool,
-
-    /// Number of target hashing threads to run (default: number of cores)
-    // No default is specified in structopt here. This is because rayon
-    // automatically spawns the same number of threads as cores when any
-    // of its parallel methods are called.
-    #[structopt(short = "j", long = "jobs")]
-    jobs: Option<NonZeroUsize>,
-
     /// Key files to sign with
     #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
     keys: Vec<Box<dyn KeySource>>,
@@ -59,8 +48,23 @@ pub(crate) struct CreateArgs {
     root: PathBuf,
 
     /// Directory of targets
-    indir: PathBuf,
-    /// Repository output directory
+    #[structopt(short = "t", long = "add-targets")]
+    targets_indir: PathBuf,
+
+    /// Follow symbolic links in the given directory when adding targets
+    #[structopt(short = "f", long = "follow")]
+    follow: bool,
+
+    /// Number of target hashing threads to run when adding targets
+    /// (default: number of cores)
+    // No default is specified in structopt here. This is because rayon
+    // automatically spawns the same number of threads as cores when any
+    // of its parallel methods are called.
+    #[structopt(short = "j", long = "jobs")]
+    jobs: Option<NonZeroUsize>,
+
+    /// The directory where the repository will be written
+    #[structopt(short = "o", long = "outdir")]
     outdir: PathBuf,
 }
 
@@ -75,7 +79,7 @@ impl CreateArgs {
                 .context(error::InitializeThreadPool)?;
         }
 
-        let targets = build_targets(&self.indir, self.follow)?;
+        let targets = build_targets(&self.targets_indir, self.follow)?;
         let mut editor =
             RepositoryEditor::new(&self.root).context(error::EditorCreate { path: &self.root })?;
 
@@ -94,12 +98,12 @@ impl CreateArgs {
         let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
 
         let metadata_dir = &self.outdir.join("metadata");
-        let targets_dir = &self.outdir.join("targets");
+        let targets_outdir = &self.outdir.join("targets");
         signed_repo
-            .link_targets(&self.indir, targets_dir)
+            .link_targets(&self.targets_indir, targets_outdir)
             .context(error::LinkTargets {
-                indir: &self.indir,
-                outdir: targets_dir,
+                indir: &self.targets_indir,
+                outdir: targets_outdir,
             })?;
         signed_repo.write(metadata_dir).context(error::WriteRepo {
             directory: metadata_dir,

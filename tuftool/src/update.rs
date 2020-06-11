@@ -19,17 +19,6 @@ use url::Url;
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct UpdateArgs {
-    /// Follow symbolic links in `indir`
-    #[structopt(short = "f", long = "follow")]
-    follow: bool,
-
-    /// Number of target hashing threads to run (default: number of cores)
-    // No default is specified in structopt here. This is because rayon
-    // automatically spawns the same number of threads as cores when any
-    // of its parallel methods are called.
-    #[structopt(short = "j", long = "jobs")]
-    jobs: Option<NonZeroUsize>,
-
     /// Key files to sign with
     #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
     keys: Vec<Box<dyn KeySource>>,
@@ -67,23 +56,28 @@ pub(crate) struct UpdateArgs {
     metadata_base_url: Url,
 
     /// Directory of targets
-    indir: PathBuf,
+    #[structopt(short = "t", long = "add-targets")]
+    targets_indir: Option<PathBuf>,
 
-    /// Repository output directory
+    /// Follow symbolic links in the given directory when adding targets
+    #[structopt(short = "f", long = "follow")]
+    follow: bool,
+
+    /// Number of target hashing threads to run when adding targets
+    /// (default: number of cores)
+    // No default is specified in structopt here. This is because rayon
+    // automatically spawns the same number of threads as cores when any
+    // of its parallel methods are called.
+    #[structopt(short = "j", long = "jobs")]
+    jobs: Option<NonZeroUsize>,
+
+    /// The directory where the updated repository will be written
+    #[structopt(short = "o", long = "outdir")]
     outdir: PathBuf,
 }
 
 impl UpdateArgs {
     pub(crate) fn run(&self) -> Result<()> {
-        if let Some(jobs) = self.jobs {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(usize::from(jobs))
-                .build_global()
-                .context(error::InitializeThreadPool)?;
-        }
-
-        let new_targets = build_targets(&self.indir, self.follow)?;
-
         // Create a temporary directory where the TUF client can store metadata
         let workdir = tempdir().context(error::TempDir)?;
         let settings = tough::Settings {
@@ -121,20 +115,40 @@ impl UpdateArgs {
             .timestamp_version(self.timestamp_version)
             .timestamp_expires(self.timestamp_expires);
 
-        for (filename, target) in new_targets {
-            editor.add_target(filename, target);
-        }
+        // If the "add-targets" argument was passed, build a list of targets
+        // and add them to the repository. If a user specifies job count we
+        // override the default, which is the number of cores.
+        if let Some(ref targets_indir) = self.targets_indir {
+            if let Some(jobs) = self.jobs {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(usize::from(jobs))
+                    .build_global()
+                    .context(error::InitializeThreadPool)?;
+            }
 
+            let new_targets = build_targets(&targets_indir, self.follow)?;
+
+            for (filename, target) in new_targets {
+                editor.add_target(filename, target);
+            }
+        };
+
+        // Sign the repo
         let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
 
+        // Symlink any targets that were added
+        if let Some(ref targets_indir) = self.targets_indir {
+            let targets_outdir = &self.outdir.join("targets");
+            signed_repo
+                .link_targets(&targets_indir, &targets_outdir)
+                .context(error::LinkTargets {
+                    indir: &targets_indir,
+                    outdir: targets_outdir,
+                })?;
+        };
+
+        // Write the metadata to the outdir
         let metadata_dir = &self.outdir.join("metadata");
-        let targets_dir = &self.outdir.join("targets");
-        signed_repo
-            .link_targets(&self.indir, targets_dir)
-            .context(error::LinkTargets {
-                indir: &self.indir,
-                outdir: targets_dir,
-            })?;
         signed_repo.write(metadata_dir).context(error::WriteRepo {
             directory: metadata_dir,
         })?;

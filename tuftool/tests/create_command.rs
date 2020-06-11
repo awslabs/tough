@@ -29,7 +29,9 @@ fn create_command() {
         .unwrap()
         .args(&[
             "create",
+            "-t",
             targets_input_dir.to_str().unwrap(),
+            "-o",
             repo_dir.path().to_str().unwrap(),
             "-k",
             root_key.to_str().unwrap(),
@@ -125,7 +127,9 @@ fn create_with_incorrect_key() {
         .unwrap()
         .args(&[
             "create",
+            "-t",
             "input/dir/does/not/matter",
+            "-o",
             "output/dir/does/not/matter",
             "-k",
             bad_key.to_str().unwrap(),
@@ -156,7 +160,9 @@ fn create_with_no_key() {
         .unwrap()
         .args(&[
             "create",
+            "-t",
             "/input/dir/does/not/matter",
+            "-o",
             "/output/dir/does/not/matter",
             "--root",
             "/root/does/not/matter",

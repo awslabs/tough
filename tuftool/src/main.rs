@@ -15,7 +15,6 @@ mod create;
 mod datetime;
 mod download;
 mod error;
-mod refresh;
 mod root;
 mod source;
 mod update;
@@ -38,14 +37,12 @@ static SPEC_VERSION: &str = "1.0.0";
 enum Command {
     /// Create a TUF repository
     Create(create::CreateArgs),
-    /// Manipulate a root.json metadata file
-    Root(root::Command),
-    /// Refresh metadata files
-    Refresh(refresh::RefreshArgs),
     /// Download a TUF repository's resources
     Download(download::DownloadArgs),
     /// Update a TUF repository's metadata and optionally add targets
     Update(update::UpdateArgs),
+    /// Manipulate a root.json metadata file
+    Root(root::Command),
 }
 
 impl Command {
@@ -53,7 +50,6 @@ impl Command {
         match self {
             Command::Create(args) => args.run(),
             Command::Root(root_subcommand) => root_subcommand.run(),
-            Command::Refresh(args) => args.run(),
             Command::Download(args) => args.run(),
             Command::Update(args) => args.run(),
         }
