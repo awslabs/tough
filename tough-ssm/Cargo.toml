@@ -1,7 +1,11 @@
 [package]
 name = "tough-ssm"
 version = "0.1.0"
+description = "Implements AWS SSM as a key source for TUF signing keys"
 authors = ["Zac Mrowicki <mrowicki@amazon.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/awslabs/tough"
+keywords = ["TUF", "SSM"]
 edition = "2018"
 
 [features]
