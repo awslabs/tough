@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2020-06-11
+
+Major update: much of the logic in `tuftool` has been factored out and added to `tough`
+
+### Added
+- Added `tuftool update`, which allows a user to update an existing repository's metadata and optionally add targets. (This addition deprecates `tuftool refresh`; see note below)
+- `tuftool download` now creates its output directory.
+
+### Removed
+- Removed `tuftool refresh` in favor of the new `tuftool update` command
+- Lots of under-the-hood business logic, which is mostly invisible to the user. :)
+
+### Changed
+- `tuftool create`'s interface now uses flags rather than positional arguments to better align with `tuftool update`
+- Dependency updates.
+
 ## [0.3.1] - (Unreleased)
 ### Added
 - Accommodate `tough`'s change from `target_base_url` to `targets_base_url`.

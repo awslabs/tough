@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2020-06-11
+
+### Added
+- Added `Target::from_path()` method.
+- Added the `KeySource` trait, which allows users to fetch signing keys.
+- Added `RepositoryEditor`, which allow users to update a `tough::Repository`'s metadata and optionally add targets.
+
+### Changed
+- Dependency updates.
+
 ## [0.5.0] - 2020-05-18
 
 For changes that require modification of calling code see #120 and #121.
