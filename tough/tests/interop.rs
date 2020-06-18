@@ -71,6 +71,14 @@ fn test_tuf_reference_impl() {
             .unwrap(),
         "0644"
     );
+
+    assert!(repo
+        .targets()
+        .signed
+        .delegations
+        .as_ref()
+        .unwrap()
+        .check_target(&"file3.txt".to_string()));
 }
 
 #[cfg(feature = "http")]
@@ -94,6 +102,8 @@ fn test_tuf_http_transport() {
     let mock_timestamp = create_successful_get_mock("metadata/timestamp.json");
     let mock_snapshot = create_successful_get_mock("metadata/snapshot.json");
     let mock_targets = create_successful_get_mock("metadata/targets.json");
+    let mock_role1 = create_successful_get_mock("metadata/role1.json");
+    let mock_role2 = create_successful_get_mock("metadata/role2.json");
     let mock_file1_txt = create_successful_get_mock("targets/file1.txt");
     let mock_file2_txt = create_successful_get_mock("targets/file2.txt");
     let datastore = TempDir::new().unwrap();
@@ -137,6 +147,8 @@ fn test_tuf_http_transport() {
     mock_timestamp.assert();
     mock_snapshot.assert();
     mock_targets.assert();
+    mock_role1.assert();
+    mock_role2.assert();
     mock_file1_txt.assert();
     mock_file2_txt.assert();
 }

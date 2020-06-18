@@ -42,7 +42,7 @@ impl<'a, T: Transport> Repository<'a, T> {
                 self.cache_target(&targets_outdir, target_name.as_ref())?;
             }
         } else {
-            let targets = &self.targets.signed.targets;
+            let targets = &self.targets.signed.get_targets_map();
             for target_name in targets.keys() {
                 self.cache_target(&targets_outdir, target_name)?;
             }
@@ -68,6 +68,15 @@ impl<'a, T: Transport> Repository<'a, T> {
             "max_timestamp_size argument",
             &metadata_outdir,
         )?;
+
+        for name in self.targets.signed.get_roles_str() {
+            self.cache_file_from_transport(
+                &format!("{}.json", name),
+                self.limits.max_targets_size,
+                "max_targets_size argument",
+                &metadata_outdir,
+            )?;
+        }
         if cache_root_chain {
             // Copy all versions of root.json less than or equal to the current version.
             for ver in (1..=self.root.signed.version.get()).rev() {
@@ -136,14 +145,7 @@ impl<'a, T: Transport> Repository<'a, T> {
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
     /// consistent snapshots are used.
     fn cache_target<P: AsRef<Path>>(&self, outdir: P, name: &str) -> Result<()> {
-        let t = self
-            .targets
-            .signed
-            .targets
-            .get(name)
-            .context(error::CacheTargetMissing {
-                target_name: name.to_owned(),
-            })?;
+        let t = self.targets.signed.find_target(name).unwrap();
         let (sha, filename) = self.target_digest_and_filename(&t, name);
         let mut reader = self.fetch_target(t, &sha, filename.as_str())?;
         let path = outdir.as_ref().join(filename);

@@ -313,6 +313,7 @@ impl RepositoryEditor {
             expires,
             targets,
             _extra,
+            delegations: None,
         })
     }
 

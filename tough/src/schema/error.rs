@@ -18,6 +18,10 @@ pub enum Error {
     #[snafu(display("Duplicate key ID: {}", keyid))]
     DuplicateKeyId { keyid: String },
 
+    /// A duplicate key ID was present in the root metadata.
+    #[snafu(display("Duplicate role name: {}", name))]
+    DuplicateRoleName { name: String },
+
     /// Unable to open a file
     #[snafu(display("Failed to open '{}': {}", path.display(), source))]
     FileOpen {
@@ -93,6 +97,14 @@ pub enum Error {
     /// Unable to create a TUF target from anything but a file
     #[snafu(display("TUF targets must be files, given: '{}'", path.display()))]
     TargetNotAFile { path: PathBuf, backtrace: Backtrace },
+
+    /// Target doesn't have proper permissions from parent delegations
+    #[snafu(display("Invalid file permissions: {}", child))]
+    UnmatchedPath { child: String },
+
+    /// No valid targets claims target_url
+    #[snafu(display("Target File not Delegated: {}", target_url))]
+    TargetNotFound { target_url: String },
 }
 
 /// Wrapper for error types that don't impl [`std::error::Error`].

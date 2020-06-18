@@ -357,6 +357,9 @@ pub enum Error {
         source: walkdir::Error,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Target File not Delegated: {}", target_url))]
+    TargetNotFound { target_url: String },
 }
 
 // used in `std::io::Read` implementations
