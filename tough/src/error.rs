@@ -348,6 +348,7 @@ pub enum Error {
     #[snafu(display("The target '{}' was not found", target_name))]
     CacheTargetMissing {
         target_name: String,
+        source: crate::schema::Error,
         backtrace: Backtrace,
     },
 
@@ -360,6 +361,25 @@ pub enum Error {
 
     #[snafu(display("Target File not Delegated: {}", target_url))]
     TargetNotFound { target_url: String },
+
+    #[snafu(display("Delegated role not found: {}", name))]
+    DelegateNotFound { name: String },
+
+    #[snafu(display("Delegation didn't contain targets field"))]
+    NoTargets {},
+
+    #[snafu(display("Targets didn't contain delegations field"))]
+    NoDelegations {},
+
+    #[snafu(display("Delegated roles are not consistent for {}", name))]
+    DelegatedRolesNotConsistent { name: String },
+
+    /// Target doesn't have proper permissions from parent delegations
+    #[snafu(display("Invalid file permissions"))]
+    InvalidPath { source: crate::schema::Error },
+
+    #[snafu(display("Role Missing from snapshot meta: {}", name))]
+    RoleNotInMeta { name: String },
 }
 
 // used in `std::io::Read` implementations

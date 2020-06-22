@@ -42,7 +42,7 @@ impl<'a, T: Transport> Repository<'a, T> {
                 self.cache_target(&targets_outdir, target_name.as_ref())?;
             }
         } else {
-            let targets = &self.targets.signed.get_targets_map();
+            let targets = &self.targets.signed.targets_map();
             for target_name in targets.keys() {
                 self.cache_target(&targets_outdir, target_name)?;
             }
@@ -69,9 +69,9 @@ impl<'a, T: Transport> Repository<'a, T> {
             &metadata_outdir,
         )?;
 
-        for name in self.targets.signed.get_roles_str() {
+        for name in self.targets.signed.roles_str() {
             self.cache_file_from_transport(
-                &format!("{}.json", name),
+                self.delegated_filename(name).as_str(),
                 self.limits.max_targets_size,
                 "max_targets_size argument",
                 &metadata_outdir,
@@ -110,6 +110,15 @@ impl<'a, T: Transport> Repository<'a, T> {
         }
     }
 
+    /// Prepends the version number to the role.json filename if using consistent snapshot mode.
+    fn delegated_filename(&self, name: &str) -> String {
+        if self.root.signed.consistent_snapshot {
+            format!("{}.{}.json", self.targets.signed.version, name)
+        } else {
+            format!("{}.json", name)
+        }
+    }
+
     /// Copies a file using `Transport` to `outdir`.
     fn cache_file_from_transport<P: AsRef<Path>>(
         &self,
@@ -145,7 +154,13 @@ impl<'a, T: Transport> Repository<'a, T> {
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
     /// consistent snapshots are used.
     fn cache_target<P: AsRef<Path>>(&self, outdir: P, name: &str) -> Result<()> {
-        let t = self.targets.signed.find_target(name).unwrap();
+        let t = self
+            .targets
+            .signed
+            .find_target(name)
+            .context(error::CacheTargetMissing {
+                target_name: name.to_owned(),
+            })?;
         let (sha, filename) = self.target_digest_and_filename(&t, name);
         let mut reader = self.fetch_target(t, &sha, filename.as_str())?;
         let path = outdir.as_ref().join(filename);

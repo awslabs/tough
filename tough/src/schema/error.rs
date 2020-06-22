@@ -105,6 +105,15 @@ pub enum Error {
     /// No valid targets claims target_url
     #[snafu(display("Target File not Delegated: {}", target_url))]
     TargetNotFound { target_url: String },
+
+    #[snafu(display("Delegation didn't contain targets field"))]
+    NoTargets {},
+
+    #[snafu(display("Targets didn't contain delegations field"))]
+    NoDelegations {},
+
+    #[snafu(display("Invalid Regex: {}", regex))]
+    BadRegex { regex: String },
 }
 
 /// Wrapper for error types that don't impl [`std::error::Error`].

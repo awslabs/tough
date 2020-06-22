@@ -329,18 +329,21 @@ impl Targets {
     }
 
     ///Given the name of a delegated role, return the delegated role
-    pub fn get_del_role(&self, name: &str) -> Result<&DelegatedRole> {
-        self.delegations.as_ref().unwrap().get_del_role(name)
+    pub fn del_role(&self, name: &str) -> Result<&DelegatedRole> {
+        if let Some(delegations) = &self.delegations {
+            return delegations.del_role(name);
+        }
+        Err(Error::NoDelegations {})
     }
 
     ///Returns a vec of all targets and all delegated targets recursively
-    pub fn get_targets(&self) -> Vec<&Target> {
+    pub fn targets(&self) -> Vec<&Target> {
         let mut targets = Vec::new();
         for target in &self.targets {
             targets.push(target.1);
         }
         if let Some(del) = &self.delegations {
-            for t in del.get_targets() {
+            for t in del.targets() {
                 targets.push(t);
             }
         }
@@ -349,26 +352,26 @@ impl Targets {
     }
 
     ///Returns a vec of all targets and all delegated targets recursively
-    pub fn get_targets_map(&self) -> HashMap<String, &Target> {
+    pub fn targets_map(&self) -> HashMap<String, &Target> {
         let mut targets = HashMap::new();
         for target in &self.targets {
             targets.insert(target.0.clone(), target.1);
         }
         if let Some(del) = &self.delegations {
-            targets.extend(del.get_targets_map());
+            targets.extend(del.targets_map());
         }
 
         targets
     }
 
     ///Returns a vec of all rolenames
-    pub fn get_roles_str(&self) -> Vec<&String> {
+    pub fn roles_str(&self) -> Vec<&String> {
         let mut roles = Vec::new();
         if let Some(del) = &self.delegations {
             for role in &del.roles {
                 roles.push(&role.name);
                 if let Some(targets) = &role.targets {
-                    roles.append(&mut targets.signed.get_roles_str())
+                    roles.append(&mut targets.signed.roles_str())
                 }
             }
         }
@@ -456,8 +459,12 @@ impl PathSet {
         regex_string = regex_string.replace(".", "\\.");
         regex_string = regex_string.replace("*", "[^/]*");
         regex_string = regex_string.replace("?", ".");
-        let re = Regex::new(&regex_string).unwrap();
-        re.is_match(&target)
+        let re = Regex::new(&regex_string);
+        if let Ok(re) = re {
+            re.is_match(&target)
+        } else {
+            false
+        }
     }
 }
 
@@ -490,7 +497,7 @@ impl Delegations {
     }
 
     ///Returns given role if its a child of struct
-    pub fn get_role(&self, role_name: &str) -> Option<&DelegatedRole> {
+    pub fn role(&self, role_name: &str) -> Option<&DelegatedRole> {
         for role in &self.roles {
             if role.name == role_name {
                 return Some(&role);
@@ -501,7 +508,7 @@ impl Delegations {
 
     ///verifies that roles matches contain valid keys
     pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
-        let role_keys = self.get_role(name).expect("Role not found");
+        let role_keys = self.role(name).expect("Role not found");
         let mut valid = 0;
 
         let mut data = Vec::new();
@@ -550,14 +557,18 @@ impl Delegations {
     }
 
     ///Given a role name recursively searches for the delegated role
-    pub fn get_del_role(&self, name: &str) -> Result<&DelegatedRole> {
+    pub fn del_role(&self, name: &str) -> Result<&DelegatedRole> {
         for del_role in &self.roles {
             if del_role.name == name {
                 return Ok(&del_role);
             }
-            match del_role.targets.as_ref().unwrap().signed.get_del_role(name) {
-                Ok(del) => return Ok(del),
-                _ => continue,
+            if let Some(targets) = &del_role.targets {
+                match targets.signed.del_role(name) {
+                    Ok(del) => return Ok(del),
+                    _ => continue,
+                }
+            } else {
+                return Err(Error::NoDelegations {});
             }
         }
         Err(Error::TargetNotFound {
@@ -566,11 +577,11 @@ impl Delegations {
     }
 
     ///Returns all targets delegated by this struct recursively
-    pub fn get_targets(&self) -> Vec<&Target> {
+    pub fn targets(&self) -> Vec<&Target> {
         let mut targets = Vec::<&Target>::new();
         for role in &self.roles {
             if let Some(t) = &role.targets {
-                for t in t.signed.get_targets() {
+                for t in t.signed.targets() {
                     targets.push(t);
                 }
             }
@@ -579,11 +590,11 @@ impl Delegations {
     }
 
     ///Returns all targets delegated by this struct recursively
-    pub fn get_targets_map(&self) -> HashMap<String, &Target> {
+    pub fn targets_map(&self) -> HashMap<String, &Target> {
         let mut targets = HashMap::new();
         for role in &self.roles {
             if let Some(t) = &role.targets {
-                targets.extend(t.signed.get_targets_map());
+                targets.extend(t.signed.targets_map());
             }
         }
         targets
