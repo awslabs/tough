@@ -359,16 +359,19 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Target File not Delegated: {}", target_url))]
+    #[snafu(display("Target file not delegated: {}", target_url))]
     TargetNotFound { target_url: String },
 
     #[snafu(display("Delegated role not found: {}", name))]
-    DelegateNotFound { name: String },
+    DelegateNotFound {
+        name: String,
+        source: crate::schema::Error,
+    },
 
-    #[snafu(display("Delegation didn't contain targets field"))]
+    #[snafu(display("Delegation doesn't contain targets field"))]
     NoTargets {},
 
-    #[snafu(display("Targets didn't contain delegations field"))]
+    #[snafu(display("Targets doesn't contain delegations field"))]
     NoDelegations {},
 
     #[snafu(display("Delegated roles are not consistent for {}", name))]
@@ -378,7 +381,7 @@ pub enum Error {
     #[snafu(display("Invalid file permissions"))]
     InvalidPath { source: crate::schema::Error },
 
-    #[snafu(display("Role Missing from snapshot meta: {}", name))]
+    #[snafu(display("Role missing from snapshot meta: {}", name))]
     RoleNotInMeta { name: String },
 }
 

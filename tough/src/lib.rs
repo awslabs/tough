@@ -291,7 +291,8 @@ impl<'a, T: Transport> Repository<'a, T> {
         &self.timestamp
     }
 
-    pub fn delegated_targets(&self) -> Vec<&Target> {
+    ///return a vec of all targets including all target files delegated by targets
+    pub fn all_targets(&self) -> Vec<&Target> {
         self.targets.signed.targets()
     }
 
@@ -343,12 +344,13 @@ impl<'a, T: Transport> Repository<'a, T> {
     }
 
     pub fn role(&self, name: &str) -> Result<&DelegatedRole> {
-        match self.targets.signed.del_role(name) {
-            Ok(del_role) => Ok(del_role),
-            _ => Err(error::Error::DelegateNotFound {
+        Ok(self
+            .targets
+            .signed
+            .delegated_role(name)
+            .context(error::DelegateNotFound {
                 name: name.to_string(),
-            }),
-        }
+            })?)
     }
 }
 
@@ -912,17 +914,17 @@ fn load_delegations<T: Transport>(
 ) -> Result<()> {
     let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
         HashMap::new();
-    for del_role in &delegation.roles {
+    for delegated_role in &delegation.roles {
         //find the role file metadata
         let role_meta = snapshot
             .signed
             .meta
-            .get(&format!("{}.json", &del_role.name))
+            .get(&format!("{}.json", &delegated_role.name))
             .context(error::RoleNotInMeta {
-                name: del_role.name.clone(),
+                name: delegated_role.name.clone(),
             })?;
 
-        let path = format!("{}.json", &del_role.name);
+        let path = format!("{}.json", &delegated_role.name);
         let role_url = metadata_base_url.join(&path).context(error::JoinUrl {
             path: path.clone(),
             url: metadata_base_url.to_owned(),
@@ -942,7 +944,7 @@ fn load_delegations<T: Transport>(
             })?;
         //verify each role with the delegation
         delegation
-            .verify_role(&role, &del_role.name)
+            .verify_role(&role, &delegated_role.name)
             .context(error::VerifyMetadata {
                 role: RoleType::Targets,
             })?;
@@ -961,17 +963,16 @@ fn load_delegations<T: Transport>(
         }
 
         datastore.create(&path, &role)?;
-        delegated_roles.insert(del_role.name.clone(), Some(role));
+        delegated_roles.insert(delegated_role.name.clone(), Some(role));
     }
     //load all roles delegated by this role
-    for del_role in &mut delegation.roles {
-        del_role.targets =
-            delegated_roles
-                .remove(&del_role.name)
-                .context(error::DelegatedRolesNotConsistent {
-                    name: del_role.name.clone(),
-                })?;
-        if let Some(targets) = &mut del_role.targets {
+    for delegated_role in &mut delegation.roles {
+        delegated_role.targets = delegated_roles.remove(&delegated_role.name).context(
+            error::DelegatedRolesNotConsistent {
+                name: delegated_role.name.clone(),
+            },
+        )?;
+        if let Some(targets) = &mut delegated_role.targets {
             if let Some(delegations) = &mut targets.signed.delegations {
                 load_delegations(
                     transport,

@@ -103,7 +103,7 @@ pub enum Error {
     UnmatchedPath { child: String },
 
     /// No valid targets claims target_url
-    #[snafu(display("Target File not Delegated: {}", target_url))]
+    #[snafu(display("Target file not delegated: {}", target_url))]
     TargetNotFound { target_url: String },
 
     #[snafu(display("Delegation didn't contain targets field"))]

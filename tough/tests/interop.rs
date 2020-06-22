@@ -78,7 +78,7 @@ fn test_tuf_reference_impl() {
         .delegations
         .as_ref()
         .unwrap()
-        .check_target(&"file3.txt".to_string()));
+        .target_is_delegated(&"file3.txt".to_string()));
 }
 
 #[cfg(feature = "http")]

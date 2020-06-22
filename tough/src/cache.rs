@@ -69,7 +69,7 @@ impl<'a, T: Transport> Repository<'a, T> {
             &metadata_outdir,
         )?;
 
-        for name in self.targets.signed.roles_str() {
+        for name in self.targets.signed.role_names() {
             self.cache_file_from_transport(
                 self.delegated_filename(name).as_str(),
                 self.limits.max_targets_size,

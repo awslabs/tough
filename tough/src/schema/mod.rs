@@ -316,22 +316,22 @@ impl Targets {
     }
 
     ///Given a target url, returns a reference to the Target struct or error if the target is unreachable
-    pub fn find_target(&self, target_url: &str) -> Result<&Target> {
-        match self.targets.get(target_url) {
+    pub fn find_target(&self, target_name: &str) -> Result<&Target> {
+        match self.targets.get(target_name) {
             Some(target) => Ok(target),
             None => match &self.delegations {
                 None => Err(Error::TargetNotFound {
-                    target_url: target_url.to_string(),
+                    target_url: target_name.to_string(),
                 }),
-                Some(delegations) => delegations.find_target(target_url),
+                Some(delegations) => delegations.find_target(target_name),
             },
         }
     }
 
     ///Given the name of a delegated role, return the delegated role
-    pub fn del_role(&self, name: &str) -> Result<&DelegatedRole> {
+    pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
         if let Some(delegations) = &self.delegations {
-            return delegations.del_role(name);
+            return delegations.delegated_role(name);
         }
         Err(Error::NoDelegations {})
     }
@@ -342,8 +342,8 @@ impl Targets {
         for target in &self.targets {
             targets.push(target.1);
         }
-        if let Some(del) = &self.delegations {
-            for t in del.targets() {
+        if let Some(delegations) = &self.delegations {
+            for t in delegations.targets() {
                 targets.push(t);
             }
         }
@@ -351,27 +351,27 @@ impl Targets {
         targets
     }
 
-    ///Returns a vec of all targets and all delegated targets recursively
+    ///Returns a hashmap of all targets and all delegated targets recursively
     pub fn targets_map(&self) -> HashMap<String, &Target> {
         let mut targets = HashMap::new();
         for target in &self.targets {
             targets.insert(target.0.clone(), target.1);
         }
-        if let Some(del) = &self.delegations {
-            targets.extend(del.targets_map());
+        if let Some(delegations) = &self.delegations {
+            targets.extend(delegations.targets_map());
         }
 
         targets
     }
 
     ///Returns a vec of all rolenames
-    pub fn roles_str(&self) -> Vec<&String> {
+    pub fn role_names(&self) -> Vec<&String> {
         let mut roles = Vec::new();
-        if let Some(del) = &self.delegations {
-            for role in &del.roles {
+        if let Some(delelegations) = &self.delegations {
+            for role in &delelegations.roles {
                 roles.push(&role.name);
                 if let Some(targets) = &role.targets {
-                    roles.append(&mut targets.signed.roles_str())
+                    roles.append(&mut targets.signed.role_names())
                 }
             }
         }
@@ -470,7 +470,7 @@ impl PathSet {
 
 impl Delegations {
     ///Determines if target passes pathset specific matching
-    pub fn check_target(&self, target: &str) -> bool {
+    pub fn target_is_delegated(&self, target: &str) -> bool {
         for role in &self.roles {
             if role.paths.matched_target(target) {
                 return true;
@@ -482,11 +482,11 @@ impl Delegations {
     ///Ensures that all delegated paths are allowed to be delegated
     pub fn verify_paths(&self) -> Result<()> {
         for sub_role in &self.roles {
-            for path in match &sub_role.paths {
-                PathSet::Paths(paths) => paths,
-                PathSet::PathHashPrefixes(paths) => paths,
-            } {
-                if !self.check_target(&path) {
+            let pathset = match &sub_role.paths {
+                PathSet::Paths(paths) | PathSet::PathHashPrefixes(paths) => paths,
+            };
+            for path in pathset {
+                if !self.target_is_delegated(&path) {
                     return Err(Error::UnmatchedPath {
                         child: path.to_string(),
                     });
@@ -511,6 +511,7 @@ impl Delegations {
         let role_keys = self.role(name).expect("Role not found");
         let mut valid = 0;
 
+        //serialize the role to verify the key
         let mut data = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
         role.signed
@@ -540,31 +541,29 @@ impl Delegations {
         Ok(())
     }
 
-    ///Finds target using pre ordered search given `target_url` or error if the target is not found
-    pub fn find_target(&self, target_url: &str) -> Result<&Target> {
-        for del_role in &self.roles {
-            match &del_role.targets {
-                Some(targets) => match &targets.signed.find_target(target_url) {
-                    Ok(target) => return Ok(target),
-                    _ => continue,
-                },
-                None => continue,
+    ///Finds target using pre ordered search given `target_name` or error if the target is not found
+    pub fn find_target(&self, target_name: &str) -> Result<&Target> {
+        for delegated_role in &self.roles {
+            if let Some(targets) = &delegated_role.targets {
+                if let Ok(target) = &targets.signed.find_target(target_name) {
+                    return Ok(target);
+                }
             }
         }
         Err(Error::TargetNotFound {
-            target_url: target_url.to_string(),
+            target_url: target_name.to_string(),
         })
     }
 
     ///Given a role name recursively searches for the delegated role
-    pub fn del_role(&self, name: &str) -> Result<&DelegatedRole> {
-        for del_role in &self.roles {
-            if del_role.name == name {
-                return Ok(&del_role);
+    pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
+        for delegated_role in &self.roles {
+            if delegated_role.name == name {
+                return Ok(&delegated_role);
             }
-            if let Some(targets) = &del_role.targets {
-                match targets.signed.del_role(name) {
-                    Ok(del) => return Ok(del),
+            if let Some(targets) = &delegated_role.targets {
+                match targets.signed.delegated_role(name) {
+                    Ok(delegations) => return Ok(delegations),
                     _ => continue,
                 }
             } else {
