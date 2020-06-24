@@ -369,10 +369,10 @@ pub enum Error {
     },
 
     #[snafu(display("Delegation doesn't contain targets field"))]
-    NoTargets {},
+    NoTargets,
 
     #[snafu(display("Targets doesn't contain delegations field"))]
-    NoDelegations {},
+    NoDelegations,
 
     #[snafu(display("Delegated roles are not consistent for {}", name))]
     DelegatedRolesNotConsistent { name: String },

@@ -49,7 +49,6 @@ impl<'a, T: Transport> Repository<'a, T> {
         }
 
         // Save the snapshot, targets and timestamp metadata files, and (optionally) the root files.
-        // TODO - support role delegation https://github.com/awslabs/tough/issues/5
         self.cache_file_from_transport(
             self.snapshot_filename().as_str(),
             self.max_snapshot_size()?,
@@ -70,13 +69,16 @@ impl<'a, T: Transport> Repository<'a, T> {
         )?;
 
         for name in self.targets.signed.role_names() {
-            self.cache_file_from_transport(
-                self.delegated_filename(name).as_str(),
-                self.limits.max_targets_size,
-                "max_targets_size argument",
-                &metadata_outdir,
-            )?;
+            if let Some(filename) = self.delegated_filename(name) {
+                self.cache_file_from_transport(
+                    filename.as_str(),
+                    self.limits.max_targets_size,
+                    "max_targets_size argument",
+                    &metadata_outdir,
+                )?;
+            }
         }
+
         if cache_root_chain {
             // Copy all versions of root.json less than or equal to the current version.
             for ver in (1..=self.root.signed.version.get()).rev() {
@@ -111,11 +113,19 @@ impl<'a, T: Transport> Repository<'a, T> {
     }
 
     /// Prepends the version number to the role.json filename if using consistent snapshot mode.
-    fn delegated_filename(&self, name: &str) -> String {
+    fn delegated_filename(&self, name: &str) -> Option<String> {
         if self.root.signed.consistent_snapshot {
-            format!("{}.{}.json", self.targets.signed.version, name)
+            Some(format!(
+                "{}.{}.json",
+                self.snapshot
+                    .signed
+                    .meta
+                    .get(&format!("{}.json", name))?
+                    .version,
+                name
+            ))
         } else {
-            format!("{}.json", name)
+            Some(format!("{}.json", name))
         }
     }
 

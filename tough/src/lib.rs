@@ -31,7 +31,7 @@ pub mod schema;
 pub mod sign;
 mod transport;
 
-use crate::schema::{DelegatedRole, Delegations, Target};
+use crate::schema::{DelegatedRole, Delegations};
 #[cfg(feature = "http")]
 pub use crate::transport::HttpTransport;
 pub use crate::transport::{FilesystemTransport, Transport};
@@ -292,8 +292,8 @@ impl<'a, T: Transport> Repository<'a, T> {
     }
 
     ///return a vec of all targets including all target files delegated by targets
-    pub fn all_targets(&self) -> Vec<&Target> {
-        self.targets.signed.targets()
+    pub fn all_targets<'b>(&'b self) -> impl Iterator + 'b {
+        self.targets.signed.targets_iter()
     }
 
     /// Fetches a target from the repository.
@@ -343,14 +343,8 @@ impl<'a, T: Transport> Repository<'a, T> {
         })
     }
 
-    pub fn role(&self, name: &str) -> Result<&DelegatedRole> {
-        Ok(self
-            .targets
-            .signed
-            .delegated_role(name)
-            .context(error::DelegateNotFound {
-                name: name.to_string(),
-            })?)
+    pub fn delegated_role(&self, name: &str) -> Option<&DelegatedRole> {
+        self.targets.signed.delegated_role(name).ok()
     }
 }
 
@@ -881,14 +875,11 @@ fn load_targets<T: Transport>(
         check_expired(datastore, &targets.signed)?;
     }
 
-    // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
-    //   with the top-level targets role.
-    //
-    // (This library does not yet handle delegated roles, so we just use the parsed targets from
-    // targets.json.)
-
     // Now that everything seems okay, write the targets file to the datastore.
     datastore.create("targets.json", &targets)?;
+
+    // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
+    //   with the top-level targets role.
     if let Some(delegations) = &mut targets.signed.delegations {
         load_delegations(
             transport,
@@ -903,7 +894,7 @@ fn load_targets<T: Transport>(
     Ok(targets)
 }
 
-//Follow the paths of delegations starting with the top level targets.json delegation
+// Follow the paths of delegations starting with the top level targets.json delegation
 fn load_delegations<T: Transport>(
     transport: &T,
     snapshot: &Signed<Snapshot>,
@@ -915,7 +906,7 @@ fn load_delegations<T: Transport>(
     let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
         HashMap::new();
     for delegated_role in &delegation.roles {
-        //find the role file metadata
+        // find the role file metadata
         let role_meta = snapshot
             .signed
             .meta
@@ -930,19 +921,19 @@ fn load_delegations<T: Transport>(
             url: metadata_base_url.to_owned(),
         })?;
         let specifier = "max_targets_size parameter";
-        //load the role json file
+        // load the role json file
         let reader = Box::new(fetch_max_size(
             transport,
             role_url,
             max_targets_size,
             specifier,
         )?);
-        //since each role is a targets, we load them as such
+        // since each role is a targets, we load them as such
         let role: Signed<crate::schema::Targets> =
             serde_json::from_reader(reader).context(error::ParseMetadata {
                 role: RoleType::Targets,
             })?;
-        //verify each role with the delegation
+        // verify each role with the delegation
         delegation
             .verify_role(&role, &delegated_role.name)
             .context(error::VerifyMetadata {
@@ -965,7 +956,7 @@ fn load_delegations<T: Transport>(
         datastore.create(&path, &role)?;
         delegated_roles.insert(delegated_role.name.clone(), Some(role));
     }
-    //load all roles delegated by this role
+    // load all roles delegated by this role
     for delegated_role in &mut delegation.roles {
         delegated_role.targets = delegated_roles.remove(&delegated_role.name).context(
             error::DelegatedRolesNotConsistent {

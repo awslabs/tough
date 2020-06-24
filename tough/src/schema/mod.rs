@@ -16,8 +16,8 @@ use crate::schema::key::Key;
 use crate::sign::Sign;
 pub use crate::transport::{FilesystemTransport, Transport};
 use chrono::{DateTime, Utc};
+use globset::Glob;
 use olpc_cjson::CanonicalFormatter;
-use regex::Regex;
 use ring::digest::{digest, Context, SHA256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -226,7 +226,6 @@ impl Role for Snapshot {
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
-// We do not handle delegation in this library.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "targets")]
@@ -315,20 +314,20 @@ impl Targets {
         }
     }
 
-    ///Given a target url, returns a reference to the Target struct or error if the target is unreachable
+    /// Given a target url, returns a reference to the Target struct or error if the target is unreachable
     pub fn find_target(&self, target_name: &str) -> Result<&Target> {
         match self.targets.get(target_name) {
             Some(target) => Ok(target),
             None => match &self.delegations {
                 None => Err(Error::TargetNotFound {
-                    target_url: target_name.to_string(),
+                    target_file: target_name.to_string(),
                 }),
                 Some(delegations) => delegations.find_target(target_name),
             },
         }
     }
 
-    ///Given the name of a delegated role, return the delegated role
+    /// Given the name of a delegated role, return the delegated role
     pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
         if let Some(delegations) = &self.delegations {
             return delegations.delegated_role(name);
@@ -336,14 +335,19 @@ impl Targets {
         Err(Error::NoDelegations {})
     }
 
-    ///Returns a vec of all targets and all delegated targets recursively
-    pub fn targets(&self) -> Vec<&Target> {
+    /// Returns an iterator of all targets delegated recursively
+    pub fn targets_iter<'a>(&'a self) -> impl Iterator + 'a {
+        self.targets_vec().into_iter()
+    }
+
+    /// Returns a vec of all targets and all delegated targets recursively
+    pub fn targets_vec(&self) -> Vec<&Target> {
         let mut targets = Vec::new();
         for target in &self.targets {
             targets.push(target.1);
         }
         if let Some(delegations) = &self.delegations {
-            for t in delegations.targets() {
+            for t in delegations.targets_vec() {
                 targets.push(t);
             }
         }
@@ -351,7 +355,7 @@ impl Targets {
         targets
     }
 
-    ///Returns a hashmap of all targets and all delegated targets recursively
+    /// Returns a hashmap of all targets and all delegated targets recursively
     pub fn targets_map(&self) -> HashMap<String, &Target> {
         let mut targets = HashMap::new();
         for target in &self.targets {
@@ -364,7 +368,7 @@ impl Targets {
         targets
     }
 
-    ///Returns a vec of all rolenames
+    /// Returns a vec of all rolenames
     pub fn role_names(&self) -> Vec<&String> {
         let mut roles = Vec::new();
         if let Some(delelegations) = &self.delegations {
@@ -392,7 +396,7 @@ impl Role for Targets {
     }
 }
 
-//Implementation for delegated targets
+// Implementation for delegated targets
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Delegations {
     #[serde(deserialize_with = "de::deserialize_keys")]
@@ -400,7 +404,7 @@ pub struct Delegations {
     pub roles: Vec<DelegatedRole>,
 }
 
-///Each role delegated in a targets file is considered a delegated role
+/// Each role delegated in a targets file is considered a delegated role
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DelegatedRole {
     pub name: String,
@@ -413,7 +417,7 @@ pub struct DelegatedRole {
     pub targets: Option<Signed<Targets>>,
 }
 
-///Targets can delegate paths as paths or path hash prefixes
+/// Targets can delegate paths as paths or path hash prefixes
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub enum PathSet {
     #[serde(rename = "paths")]
@@ -424,7 +428,7 @@ pub enum PathSet {
 }
 
 impl PathSet {
-    ///Given a target string determines if paths match
+    /// Given a target string determines if paths match
     fn matched_target(&self, target: &str) -> bool {
         match self {
             Self::Paths(paths) => {
@@ -446,30 +450,26 @@ impl PathSet {
         false
     }
 
-    ///Given a path hash prefix and a target path determines if target is delegated by prefix
+    /// Given a path hash prefix and a target path determines if target is delegated by prefix
     fn matched_prefix(prefix: &str, target: &str) -> bool {
         let temp_target = target.to_string();
         let hash = digest(&SHA256, temp_target.as_bytes());
         hash.as_ref().starts_with(prefix.as_bytes())
     }
 
-    ///Given a shell style wildcard path determines if target matches the path
+    /// Given a shell style wildcard path determines if target matches the path
     fn matched_path(wildcardpath: &str, target: &str) -> bool {
-        let mut regex_string = wildcardpath.to_string();
-        regex_string = regex_string.replace(".", "\\.");
-        regex_string = regex_string.replace("*", "[^/]*");
-        regex_string = regex_string.replace("?", ".");
-        let re = Regex::new(&regex_string);
-        if let Ok(re) = re {
-            re.is_match(&target)
+        let glob = if let Ok(glob) = Glob::new(wildcardpath) {
+            glob.compile_matcher()
         } else {
-            false
-        }
+            return false;
+        };
+        glob.is_match(target)
     }
 }
 
 impl Delegations {
-    ///Determines if target passes pathset specific matching
+    /// Determines if target passes pathset specific matching
     pub fn target_is_delegated(&self, target: &str) -> bool {
         for role in &self.roles {
             if role.paths.matched_target(target) {
@@ -479,7 +479,7 @@ impl Delegations {
         false
     }
 
-    ///Ensures that all delegated paths are allowed to be delegated
+    /// Ensures that all delegated paths are allowed to be delegated
     pub fn verify_paths(&self) -> Result<()> {
         for sub_role in &self.roles {
             let pathset = match &sub_role.paths {
@@ -496,7 +496,7 @@ impl Delegations {
         Ok(())
     }
 
-    ///Returns given role if its a child of struct
+    /// Returns given role if its a child of struct
     pub fn role(&self, role_name: &str) -> Option<&DelegatedRole> {
         for role in &self.roles {
             if role.name == role_name {
@@ -506,12 +506,12 @@ impl Delegations {
         None
     }
 
-    ///verifies that roles matches contain valid keys
+    /// verifies that roles matches contain valid keys
     pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
         let role_keys = self.role(name).expect("Role not found");
         let mut valid = 0;
 
-        //serialize the role to verify the key
+        // serialize the role to verify the key ID by using the JSON representation
         let mut data = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
         role.signed
@@ -541,7 +541,7 @@ impl Delegations {
         Ok(())
     }
 
-    ///Finds target using pre ordered search given `target_name` or error if the target is not found
+    /// Finds target using pre ordered search given `target_name` or error if the target is not found
     pub fn find_target(&self, target_name: &str) -> Result<&Target> {
         for delegated_role in &self.roles {
             if let Some(targets) = &delegated_role.targets {
@@ -551,11 +551,11 @@ impl Delegations {
             }
         }
         Err(Error::TargetNotFound {
-            target_url: target_name.to_string(),
+            target_file: target_name.to_string(),
         })
     }
 
-    ///Given a role name recursively searches for the delegated role
+    /// Given a role name recursively searches for the delegated role
     pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
         for delegated_role in &self.roles {
             if delegated_role.name == name {
@@ -571,16 +571,16 @@ impl Delegations {
             }
         }
         Err(Error::TargetNotFound {
-            target_url: name.to_string(),
+            target_file: name.to_string(),
         })
     }
 
-    ///Returns all targets delegated by this struct recursively
-    pub fn targets(&self) -> Vec<&Target> {
+    /// Returns all targets delegated by this struct recursively
+    pub fn targets_vec(&self) -> Vec<&Target> {
         let mut targets = Vec::<&Target>::new();
         for role in &self.roles {
             if let Some(t) = &role.targets {
-                for t in t.signed.targets() {
+                for t in t.signed.targets_vec() {
                     targets.push(t);
                 }
             }
@@ -588,7 +588,7 @@ impl Delegations {
         targets
     }
 
-    ///Returns all targets delegated by this struct recursively
+    /// Returns all targets delegated by this struct recursively
     pub fn targets_map(&self) -> HashMap<String, &Target> {
         let mut targets = HashMap::new();
         for role in &self.roles {

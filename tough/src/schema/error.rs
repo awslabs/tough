@@ -18,7 +18,7 @@ pub enum Error {
     #[snafu(display("Duplicate key ID: {}", keyid))]
     DuplicateKeyId { keyid: String },
 
-    /// A duplicate key ID was present in the root metadata.
+    /// A duplicate role was present in the delegations metadata.
     #[snafu(display("Duplicate role name: {}", name))]
     DuplicateRoleName { name: String },
 
@@ -99,21 +99,18 @@ pub enum Error {
     TargetNotAFile { path: PathBuf, backtrace: Backtrace },
 
     /// Target doesn't have proper permissions from parent delegations
-    #[snafu(display("Invalid file permissions: {}", child))]
+    #[snafu(display("Invalid file permissions from parent delegation: {}", child))]
     UnmatchedPath { child: String },
 
-    /// No valid targets claims target_url
-    #[snafu(display("Target file not delegated: {}", target_url))]
-    TargetNotFound { target_url: String },
+    /// No valid targets claims `target_file`
+    #[snafu(display("Target file not delegated: {}", target_file))]
+    TargetNotFound { target_file: String },
 
-    #[snafu(display("Delegation didn't contain targets field"))]
-    NoTargets {},
+    #[snafu(display("Delegation doesn't contain targets field"))]
+    NoTargets,
 
-    #[snafu(display("Targets didn't contain delegations field"))]
-    NoDelegations {},
-
-    #[snafu(display("Invalid Regex: {}", regex))]
-    BadRegex { regex: String },
+    #[snafu(display("Targets doesn't contain delegations field"))]
+    NoDelegations,
 }
 
 /// Wrapper for error types that don't impl [`std::error::Error`].
