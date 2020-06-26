@@ -12,8 +12,9 @@ use ring::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
 use ring::rand::SecureRandom;
 use serde::Serialize;
 use snafu::{ensure, OptionExt, ResultExt};
+use std::fs;
 use std::os::unix::fs::symlink;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 /// A signed role, including its serialized form (`buffer`) which is meant to
@@ -182,29 +183,18 @@ impl SignedRepository {
         self.timestamp.write(&outdir, consistent_snapshot)
     }
 
-    /// Crawls a given directory and symlinks any targets found to the given
-    /// "out" directory. If consistent snapshots are used, the target files
-    /// are prefixed with their `sha256`.
-    ///
-    /// For each file found in the `indir`, the method gets the filename and
-    /// if the filename exists in `Targets`, the file's sha256 is compared
-    /// against the data in `Targets`. If this data does not match, the
-    /// method will fail. If all is well, the target is symlinked.
-    pub fn link_targets<P1, P2>(&self, indir: P1, outdir: P2) -> Result<()>
+    /// Walks a given directory and calls the provided function with every file found.
+    /// The function is given the file path, the output directory where the user expects
+    /// it to go, and optionally a desired filename.
+    fn walk_targets<F>(&self, indir: &Path, outdir: &Path, f: F) -> Result<()>
     where
-        P1: AsRef<Path>,
-        P2: AsRef<Path>,
+        F: Fn(&Self, &Path, &Path, Option<&str>) -> Result<()>,
     {
-        let outdir = outdir.as_ref();
-        let indir = indir.as_ref();
         std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
 
         // Get the absolute path of the indir and outdir
         let abs_indir =
             std::fs::canonicalize(indir).context(error::AbsolutePath { path: indir })?;
-        let abs_outdir =
-            std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
-        let repo_targets = &self.targets.signed.signed.targets;
 
         // Walk the absolute path of the indir. Using the absolute path here
         // means that `entry.path()` call will return its absolute path.
@@ -219,22 +209,51 @@ impl SignedRepository {
                 continue;
             };
 
-            // If the entry is a file, get the filename
-            let file_name = entry
+            // Call the requested function to manipulate the path we found
+            if let Err(e) = f(self, entry.path(), outdir, None) {
+                match e {
+                    // If we found a path that isn't a known target in the repo, skip it.
+                    error::Error::PathIsNotTarget { .. } => continue,
+                    _ => return Err(e),
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Determines the output path of a target based on consistent snapshot rules. Returns Err if
+    /// the target already exists in the repo with a different hash.  Returns Ok(None) if the given
+    /// path is not a known target in the repository.  (We're dealing with a signed repo, so it's
+    /// too late to add targets.)
+    fn target_path(
+        &self,
+        input: &Path,
+        outdir: &Path,
+        target_filename: Option<&str>,
+    ) -> Result<Option<PathBuf>> {
+        let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
+
+        // If the caller requested a specific target filename, use that, otherwise use the filename
+        // component of the input path.
+        let file_name = if let Some(target_filename) = target_filename {
+            target_filename
+        } else {
+            input
                 .file_name()
+                .context(error::NoFileName { path: input })?
                 .to_str()
-                .context(error::PathUtf8 { path: entry.path() })?;
+                .context(error::PathUtf8 { path: input })?
+        };
 
-            // Use the file name to see if a target exists in the repo
-            // with that name. If so...
-            let repo_target = match repo_targets.get(file_name) {
-                Some(repo_target) => repo_target,
-                None => continue,
-            };
-            // create a Target object using the entry's path, and then...
-            let target_from_path = Target::from_path(entry.path())
-                .context(error::TargetFromPath { path: entry.path() })?;
+        // create a Target object using the input path.
+        let target_from_path =
+            Target::from_path(input).context(error::TargetFromPath { path: input })?;
 
+        // Use the file name to see if a target exists in the repo
+        // with that name. If so...
+        let repo_targets = &self.targets.signed.signed.targets;
+        if let Some(repo_target) = repo_targets.get(file_name) {
             // compare the hashes of the target from the repo and the
             // target we just created. If they are the same, this must
             // be the same file, symlink it.
@@ -246,20 +265,95 @@ impl SignedRepository {
                     expected: hex::encode(&repo_target.hashes.sha256),
                 }
             );
-
-            let dest = if self.root.signed.signed.consistent_snapshot {
-                abs_outdir.join(format!(
-                    "{}.{}",
-                    hex::encode(&target_from_path.hashes.sha256),
-                    file_name
-                ))
-            } else {
-                abs_outdir.join(&file_name)
-            };
-
-            symlink(entry.path(), &dest).context(error::LinkCreate { path: &dest })?;
+        } else {
+            // Given path is not a target; caller can decide if that's a problem
+            return Ok(None);
         }
 
+        let dest = if self.root.signed.signed.consistent_snapshot {
+            outdir.join(format!(
+                "{}.{}",
+                hex::encode(&target_from_path.hashes.sha256),
+                file_name
+            ))
+        } else {
+            outdir.join(&file_name)
+        };
+
+        Ok(Some(dest))
+    }
+
+    /// Crawls a given directory and symlinks any targets found to the given
+    /// "out" directory. If consistent snapshots are used, the target files
+    /// are prefixed with their `sha256`.
+    ///
+    /// For each file found in the `indir`, the method gets the filename and
+    /// if the filename exists in `Targets`, the file's sha256 is compared
+    /// against the data in `Targets`. If this data does not match, the
+    /// method will fail.
+    pub fn link_targets<P1, P2>(&self, indir: P1, outdir: P2) -> Result<()>
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
+    {
+        self.walk_targets(indir.as_ref(), outdir.as_ref(), Self::link_target)
+    }
+
+    /// Crawls a given directory and copies any targets found to the given
+    /// "out" directory. If consistent snapshots are used, the target files
+    /// are prefixed with their `sha256`.
+    ///
+    /// For each file found in the `indir`, the method gets the filename and
+    /// if the filename exists in `Targets`, the file's sha256 is compared
+    /// against the data in `Targets`. If this data does not match, the
+    /// method will fail.
+    pub fn copy_targets<P1, P2>(&self, indir: P1, outdir: P2) -> Result<()>
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
+    {
+        self.walk_targets(indir.as_ref(), outdir.as_ref(), Self::copy_target)
+    }
+
+    /// Symlinks a single target to the desired directory. If `target_filename` is given, it
+    /// becomes the filename suffix, otherwise the original filename is used. (A unique filename
+    /// prefix is used if consistent snapshots are enabled.)  Fails if the target already exists in
+    /// the repo with a different hash.
+    pub fn link_target(
+        &self,
+        input_path: &Path,
+        outdir: &Path,
+        target_filename: Option<&str>,
+    ) -> Result<()> {
+        ensure!(
+            input_path.is_file(),
+            error::PathIsNotFile { path: input_path }
+        );
+        let output_path = self
+            .target_path(input_path, outdir, target_filename)?
+            .context(error::PathIsNotTarget { path: input_path })?;
+        symlink(input_path, &output_path).context(error::LinkCreate { path: &output_path })?;
+        Ok(())
+    }
+
+    /// Copies a single target to the desired directory. If `target_filename` is given, it becomes
+    /// the filename suffix, otherwise the original filename is used. (A unique filename prefix is
+    /// used if consistent hashing is enabled.)  Fails if the target already exists in the repo
+    /// with a different hash.
+    pub fn copy_target(
+        &self,
+        input_path: &Path,
+        outdir: &Path,
+        target_filename: Option<&str>,
+    ) -> Result<()> {
+        ensure!(
+            input_path.is_file(),
+            error::PathIsNotFile { path: input_path }
+        );
+        let output_path = self
+            .target_path(input_path, outdir, target_filename)?
+            .context(error::PathIsNotTarget { path: input_path })?;
+        fs::copy(input_path, &output_path).context(error::FileWrite { path: output_path })?;
         Ok(())
     }
 }
