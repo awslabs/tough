@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2020-06-26
+
+### Added
+- Added `#[non_exhaustive]` to `tough::Error` and `tough::schema::Error`
+- `editor::signed::SignedRepository`:
+  - Added `copy_targets`, which does the same as `link_targets` except copies rather than symlinks
+  - Added `link_target` and `copy_target`, which are used by the above functions and allow for handling single files with custom filenames
+
 ## [0.6.0] - 2020-06-11
 
 ### Added

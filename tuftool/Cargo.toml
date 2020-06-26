@@ -33,9 +33,9 @@ structopt = "0.3"
 tempfile = "3.1.0"
 url = "2.1.0"
 walkdir = "2.2.9"
-tough = { version = "0.6.0", path = "../tough", features = ["http"] }
+tough = { version = "0.7.0", path = "../tough", features = ["http"] }
 tokio = "0.2.21"
-tough-ssm = { version = "0.1.0", path = "../tough-ssm" }
+tough-ssm = { version = "0.2.0", path = "../tough-ssm" }
 
 [dev-dependencies]
 assert_cmd = "1.0"
