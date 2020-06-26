@@ -18,6 +18,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// The error type for this library.
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
+#[non_exhaustive]
 pub enum Error {
     #[snafu(display("Unable to canonicalize path '{}': {}", path.display(), source))]
     AbsolutePath {
