@@ -224,6 +224,12 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Requested copy/link of '{}' which is not a file", path.display()))]
+    PathIsNotFile { path: PathBuf, backtrace: Backtrace },
+
+    #[snafu(display("Requested copy/link of '{}' which is not a repo target", path.display()))]
+    PathIsNotTarget { path: PathBuf, backtrace: Backtrace },
+
     /// Path isn't a valid UTF8 string
     #[snafu(display("Path {} is not valid UTF-8", path.display()))]
     PathUtf8 { path: PathBuf, backtrace: Backtrace },

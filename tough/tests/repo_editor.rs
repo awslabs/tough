@@ -79,8 +79,10 @@ fn repo_load_edit_write_load() {
     let snapshot_version = NonZeroU64::new(5432).unwrap();
     let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
     let targets_version = NonZeroU64::new(789).unwrap();
-    let targets_location = test_data().join("tuf-reference-impl").join("targets");
-    let target3 = targets_location.join("file3.txt");
+    let reference_targets_location = test_data().join("tuf-reference-impl").join("targets");
+    let target3 = reference_targets_location.join("file3.txt");
+    let targets_location = test_data().join("targets");
+    let target4 = targets_location.join("file4.txt");
 
     // Load the reference_impl repo
     let mut editor = RepositoryEditor::from_repo(&root, repo).unwrap();
@@ -101,6 +103,8 @@ fn repo_load_edit_write_load() {
         .timestamp_version(timestamp_version)
         .clear_targets()
         .add_target_path(target3)
+        .unwrap()
+        .add_target_path(target4)
         .unwrap();
 
     // Sign the newly updated repo
@@ -112,7 +116,10 @@ fn repo_load_edit_write_load() {
     let targets_destination = destination.as_ref().join("targets");
     assert!(signed_repo.write(&metadata_destination).is_ok());
     assert!(signed_repo
-        .link_targets(&targets_location, &targets_destination)
+        .link_targets(&reference_targets_location, &targets_destination)
+        .is_ok());
+    assert!(signed_repo
+        .copy_targets(&targets_location, &targets_destination)
         .is_ok());
 
     // Load the repo we just created
@@ -133,20 +140,23 @@ fn repo_load_edit_write_load() {
     .unwrap();
 
     // Ensure the new repo only has the single target
-    assert_eq!(new_repo.targets().signed.targets.len(), 1);
+    assert_eq!(new_repo.targets().signed.targets.len(), 2);
 
     // The repo shouldn't contain file1 or file2
     // `read_target()` returns a Result(Option<>) which is why we unwrap
     assert!(new_repo.read_target("file1.txt").unwrap().is_none());
     assert!(new_repo.read_target("file2.txt").unwrap().is_none());
 
-    // Read file3.txt
-    let mut file_data = Vec::new();
-    let file_size = new_repo
-        .read_target("file3.txt")
-        .unwrap()
-        .unwrap()
-        .read_to_end(&mut file_data)
-        .unwrap();
-    assert_eq!(28, file_size);
+    // Read both new targets and ensure they're the right size
+    let files_to_check = &[(28, "file3.txt"), (31, "file4.txt")];
+    for (expected_file_size, filename) in files_to_check {
+        let mut file_data = Vec::new();
+        let actual_file_size = new_repo
+            .read_target(filename)
+            .unwrap()
+            .unwrap()
+            .read_to_end(&mut file_data)
+            .unwrap();
+        assert_eq!(*expected_file_size, actual_file_size);
+    }
 }
