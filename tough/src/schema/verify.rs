@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use super::error::{self, Result};
 use super::{Role, Root, Signed};
 use olpc_cjson::CanonicalFormatter;
@@ -20,11 +21,16 @@ impl Root {
                 what: format!("{} role", T::TYPE),
             })?;
 
+        let mut valid_keyids = HashSet::new();
+
         for signature in &role.signatures {
             if role_keys.keyids.contains(&signature.keyid) {
                 if let Some(key) = self.keys.get(&signature.keyid) {
                     if key.verify(&data, &signature.sig) {
-                        valid += 1;
+                        // Ignore duplicate keyids.
+                        if valid_keyids.insert(&signature.keyid) {
+                            valid += 1;
+                        }
                     }
                 }
             }
@@ -98,5 +104,27 @@ mod tests {
         root.signed
             .verify_role(&root)
             .expect_err("mismatched root role keyids (provided and signed) should not verify");
+    }
+
+    #[test]
+    fn duplicate_sigs_is_err() {
+        let root: Signed<Root> =
+            serde_json::from_str(include_str!("../../tests/data/duplicate-sigs/root.json"))
+        .expect("should be parsable root.json");
+        root.signed
+            .verify_role(&root)
+            .expect_err("expired root signature should not verify");
+    }
+
+    #[test]
+    fn duplicate_sig_keys_is_err() {
+        // This metadata is signed with the non-deterministic rsassa-pss signing scheme to
+        // demonstrate that we will will detect different signatures made by the same key.
+        let root: Signed<Root> =
+            serde_json::from_str(include_str!("../../tests/data/duplicate-sig-keys/root.json"))
+        .expect("should be parsable root.json");
+        root.signed
+            .verify_role(&root)
+            .expect_err("expired root signature should not verify");
     }
 }
