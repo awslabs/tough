@@ -1788,7 +1788,7 @@ dependencies = [
 
 [[package]]
 name = "tough"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "chrono 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1810,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "tough-ssm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rusoto_core 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusoto_credential 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1819,7 +1819,7 @@ dependencies = [
  "serde_json 1.0.55 (registry+https://github.com/rust-lang/crates.io-index)",
  "snafu 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "tough 0.6.0",
+ "tough 0.7.0",
 ]
 
 [[package]]
@@ -1859,8 +1859,8 @@ dependencies = [
  "structopt 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "tough 0.6.0",
- "tough-ssm 0.1.0",
+ "tough 0.7.0",
+ "tough-ssm 0.2.0",
  "url 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir 2.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
