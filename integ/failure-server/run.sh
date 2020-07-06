@@ -52,21 +52,21 @@ docker run -d \
   -e FOLDER=/content \
   -e SHOW_LISTING=true \
   -e PORT="${fileserver_port}" \
-  -p "${fileserver_port}:${fileserver_port}" \
+  --expose "${fileserver_port}" \
   --network tough_test_network \
   --name tuf_srv_ctr \
-  --ip "${fileserver_ip}" \
+  --network-alias "fileserver" \
   halverneus/static-file-server:latest
 
 # start the toxiproxy server that will provide mid-response aborts - points to the fileserver
 waitforit 1
 echo "run a toxiproxy container"
 docker run -d \
-  -p "${toxiproxy_control}:${toxiproxy_control}" \
-  -p "${toxiproxy_listen}:${toxiproxy_listen}" \
+  --expose "${toxiproxy_control}" \
+  --expose "${toxiproxy_listen}" \
   --name toxiproxy_srv_ctr \
   --network tough_test_network \
-  --ip 172.12.13.3 \
+  --network-alias "toxiproxy" \
   shopify/toxiproxy:2.1.4
 
 # run a one-shot container that sets up the toxiproxy with http calls
@@ -75,7 +75,6 @@ echo "run a one-shot container to setup toxiproxy"
 docker run \
   --name toxiproxy_cli_ctr \
   --network tough_test_network \
-  --ip 172.12.13.99 \
   toxiproxy_cli_img
 
 # run another server 'in front' of toxiproxy, this one will return occasional 503's

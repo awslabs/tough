@@ -94,6 +94,7 @@ impl Read for RetryRead {
                 // store the error in `retry_err` to return later if there are no more retries
                 Err(err) => err,
             };
+            println!("a Read retry is happening!");
 
             // increment the `retry_state` and fetch a new reader if retries are not exhausted
             if self.retry_state.current_try >= self.settings.tries - 1 {
@@ -215,6 +216,7 @@ fn fetch_with_retries(r: &mut RetryState, cs: &ClientSettings, url: &Url) -> Res
             }
         };
 
+        println!("a Fetch retry is happening!");
         // increment the retry state and continue trying unless we are out of tries
         if r.current_try >= cs.tries - 1 {
             return Err(retry_err).context(error::HttpRetries {
