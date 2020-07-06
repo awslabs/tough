@@ -5,7 +5,7 @@ const rules = toxy.rules
 // Create a new toxy proxy
 const proxy = toxy()
 proxy
-    .forward('http://toxiproxy:5050')
+    .forward('http://toxiproxy:10102')
 
 // Register poisons and rules
 proxy

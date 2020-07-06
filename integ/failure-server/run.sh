@@ -7,10 +7,8 @@ TUF_REFERENCE_REPO="${DIR}/../../tough/tests/data/tuf-reference-impl"
 
 # these ports (as well as hostnames) are hardcoded in various places. don't
 # change them without looking for other occurrences of the values.
-fileserver_port=10101
+public_port=10103
 toxiproxy_control=8474
-toxiproxy_listen=5050
-public_port=3000
 
 function waitforit() {
   echo "waiting $1 seconds for the service to start"
@@ -46,8 +44,8 @@ docker run -d \
   -v "${TUF_REFERENCE_REPO}/metadata:/content/metadata" \
   -e FOLDER=/content \
   -e SHOW_LISTING=true \
-  -e PORT="${fileserver_port}" \
-  --expose "${fileserver_port}" \
+  -e PORT="10101" \
+  --expose "10101" \
   --network tough_test_network \
   --name tuf_srv_ctr \
   --network-alias "fileserver" \
@@ -58,7 +56,7 @@ waitforit 1
 echo "run a toxiproxy container"
 docker run -d \
   --expose "${toxiproxy_control}" \
-  --expose "${toxiproxy_listen}" \
+  --expose "10102" \
   --name toxiproxy_srv_ctr \
   --network tough_test_network \
   --network-alias "toxiproxy" \

@@ -6,7 +6,7 @@ set -eo
 # create the proxy connection to the tuf fileserver
 toxiproxy-cli --host http://toxiproxy:8474 \
   create tuf \
-  --listen toxiproxy:5050 \
+  --listen toxiproxy:10102 \
   --upstream fileserver:10101
 
 # add an abort failure

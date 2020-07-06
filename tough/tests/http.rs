@@ -153,8 +153,8 @@ mod http_integ {
                 Settings {
                     root: File::open(&root_path).unwrap(),
                     datastore: tempdir.path(),
-                    metadata_base_url: "http://localhost:3000/metadata",
-                    targets_base_url: "http://localhost:3000/targets",
+                    metadata_base_url: "http://localhost:10103/metadata",
+                    targets_base_url: "http://localhost:10103/targets",
                     limits: Limits::default(),
                     expiration_enforcement: ExpirationEnforcement::Safe,
                 },
