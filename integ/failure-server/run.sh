@@ -5,11 +5,9 @@ set -eo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 TUF_REFERENCE_REPO="${DIR}/../../tough/tests/data/tuf-reference-impl"
 
-# these ports and ips are hardcoded in various other places. for now don't
-# change them without looking for other occurences of the values.
-fileserver_ip=172.12.13.2
+# these ports (as well as hostnames) are hardcoded in various places. don't
+# change them without looking for other occurrences of the values.
 fileserver_port=10101
-toxiproxy_ip=172.12.13.3
 toxiproxy_control=8474
 toxiproxy_listen=5050
 public_port=3000
@@ -39,9 +37,6 @@ docker build -f "${DIR}/Dockerfile.toxy" \
 echo "creating a docker network"
 docker network create \
   --driver=bridge \
-  --subnet=172.12.13.0/24 \
-  --ip-range=172.12.13.0/24 \
-  --gateway=172.12.13.1 \
   tough_test_network
 
 # a non-toxic fileserver that is serving the tuf reference impl repo
