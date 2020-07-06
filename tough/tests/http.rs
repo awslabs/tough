@@ -2,17 +2,13 @@ mod test_utils;
 
 /// Instead of guarding every individual thing with `#[cfg(feature = "http")]`, use a module.
 #[cfg(feature = "http")]
-mod http_tests {
+mod http_happy {
     use crate::test_utils::{read_to_end, test_data};
     use mockito::mock;
     use std::fs::File;
-    use std::path::PathBuf;
-    use std::process::Command;
     use std::str::FromStr;
     use tempfile::TempDir;
-    use tough::{
-        ClientSettings, ExpirationEnforcement, HttpTransport, Limits, Repository, Settings,
-    };
+    use tough::{ExpirationEnforcement, HttpTransport, Limits, Repository, Settings};
     use url::Url;
 
     /// Create a path in a mock HTTP server which serves a file from `tuf-reference-impl`.
@@ -80,6 +76,19 @@ mod http_tests {
         mock_file1_txt.assert();
         mock_file2_txt.assert();
     }
+}
+
+#[cfg(feature = "http")]
+#[cfg(feature = "integ")]
+mod http_integ {
+    use crate::test_utils::test_data;
+    use std::fs::File;
+    use std::path::PathBuf;
+    use std::process::{Command, Stdio};
+    use tempfile::TempDir;
+    use tough::{
+        ClientSettings, ExpirationEnforcement, HttpTransport, Limits, Repository, Settings,
+    };
 
     pub fn integ_dir() -> PathBuf {
         let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -108,7 +117,6 @@ mod http_tests {
     /// the send which exercises the range-header retry in the `Read` loop, and 5XX's are also sent
     /// triggering retries in the `fetch` loop.
     #[test]
-    #[ignore] // comment this out to run the test
     fn test_retries() {
         // run docker images to create a faulty http representation of tuf-reference-impl
         let output = Command::new("bash")
@@ -118,9 +126,11 @@ mod http_tests {
                     .join("run.sh")
                     .into_os_string(),
             )
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .output()
             .expect("failed to start server with docker containers");
-        println!("{}", String::from_utf8_lossy(&output.stdout));
+        assert!(output.status.success());
 
         // load the tuf-reference-impl repo via http repeatedly through faulty proxies
         for i in 0..5 {
@@ -130,7 +140,7 @@ mod http_tests {
                 // the service we have created is very toxic with many failures, so we will do a
                 // large number of retries, enough that we can be reasonably assured that we will
                 // always succeed.
-                tries: 9999,
+                tries: 200,
                 // we don't want the test to take forever so we use small pauses
                 initial_backoff: std::time::Duration::from_nanos(100),
                 max_backoff: std::time::Duration::from_millis(1),
@@ -161,8 +171,10 @@ mod http_tests {
                     .join("teardown.sh")
                     .into_os_string(),
             )
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .output()
             .expect("failed to delete docker objects");
-        println!("{}", String::from_utf8_lossy(&output.stdout));
+        assert!(output.status.success());
     }
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # delete everything in the right order. errors are ignored so that this
 # script can be used whether or not all of the artifacts exist.
