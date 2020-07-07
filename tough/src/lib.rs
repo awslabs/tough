@@ -31,6 +31,7 @@ pub mod schema;
 pub mod sign;
 mod transport;
 
+use crate::schema::{DelegatedRole, Delegations};
 #[cfg(feature = "http")]
 pub use crate::transport::HttpTransport;
 pub use crate::transport::{FilesystemTransport, Transport};
@@ -42,6 +43,7 @@ use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 use url::Url;
@@ -289,6 +291,11 @@ impl<'a, T: Transport> Repository<'a, T> {
         &self.timestamp
     }
 
+    ///return a vec of all targets including all target files delegated by targets
+    pub fn all_targets<'b>(&'b self) -> impl Iterator + 'b {
+        self.targets.signed.targets_iter()
+    }
+
     /// Fetches a target from the repository.
     ///
     /// If the repository metadata is expired or there is an issue making the request, `Err` is
@@ -328,14 +335,16 @@ impl<'a, T: Transport> Repository<'a, T> {
         //   HASH is one of the hashes of the targets file listed in the targets metadata file
         //   found earlier in step 4. In either case, the client MUST write the file to
         //   non-volatile storage as FILENAME.EXT.
-        Ok(
-            if let Some(target) = self.targets.signed.targets.get(name) {
-                let (sha256, file) = self.target_digest_and_filename(target, name);
-                Some(self.fetch_target(target, &sha256, file.as_str())?)
-            } else {
-                None
-            },
-        )
+        Ok(if let Ok(target) = self.targets.signed.find_target(name) {
+            let (sha256, file) = self.target_digest_and_filename(target, name);
+            Some(self.fetch_target(target, &sha256, file.as_str())?)
+        } else {
+            None
+        })
+    }
+
+    pub fn delegated_role(&self, name: &str) -> Option<&DelegatedRole> {
+        self.targets.signed.delegated_role(name).ok()
     }
 }
 
@@ -808,7 +817,7 @@ fn load_targets<T: Transport>(
             specifier,
         )?)
     };
-    let targets: Signed<crate::schema::Targets> =
+    let mut targets: Signed<crate::schema::Targets> =
         serde_json::from_reader(reader).context(error::ParseMetadata {
             role: RoleType::Targets,
         })?;
@@ -866,16 +875,108 @@ fn load_targets<T: Transport>(
         check_expired(datastore, &targets.signed)?;
     }
 
-    // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
-    //   with the top-level targets role.
-    //
-    // (This library does not yet handle delegated roles, so we just use the parsed targets from
-    // targets.json.)
-
     // Now that everything seems okay, write the targets file to the datastore.
     datastore.create("targets.json", &targets)?;
 
+    // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
+    //   with the top-level targets role.
+    if let Some(delegations) = &mut targets.signed.delegations {
+        load_delegations(
+            transport,
+            snapshot,
+            metadata_base_url,
+            max_targets_size,
+            delegations,
+            &datastore,
+        )?;
+    }
+
     Ok(targets)
+}
+
+// Follow the paths of delegations starting with the top level targets.json delegation
+fn load_delegations<T: Transport>(
+    transport: &T,
+    snapshot: &Signed<Snapshot>,
+    metadata_base_url: &Url,
+    max_targets_size: u64,
+    delegation: &mut Delegations,
+    datastore: &Datastore<'_>,
+) -> Result<()> {
+    let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
+        HashMap::new();
+    for delegated_role in &delegation.roles {
+        // find the role file metadata
+        let role_meta = snapshot
+            .signed
+            .meta
+            .get(&format!("{}.json", &delegated_role.name))
+            .context(error::RoleNotInMeta {
+                name: delegated_role.name.clone(),
+            })?;
+
+        let path = format!("{}.json", &delegated_role.name);
+        let role_url = metadata_base_url.join(&path).context(error::JoinUrl {
+            path: path.clone(),
+            url: metadata_base_url.to_owned(),
+        })?;
+        let specifier = "max_targets_size parameter";
+        // load the role json file
+        let reader = Box::new(fetch_max_size(
+            transport,
+            role_url,
+            max_targets_size,
+            specifier,
+        )?);
+        // since each role is a targets, we load them as such
+        let role: Signed<crate::schema::Targets> =
+            serde_json::from_reader(reader).context(error::ParseMetadata {
+                role: RoleType::Targets,
+            })?;
+        // verify each role with the delegation
+        delegation
+            .verify_role(&role, &delegated_role.name)
+            .context(error::VerifyMetadata {
+                role: RoleType::Targets,
+            })?;
+        ensure!(
+            role.signed.version == role_meta.version,
+            error::VersionMismatch {
+                role: RoleType::Targets,
+                fetched: role.signed.version,
+                expected: role_meta.version
+            }
+        );
+        {
+            if let Some(delegations) = role.signed.delegations.as_ref() {
+                delegations.verify_paths().context(error::InvalidPath {})?
+            }
+        }
+
+        datastore.create(&path, &role)?;
+        delegated_roles.insert(delegated_role.name.clone(), Some(role));
+    }
+    // load all roles delegated by this role
+    for delegated_role in &mut delegation.roles {
+        delegated_role.targets = delegated_roles.remove(&delegated_role.name).context(
+            error::DelegatedRolesNotConsistent {
+                name: delegated_role.name.clone(),
+            },
+        )?;
+        if let Some(targets) = &mut delegated_role.targets {
+            if let Some(delegations) = &mut targets.signed.delegations {
+                load_delegations(
+                    transport,
+                    snapshot,
+                    metadata_base_url,
+                    max_targets_size,
+                    delegations,
+                    datastore,
+                )?;
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

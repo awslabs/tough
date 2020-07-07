@@ -42,14 +42,13 @@ impl<'a, T: Transport> Repository<'a, T> {
                 self.cache_target(&targets_outdir, target_name.as_ref())?;
             }
         } else {
-            let targets = &self.targets.signed.targets;
+            let targets = &self.targets.signed.targets_map();
             for target_name in targets.keys() {
                 self.cache_target(&targets_outdir, target_name)?;
             }
         }
 
         // Save the snapshot, targets and timestamp metadata files, and (optionally) the root files.
-        // TODO - support role delegation https://github.com/awslabs/tough/issues/5
         self.cache_file_from_transport(
             self.snapshot_filename().as_str(),
             self.max_snapshot_size()?,
@@ -68,6 +67,18 @@ impl<'a, T: Transport> Repository<'a, T> {
             "max_timestamp_size argument",
             &metadata_outdir,
         )?;
+
+        for name in self.targets.signed.role_names() {
+            if let Some(filename) = self.delegated_filename(name) {
+                self.cache_file_from_transport(
+                    filename.as_str(),
+                    self.limits.max_targets_size,
+                    "max_targets_size argument",
+                    &metadata_outdir,
+                )?;
+            }
+        }
+
         if cache_root_chain {
             // Copy all versions of root.json less than or equal to the current version.
             for ver in (1..=self.root.signed.version.get()).rev() {
@@ -98,6 +109,23 @@ impl<'a, T: Transport> Repository<'a, T> {
             format!("{}.targets.json", self.targets.signed.version)
         } else {
             "targets.json".to_owned()
+        }
+    }
+
+    /// Prepends the version number to the role.json filename if using consistent snapshot mode.
+    fn delegated_filename(&self, name: &str) -> Option<String> {
+        if self.root.signed.consistent_snapshot {
+            Some(format!(
+                "{}.{}.json",
+                self.snapshot
+                    .signed
+                    .meta
+                    .get(&format!("{}.json", name))?
+                    .version,
+                name
+            ))
+        } else {
+            Some(format!("{}.json", name))
         }
     }
 
@@ -139,8 +167,7 @@ impl<'a, T: Transport> Repository<'a, T> {
         let t = self
             .targets
             .signed
-            .targets
-            .get(name)
+            .find_target(name)
             .context(error::CacheTargetMissing {
                 target_name: name.to_owned(),
             })?;

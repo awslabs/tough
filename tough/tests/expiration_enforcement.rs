@@ -69,6 +69,5 @@ fn test_expiration_enforcement_unsafe() {
             expiration_enforcement: ExpirationEnforcement::Unsafe,
         },
     );
-
     assert!(result.is_ok())
 }

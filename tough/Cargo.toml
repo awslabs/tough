@@ -10,6 +10,7 @@ edition = "2018"
 
 [dependencies]
 chrono = { version = "0.4.11", features = ["serde"] }
+globset = { version = "0.4.5" }
 hex = "0.4.2"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
 pem = "0.7.0"
