@@ -19,7 +19,7 @@ chrono = "0.4.11"
 hex = "0.4.2"
 maplit = "1.0.1"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
-pem = "0.7.0"
+pem = "0.8.1"
 rayon = "1.2"
 reqwest = { version = "0.10.4", features = ["blocking"] }
 ring = { version = "0.16.13", features = ["std"] }
