@@ -9,7 +9,8 @@ use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tempfile::tempdir;
-use tough::{ExpirationEnforcement, HttpTransport, Limits, Repository, Settings};
+use tough::http::HttpTransport;
+use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 use url::Url;
 
 #[derive(Debug, StructOpt)]

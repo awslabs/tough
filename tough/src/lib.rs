@@ -10,6 +10,13 @@
 //!
 //! [TUF repositories]: https://theupdateframework.github.io/
 //! [spec]: https://github.com/theupdateframework/specification/blob/9f148556ca15da2ec5c022c8b3e6f99a028e5fe5/tuf-spec.md
+//!
+//! # Testing
+//!
+//! Unit tests are run in the usual manner: `cargo test`.
+//! Integration tests require docker and are disabled by default behind a feature named `integ`.
+//! To run all tests, including integration tests: `cargo test --all-features` or
+//! `cargo test --features 'http,integ'`.
 
 #![forbid(missing_debug_implementations, missing_copy_implementations)]
 #![deny(rust_2018_idioms)]
@@ -25,21 +32,23 @@ mod datastore;
 pub mod editor;
 pub mod error;
 mod fetch;
+#[cfg(feature = "http")]
+pub mod http;
 mod io;
 pub mod key_source;
 pub mod schema;
 pub mod sign;
 mod transport;
 
-use crate::schema::{DelegatedRole, Delegations};
-#[cfg(feature = "http")]
-pub use crate::transport::HttpTransport;
-pub use crate::transport::{FilesystemTransport, Transport};
-
 use crate::datastore::Datastore;
 use crate::error::Result;
 use crate::fetch::{fetch_max_size, fetch_sha256};
+/// An HTTP transport that includes retries.
+#[cfg(feature = "http")]
+pub use crate::http::{ClientSettings, HttpTransport, RetryRead};
+use crate::schema::{DelegatedRole, Delegations};
 use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
+pub use crate::transport::{FilesystemTransport, Transport};
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
