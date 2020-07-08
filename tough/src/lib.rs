@@ -20,6 +20,8 @@
 
 #![forbid(missing_debug_implementations, missing_copy_implementations)]
 #![deny(rust_2018_idioms)]
+// missing_docs is on its own line to make it easy to comment out when making changes.
+#![deny(missing_docs)]
 #![warn(clippy::pedantic)]
 #![allow(
     clippy::module_name_repetitions,
@@ -61,7 +63,11 @@ use url::Url;
 /// it should ignore expired metadata (`Unsafe`). Only use `Unsafe` if you are sure you need it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExpirationEnforcement {
+    /// Expirations will be enforced. You MUST use this option to get TUF security guarantees.
     Safe,
+
+    /// Expirations will not be enforced. This is available for certain offline use cases, does NOT
+    /// provide TUF security guarantees, and should only be used if you are sure that you need it.
     Unsafe,
 }
 
@@ -352,6 +358,7 @@ impl<'a, T: Transport> Repository<'a, T> {
         })
     }
 
+    /// Return the named `DelegatedRole` if found.
     pub fn delegated_role(&self, name: &str) -> Option<&DelegatedRole> {
         self.targets.signed.delegated_role(name).ok()
     }

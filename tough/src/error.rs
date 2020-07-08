@@ -19,6 +19,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 #[non_exhaustive]
+#[allow(missing_docs)]
 pub enum Error {
     #[snafu(display("Unable to canonicalize path '{}': {}", path.display(), source))]
     AbsolutePath {

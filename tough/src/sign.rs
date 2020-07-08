@@ -1,6 +1,8 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Provides the `Sign` trait which abstracts over the method of signing with different key types.
+
 use crate::error::{self, Result};
 use crate::schema::key::Key;
 use ring::rand::SecureRandom;

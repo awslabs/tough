@@ -1,3 +1,5 @@
+//! Provides a wrapper and traits for abstracting over decoded keys or different types.
+
 use crate::schema::error::{self, Error};
 use crate::schema::spki;
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};

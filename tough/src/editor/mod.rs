@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 #![allow(clippy::used_underscore_binding)] // #20
 
+//! Provides a `RepositoryEditor` object for building and editing TUF repositories.
+
 mod keys;
 pub mod signed;
 mod test;

@@ -14,6 +14,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(super)")]
 #[non_exhaustive]
+#[allow(missing_docs)]
 pub enum Error {
     /// A duplicate key ID was present in the root metadata.
     #[snafu(display("Duplicate key ID: {}", keyid))]

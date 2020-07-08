@@ -1,6 +1,8 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Provides an abstraction over the source of a signing key. This allows signing keys to be
+//! obtained, for example, from local files or from cloud provider key stores.
 use crate::error;
 use crate::sign::{parse_keypair, Sign};
 use snafu::ResultExt;
@@ -22,8 +24,10 @@ pub trait KeySource: Debug + Send + Sync {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>;
 }
 
+/// Points to a local key using a filesystem path.
 #[derive(Debug)]
 pub struct LocalKeySource {
+    /// The path to a local key file in PEM pkcs8 or RSA format.
     pub path: PathBuf,
 }
 

@@ -6,6 +6,7 @@ use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashSet;
 
 impl Root {
+    /// Checks that the given metadata role is valid based on a threshold of key signatures.
     pub fn verify_role<T: Role + Serialize>(&self, role: &Signed<T>) -> Result<()> {
         let role_keys = self
             .roles
