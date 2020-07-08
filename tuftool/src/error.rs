@@ -162,6 +162,12 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to initialize logger: {}", source))]
+    Logger {
+        source: simplelog::TermLogError,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Metadata error: {}", source))]
     Metadata {
         source: tough::error::Error,

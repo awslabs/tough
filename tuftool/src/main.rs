@@ -21,6 +21,7 @@ mod update;
 
 use crate::error::Result;
 use rayon::prelude::*;
+use simplelog::{ConfigBuilder, LevelFilter, TermLogger, TerminalMode};
 use snafu::{ErrorCompat, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fs::File;
@@ -32,6 +33,36 @@ use tough::schema::Target;
 use walkdir::WalkDir;
 
 static SPEC_VERSION: &str = "1.0.0";
+
+/// This wrapper enables global options and initializes the logger before running any subcommands.
+#[derive(StructOpt)]
+struct Program {
+    /// Set logging verbosity [trace|debug|info|warn|error]
+    #[structopt(
+        name = "log-level",
+        short = "l",
+        long = "log-level",
+        default_value = "info"
+    )]
+    log_level: LevelFilter,
+    #[structopt(subcommand)]
+    cmd: Command,
+}
+
+impl Program {
+    fn run(self) -> Result<()> {
+        TermLogger::init(
+            self.log_level,
+            ConfigBuilder::new()
+                .add_filter_allow_str("tuftool")
+                .add_filter_allow_str("tough")
+                .build(),
+            TerminalMode::Mixed,
+        )
+        .context(error::Logger)?;
+        self.cmd.run()
+    }
+}
 
 #[derive(Debug, StructOpt)]
 enum Command {
@@ -117,7 +148,7 @@ fn process_target(path: &Path) -> Result<(String, Target)> {
 }
 
 fn main() -> ! {
-    std::process::exit(match Command::from_args().run() {
+    std::process::exit(match Program::from_args().run() {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("{}", err);
