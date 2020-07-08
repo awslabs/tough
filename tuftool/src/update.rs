@@ -130,7 +130,7 @@ impl UpdateArgs {
             let new_targets = build_targets(&targets_indir, self.follow)?;
 
             for (filename, target) in new_targets {
-                editor.add_target(filename, target);
+                editor.add_target(&filename, target);
             }
         };
 

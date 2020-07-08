@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::editor::keys::get_root_keys;
+use crate::editor::keys::get_targets_keys;
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::{
@@ -12,6 +13,7 @@ use ring::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
 use ring::rand::SecureRandom;
 use serde::Serialize;
 use snafu::{ensure, OptionExt, ResultExt};
+use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
@@ -102,6 +104,128 @@ where
         Ok(signed_role)
     }
 
+    /// Creates a role from a signed role.
+    /// This is used to create signed roles for metadata that was not changed.
+    pub fn from_signed(role: Signed<T>) -> Result<SignedRole<T>> {
+        // Serialize the role, and calculate its length and
+        // sha256.
+        let mut buffer = serde_json::to_vec_pretty(&role).context(error::SerializeSignedRole {
+            role: T::TYPE.to_string(),
+        })?;
+        buffer.push(b'\n');
+        let length = buffer.len() as u64;
+
+        let mut sha256 = [0; SHA256_OUTPUT_LEN];
+        sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
+
+        // Create the `SignedRole` containing, the `Signed<role>`, serialized
+        // buffer, length and sha256.
+        let signed_role = SignedRole {
+            signed: role,
+            buffer,
+            sha256,
+            length,
+        };
+
+        Ok(signed_role)
+    }
+
+    /// creates a map of all signed targets roles excluding the toplevel Targets
+    ///  if `include_all`, throw error if needed keys are not present if not just ignore
+    pub fn new_targets(
+        role: &Targets,
+        keys: &[Box<dyn KeySource>],
+        rng: &dyn SecureRandom,
+        include_all: bool,
+    ) -> Result<HashMap<String, SignedRole<Targets>>> {
+        let mut signed_roles = HashMap::new();
+        if let Some(delegations) = &role.delegations {
+            if delegations.roles.is_empty() {
+                return Ok(signed_roles);
+            }
+            let root_keys = get_targets_keys(&delegations, keys)?;
+            for role in &delegations.roles {
+                let name = role.name.clone();
+                let role_keys = role.keys();
+                // Ensure the keys we have available to us will allow us
+                // to sign this role. The role's key ids must match up with one of
+                // the keys provided.
+
+                // Create the `Signed` struct for this role. This struct will be
+                // mutated later to contain the signatures.
+
+                //only sign targets that we have keys for without throwing an error
+                //delegations allow a key to sign some roles without having to sign them all
+                if let Some(targets) = &role.targets {
+                    let role = if let Some((signing_key_id, signing_key)) = root_keys
+                        .iter()
+                        .find(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid))
+                    {
+                        let mut role = Signed {
+                            signed: targets.clone().signed,
+                            signatures: Vec::new(),
+                        };
+                        let mut data = Vec::new();
+                        let mut ser = serde_json::Serializer::with_formatter(
+                            &mut data,
+                            CanonicalFormatter::new(),
+                        );
+                        role.signed
+                            .serialize(&mut ser)
+                            .context(error::SerializeRole {
+                                role: T::TYPE.to_string(),
+                            })?;
+                        let sig = signing_key.sign(&data, rng)?;
+
+                        // Add the signatures to the `Signed` struct for this role
+                        role.signatures.push(Signature {
+                            keyid: signing_key_id.clone(),
+                            sig: sig.into(),
+                        });
+
+                        role
+                    } else if include_all {
+                        delegations
+                            .verify_role(targets, &name)
+                            .context(error::KeyNotFound { role: name.clone() })?;
+                        targets.clone()
+                    } else {
+                        targets.clone()
+                    };
+
+                    // Serialize the newly signed role, and calculate its length and
+                    // sha256.
+                    let mut buffer =
+                        serde_json::to_vec_pretty(&role).context(error::SerializeSignedRole {
+                            role: T::TYPE.to_string(),
+                        })?;
+                    buffer.push(b'\n');
+                    let length = buffer.len() as u64;
+
+                    let mut sha256 = [0; SHA256_OUTPUT_LEN];
+                    sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
+
+                    signed_roles.extend(SignedRole::<Targets>::new_targets(
+                        &role.signed.clone(),
+                        keys,
+                        rng,
+                        include_all,
+                    )?);
+                    // Create the `SignedRole` containing, the `Signed<role>`, serialized
+                    // buffer, length and sha256.
+                    let signed_role = SignedRole {
+                        signed: role,
+                        buffer,
+                        sha256,
+                        length,
+                    };
+                    signed_roles.insert(name, signed_role);
+                }
+            }
+        }
+        Ok(signed_roles)
+    }
+
     pub fn signed(&self) -> &Signed<T> {
         &self.signed
     }
@@ -120,7 +244,7 @@ where
 
     /// Write the current role's buffer to the given directory with the
     /// appropriate file name.
-    pub(crate) fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>
+    pub fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -149,6 +273,23 @@ where
         let path = outdir.join(filename);
         std::fs::write(&path, &self.buffer).context(error::FileWrite { path })
     }
+
+    /// Write the current delegated role's buffer to the given directory with the
+    /// appropriate file name.
+    pub fn write_del_role<P>(&self, outdir: P, consistent_snapshot: bool, name: &str) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let outdir = outdir.as_ref();
+        std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
+
+        let path = outdir.join(if consistent_snapshot {
+            format!("{}.{}.json", self.signed.signed.version(), name)
+        } else {
+            format!("{}.json", name)
+        });
+        std::fs::write(&path, &self.buffer).context(error::FileWrite { path })
+    }
 }
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
@@ -167,6 +308,7 @@ pub struct SignedRepository {
     pub(crate) targets: SignedRole<Targets>,
     pub(crate) snapshot: SignedRole<Snapshot>,
     pub(crate) timestamp: SignedRole<Timestamp>,
+    pub(crate) delegations: HashMap<String, SignedRole<Targets>>,
 }
 
 impl SignedRepository {
@@ -180,107 +322,11 @@ impl SignedRepository {
         self.root.write(&outdir, consistent_snapshot)?;
         self.targets.write(&outdir, consistent_snapshot)?;
         self.snapshot.write(&outdir, consistent_snapshot)?;
-        self.timestamp.write(&outdir, consistent_snapshot)
-    }
-
-    /// Walks a given directory and calls the provided function with every file found.
-    /// The function is given the file path, the output directory where the user expects
-    /// it to go, and optionally a desired filename.
-    fn walk_targets<F>(&self, indir: &Path, outdir: &Path, f: F) -> Result<()>
-    where
-        F: Fn(&Self, &Path, &Path, Option<&str>) -> Result<()>,
-    {
-        std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
-
-        // Get the absolute path of the indir and outdir
-        let abs_indir =
-            std::fs::canonicalize(indir).context(error::AbsolutePath { path: indir })?;
-
-        // Walk the absolute path of the indir. Using the absolute path here
-        // means that `entry.path()` call will return its absolute path.
-        let walker = WalkDir::new(&abs_indir).follow_links(true);
-        for entry in walker {
-            let entry = entry.context(error::WalkDir {
-                directory: &abs_indir,
-            })?;
-
-            // If the entry is not a file, move on
-            if !entry.file_type().is_file() {
-                continue;
-            };
-
-            // Call the requested function to manipulate the path we found
-            if let Err(e) = f(self, entry.path(), outdir, None) {
-                match e {
-                    // If we found a path that isn't a known target in the repo, skip it.
-                    error::Error::PathIsNotTarget { .. } => continue,
-                    _ => return Err(e),
-                }
-            }
+        self.timestamp.write(&outdir, consistent_snapshot)?;
+        for (key, targets) in &self.delegations {
+            targets.write_del_role(&outdir, consistent_snapshot, &key)?;
         }
-
         Ok(())
-    }
-
-    /// Determines the output path of a target based on consistent snapshot rules. Returns Err if
-    /// the target already exists in the repo with a different hash.  Returns Ok(None) if the given
-    /// path is not a known target in the repository.  (We're dealing with a signed repo, so it's
-    /// too late to add targets.)
-    fn target_path(
-        &self,
-        input: &Path,
-        outdir: &Path,
-        target_filename: Option<&str>,
-    ) -> Result<Option<PathBuf>> {
-        let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
-
-        // If the caller requested a specific target filename, use that, otherwise use the filename
-        // component of the input path.
-        let file_name = if let Some(target_filename) = target_filename {
-            target_filename
-        } else {
-            input
-                .file_name()
-                .context(error::NoFileName { path: input })?
-                .to_str()
-                .context(error::PathUtf8 { path: input })?
-        };
-
-        // create a Target object using the input path.
-        let target_from_path =
-            Target::from_path(input).context(error::TargetFromPath { path: input })?;
-
-        // Use the file name to see if a target exists in the repo
-        // with that name. If so...
-        let repo_targets = &self.targets.signed.signed.targets;
-        if let Some(repo_target) = repo_targets.get(file_name) {
-            // compare the hashes of the target from the repo and the
-            // target we just created. If they are the same, this must
-            // be the same file, symlink it.
-            ensure!(
-                target_from_path.hashes.sha256 == repo_target.hashes.sha256,
-                error::HashMismatch {
-                    context: "target",
-                    calculated: hex::encode(target_from_path.hashes.sha256),
-                    expected: hex::encode(&repo_target.hashes.sha256),
-                }
-            );
-        } else {
-            // Given path is not a target; caller can decide if that's a problem
-            return Ok(None);
-        }
-
-        let dest = if self.root.signed.signed.consistent_snapshot {
-            outdir.join(format!(
-                "{}.{}",
-                hex::encode(&target_from_path.hashes.sha256),
-                file_name
-            ))
-        } else {
-            outdir.join(&file_name)
-        };
-
-        Ok(Some(dest))
     }
 
     /// Crawls a given directory and symlinks any targets found to the given
@@ -296,7 +342,12 @@ impl SignedRepository {
         P1: AsRef<Path>,
         P2: AsRef<Path>,
     {
-        self.walk_targets(indir.as_ref(), outdir.as_ref(), Self::link_target)
+        link_targets(
+            indir.as_ref(),
+            outdir.as_ref(),
+            &self.targets.signed.signed,
+            self.root.signed.signed.consistent_snapshot,
+        )
     }
 
     /// Crawls a given directory and copies any targets found to the given
@@ -312,48 +363,225 @@ impl SignedRepository {
         P1: AsRef<Path>,
         P2: AsRef<Path>,
     {
-        self.walk_targets(indir.as_ref(), outdir.as_ref(), Self::copy_target)
+        copy_targets(
+            indir.as_ref(),
+            outdir.as_ref(),
+            &self.targets.signed.signed,
+            self.root.signed.signed.consistent_snapshot,
+        )
+    }
+}
+
+/// Walks a given directory and calls the provided function with every file found.
+/// The function is given the file path, the output directory where the user expects
+/// it to go, and optionally a desired filename.
+fn walk_targets<F>(
+    indir: &Path,
+    outdir: &Path,
+    f: F,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<()>
+where
+    F: Fn(&Path, &Path, Option<&str>, &Targets, bool) -> Result<()>,
+{
+    std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
+
+    // Get the absolute path of the indir and outdir
+    let abs_indir = std::fs::canonicalize(indir).context(error::AbsolutePath { path: indir })?;
+
+    // Walk the absolute path of the indir. Using the absolute path here
+    // means that `entry.path()` call will return its absolute path.
+    let walker = WalkDir::new(&abs_indir).follow_links(true);
+    for entry in walker {
+        let entry = entry.context(error::WalkDir {
+            directory: &abs_indir,
+        })?;
+
+        // If the entry is not a file, move on
+        if !entry.file_type().is_file() {
+            continue;
+        };
+
+        // Call the requested function to manipulate the path we found
+        if let Err(e) = f(entry.path(), outdir, None, targets, consistent_snapshot) {
+            match e {
+                // If we found a path that isn't a known target in the repo, skip it.
+                error::Error::PathIsNotTarget { .. } => continue,
+                _ => return Err(e),
+            }
+        }
     }
 
-    /// Symlinks a single target to the desired directory. If `target_filename` is given, it
-    /// becomes the filename suffix, otherwise the original filename is used. (A unique filename
-    /// prefix is used if consistent snapshots are enabled.)  Fails if the target already exists in
-    /// the repo with a different hash.
-    pub fn link_target(
-        &self,
-        input_path: &Path,
-        outdir: &Path,
-        target_filename: Option<&str>,
-    ) -> Result<()> {
+    Ok(())
+}
+
+/// Determines the output path of a target based on consistent snapshot rules. Returns Err if
+/// the target already exists in the repo with a different hash.  Returns Ok(None) if the given
+/// path is not a known target in the repository.  (We're dealing with a signed repo, so it's
+/// too late to add targets.)
+fn target_path(
+    input: &Path,
+    outdir: &Path,
+    target_filename: Option<&str>,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<Option<PathBuf>> {
+    let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
+
+    // If the caller requested a specific target filename, use that, otherwise use the filename
+    // component of the input path.
+    let file_name = if let Some(target_filename) = target_filename {
+        target_filename
+    } else {
+        input
+            .file_name()
+            .context(error::NoFileName { path: input })?
+            .to_str()
+            .context(error::PathUtf8 { path: input })?
+    };
+
+    // create a Target object using the input path.
+    let target_from_path =
+        Target::from_path(input).context(error::TargetFromPath { path: input })?;
+
+    // Use the file name to see if a target exists in the repo
+    // with that name. If so...
+    let repo_targets = &targets.targets_map();
+    if let Some(repo_target) = repo_targets.get(file_name) {
+        // compare the hashes of the target from the repo and the
+        // target we just created. If they are the same, this must
+        // be the same file, symlink it.
         ensure!(
-            input_path.is_file(),
-            error::PathIsNotFile { path: input_path }
+            target_from_path.hashes.sha256 == repo_target.hashes.sha256,
+            error::HashMismatch {
+                context: "target",
+                calculated: hex::encode(target_from_path.hashes.sha256),
+                expected: hex::encode(&repo_target.hashes.sha256),
+            }
         );
-        let output_path = self
-            .target_path(input_path, outdir, target_filename)?
-            .context(error::PathIsNotTarget { path: input_path })?;
-        symlink(input_path, &output_path).context(error::LinkCreate { path: &output_path })?;
-        Ok(())
+    } else {
+        // Given path is not a target; caller can decide if that's a problem
+        return Ok(None);
     }
 
-    /// Copies a single target to the desired directory. If `target_filename` is given, it becomes
-    /// the filename suffix, otherwise the original filename is used. (A unique filename prefix is
-    /// used if consistent hashing is enabled.)  Fails if the target already exists in the repo
-    /// with a different hash.
-    pub fn copy_target(
-        &self,
-        input_path: &Path,
-        outdir: &Path,
-        target_filename: Option<&str>,
-    ) -> Result<()> {
-        ensure!(
-            input_path.is_file(),
-            error::PathIsNotFile { path: input_path }
-        );
-        let output_path = self
-            .target_path(input_path, outdir, target_filename)?
-            .context(error::PathIsNotTarget { path: input_path })?;
-        fs::copy(input_path, &output_path).context(error::FileWrite { path: output_path })?;
-        Ok(())
-    }
+    let dest = if consistent_snapshot {
+        outdir.join(format!(
+            "{}.{}",
+            hex::encode(&target_from_path.hashes.sha256),
+            file_name
+        ))
+    } else {
+        outdir.join(&file_name)
+    };
+
+    Ok(Some(dest))
+}
+
+/// Crawls a given directory and symlinks any targets found to the given
+/// "out" directory. If consistent snapshots are used, the target files
+/// are prefixed with their `sha256`.
+///
+/// For each file found in the `indir`, the method gets the filename and
+/// if the filename exists in `Targets`, the file's sha256 is compared
+/// against the data in `Targets`. If this data does not match, the
+/// method will fail.
+pub fn link_targets<P1, P2>(
+    indir: P1,
+    outdir: P2,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<()>
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
+{
+    walk_targets(
+        indir.as_ref(),
+        outdir.as_ref(),
+        link_target,
+        targets,
+        consistent_snapshot,
+    )
+}
+
+/// Crawls a given directory and copies any targets found to the given
+/// "out" directory. If consistent snapshots are used, the target files
+/// are prefixed with their `sha256`.
+///
+/// For each file found in the `indir`, the method gets the filename and
+/// if the filename exists in `Targets`, the file's sha256 is compared
+/// against the data in `Targets`. If this data does not match, the
+/// method will fail.
+pub fn copy_targets<P1, P2>(
+    indir: P1,
+    outdir: P2,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<()>
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
+{
+    walk_targets(
+        indir.as_ref(),
+        outdir.as_ref(),
+        copy_target,
+        targets,
+        consistent_snapshot,
+    )
+}
+
+/// Symlinks a single target to the desired directory. If `target_filename` is given, it
+/// becomes the filename suffix, otherwise the original filename is used. (A unique filename
+/// prefix is used if consistent snapshots are enabled.)  Fails if the target already exists in
+/// the repo with a different hash.
+pub fn link_target(
+    input_path: &Path,
+    outdir: &Path,
+    target_filename: Option<&str>,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<()> {
+    ensure!(
+        input_path.is_file(),
+        error::PathIsNotFile { path: input_path }
+    );
+    let output_path = target_path(
+        input_path,
+        outdir,
+        target_filename,
+        targets,
+        consistent_snapshot,
+    )?
+    .context(error::PathIsNotTarget { path: input_path })?;
+    symlink(input_path, &output_path).context(error::LinkCreate { path: &output_path })?;
+    Ok(())
+}
+
+/// Copies a single target to the desired directory. If `target_filename` is given, it becomes
+/// the filename suffix, otherwise the original filename is used. (A unique filename prefix is
+/// used if consistent hashing is enabled.)  Fails if the target already exists in the repo
+/// with a different hash.
+pub fn copy_target(
+    input_path: &Path,
+    outdir: &Path,
+    target_filename: Option<&str>,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<()> {
+    ensure!(
+        input_path.is_file(),
+        error::PathIsNotFile { path: input_path }
+    );
+    let output_path = target_path(
+        input_path,
+        outdir,
+        target_filename,
+        targets,
+        consistent_snapshot,
+    )?
+    .context(error::PathIsNotTarget { path: input_path })?;
+    fs::copy(input_path, &output_path).context(error::FileWrite { path: output_path })?;
+    Ok(())
 }

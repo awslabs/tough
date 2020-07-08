@@ -92,7 +92,7 @@ impl CreateArgs {
             .timestamp_expires(self.timestamp_expires);
 
         for (filename, target) in targets {
-            editor.add_target(filename, target);
+            editor.add_target(&filename, target);
         }
 
         let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
