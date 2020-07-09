@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added HTTP retry logic. #143
 
+## [0.7.1] - 2020-07-09
+
+### Security
+- Fixed uniqueness verification of signature threshold. ([CVE-2020-15093](https://github.com/awslabs/tough/security/advisories/GHSA-5q2r-92f9-4m49))
+
 ## [0.7.0] - 2020-06-26
 
 ### Added
