@@ -1,9 +1,9 @@
-use std::collections::HashSet;
 use super::error::{self, Result};
 use super::{Role, Root, Signed};
 use olpc_cjson::CanonicalFormatter;
 use serde::Serialize;
 use snafu::{ensure, OptionExt, ResultExt};
+use std::collections::HashSet;
 
 impl Root {
     pub fn verify_role<T: Role + Serialize>(&self, role: &Signed<T>) -> Result<()> {
@@ -110,7 +110,7 @@ mod tests {
     fn duplicate_sigs_is_err() {
         let root: Signed<Root> =
             serde_json::from_str(include_str!("../../tests/data/duplicate-sigs/root.json"))
-        .expect("should be parsable root.json");
+                .expect("should be parsable root.json");
         root.signed
             .verify_role(&root)
             .expect_err("expired root signature should not verify");
@@ -120,8 +120,9 @@ mod tests {
     fn duplicate_sig_keys_is_err() {
         // This metadata is signed with the non-deterministic rsassa-pss signing scheme to
         // demonstrate that we will will detect different signatures made by the same key.
-        let root: Signed<Root> =
-            serde_json::from_str(include_str!("../../tests/data/duplicate-sig-keys/root.json"))
+        let root: Signed<Root> = serde_json::from_str(include_str!(
+            "../../tests/data/duplicate-sig-keys/root.json"
+        ))
         .expect("should be parsable root.json");
         root.signed
             .verify_role(&root)
