@@ -42,6 +42,9 @@ pub mod schema;
 pub mod sign;
 mod transport;
 
+use crate::schema::PathSet;
+use std::num::NonZeroU64;
+
 use crate::datastore::Datastore;
 use crate::error::Result;
 use crate::fetch::{fetch_max_size, fetch_sha256};
@@ -361,6 +364,196 @@ impl<'a, T: Transport> Repository<'a, T> {
     /// Return the named `DelegatedRole` if found.
     pub fn delegated_role(&self, name: &str) -> Option<&DelegatedRole> {
         self.targets.signed.delegated_role(name).ok()
+    }
+
+    /// Verifies incoming metadata and overwrites repo with new data
+    pub fn load_update_delegated_role(
+        &mut self,
+        name: &str,
+        metadata_base_url: &str,
+    ) -> Result<()> {
+        let metadata_base_url = parse_url(metadata_base_url)?;
+        // path to updated metadata
+        let role_url =
+            metadata_base_url
+                .join(&format!("{}.json", name))
+                .context(error::JoinUrl {
+                    path: name.to_string(),
+                    url: metadata_base_url.to_owned(),
+                })?;
+        let reader = Box::new(fetch_max_size(
+            self.transport,
+            role_url,
+            self.limits.max_targets_size,
+            "max targets limit",
+        )?);
+        // Load incoming role metadata as Signed<Targets>
+        let role: Signed<crate::schema::Targets> =
+            serde_json::from_reader(reader).context(error::ParseMetadata {
+                role: RoleType::Targets,
+            })?;
+        //verify role with the parent delegation
+        let parent = self
+            .targets
+            .signed
+            .parent_of(name)
+            .context(error::DelegateMissing {
+                name: name.to_string(),
+            })?;
+        parent
+            .verify_role(&role, name)
+            .context(error::VerifyRoleMetadata {
+                role: name.to_string(),
+            })?;
+        {
+            if let Some(targets) = &parent
+                .role(name)
+                .context(error::DelegateNotFound {
+                    name: name.to_string(),
+                })?
+                .targets
+            {
+                // Make sure the version isn't downgraded
+                ensure!(
+                    role.signed.version >= targets.signed.version,
+                    error::VersionMismatch {
+                        role: RoleType::Targets,
+                        fetched: role.signed.version,
+                        expected: targets.signed.version
+                    }
+                );
+            }
+            if let Some(delegations) = role.signed.delegations.as_ref() {
+                delegations.verify_paths().context(error::InvalidPath {})?
+            }
+        }
+        let path = if self.root.signed.consistent_snapshot {
+            format!("{}.{}.json", &role.signed.version, name)
+        } else {
+            format!("{}.json", name)
+        };
+        self.datastore.create(&path, &role)?;
+
+        let old_role = self
+            .targets
+            .signed
+            .get_delegated_role_by_name(name)
+            .context(error::DelegateMissing {
+                name: name.to_string(),
+            })?;
+        // get a list of roles that we don't have metadata for yet
+        let new_roles = old_role.update_targets(role);
+        // load those roles
+        for role in new_roles {
+            self.load_update_delegated_role(&role, metadata_base_url.as_str())?;
+        }
+        Ok(())
+    }
+
+    /// Verifies incoming metadata and adds new metadata to repo
+    pub fn load_add_delegated_role(
+        &mut self,
+        name: &str,
+        delegator: &str,
+        paths: PathSet,
+        threshold: NonZeroU64,
+        metadata_base_url: &str,
+        version: Option<NonZeroU64>,
+    ) -> Result<()> {
+        // If we are delegating from targets all paths are valid
+        if delegator != "targets" {
+            let parent_delegated_role =
+                self.targets
+                    .signed
+                    .delegated_role(delegator)
+                    .context(error::DelegateMissing {
+                        name: delegator.to_string(),
+                    })?;
+            // verify that delegator has permission to delegate paths
+            parent_delegated_role
+                .verify_paths(&paths)
+                .context(error::InvalidPathPermission {
+                    name: delegator.to_string(),
+                    paths: paths.vec().to_vec(),
+                })?;
+        }
+        let metadata_base_url = parse_url(metadata_base_url)?;
+        // path to new role
+        let role_url =
+            metadata_base_url
+                .join(&format!("{}.json", name))
+                .context(error::JoinUrl {
+                    path: name.to_string(),
+                    url: metadata_base_url,
+                })?;
+        let reader = Box::new(fetch_max_size(
+            self.transport,
+            role_url,
+            self.limits.max_targets_size,
+            "max targets limit",
+        )?);
+        let role: Signed<crate::schema::Targets> =
+            serde_json::from_reader(reader).context(error::ParseMetadata {
+                role: RoleType::Targets,
+            })?;
+        //set the proper Targets that delegates the new role
+        let parent = if delegator == "targets" {
+            &mut self.targets.signed
+        } else {
+            self.targets
+                .signed
+                .targets_by_name(delegator)
+                .context(error::TargetsNotFound {
+                    name: delegator.to_string(),
+                })?
+        };
+
+        let path = if self.root.signed.consistent_snapshot {
+            format!("{}.{}.json", &role.signed.version, name)
+        } else {
+            format!("{}.json", name)
+        };
+        self.datastore.create(&path, &role)?;
+
+        // Update parent version
+        parent.version = if let Some(version) = version {
+            version
+        } else {
+            NonZeroU64::new(u64::from(parent.version).checked_add(1).unwrap_or(1 as u64))
+                .unwrap_or_else(|| NonZeroU64::new(1).unwrap())
+        };
+
+        if let Some(delegations) = &mut parent.delegations {
+            let mut keys = Vec::new();
+            for sig in &role.signatures {
+                keys.push(sig.keyid.clone());
+            }
+            if keys.is_empty() {
+                return Err(error::Error::NoKeys {
+                    role: name.to_string(),
+                });
+            }
+            // Creating a role stores the delegatee's keys in their delegations key field, now we need to move these to the parents keys
+            delegations.keys.extend(
+                role.signed
+                    .delegations
+                    .as_ref()
+                    .context(error::NoDelegations {})?
+                    .keys
+                    .clone(),
+            );
+            // Add the role
+            delegations.roles.push(DelegatedRole {
+                name: name.to_string(),
+                keyids: keys,
+                threshold,
+                paths,
+                terminating: false,
+                targets: Some(role),
+            })
+        }
+
+        Ok(())
     }
 }
 
@@ -900,6 +1093,7 @@ fn load_targets<T: Transport>(
         load_delegations(
             transport,
             snapshot,
+            root.signed.consistent_snapshot,
             metadata_base_url,
             max_targets_size,
             delegations,
@@ -914,6 +1108,7 @@ fn load_targets<T: Transport>(
 fn load_delegations<T: Transport>(
     transport: &T,
     snapshot: &Signed<Snapshot>,
+    consistent_snapshot: bool,
     metadata_base_url: &Url,
     max_targets_size: u64,
     delegation: &mut Delegations,
@@ -931,7 +1126,11 @@ fn load_delegations<T: Transport>(
                 name: delegated_role.name.clone(),
             })?;
 
-        let path = format!("{}.json", &delegated_role.name);
+        let path = if consistent_snapshot {
+            format!("{}.{}.json", &role_meta.version, &delegated_role.name)
+        } else {
+            format!("{}.json", &delegated_role.name)
+        };
         let role_url = metadata_base_url.join(&path).context(error::JoinUrl {
             path: path.clone(),
             url: metadata_base_url.to_owned(),
@@ -949,7 +1148,7 @@ fn load_delegations<T: Transport>(
             serde_json::from_reader(reader).context(error::ParseMetadata {
                 role: RoleType::Targets,
             })?;
-        // verify each role with the delegation
+        // verify each role with the parent delegation
         delegation
             .verify_role(&role, &delegated_role.name)
             .context(error::VerifyMetadata {
@@ -984,6 +1183,7 @@ fn load_delegations<T: Transport>(
                 load_delegations(
                     transport,
                     snapshot,
+                    consistent_snapshot,
                     metadata_base_url,
                     max_targets_size,
                     delegations,

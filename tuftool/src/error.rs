@@ -60,6 +60,13 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Couldn't find {}", role))]
+    DelegateeNotFound {
+        role: String,
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display(
         "Failed to create a Repository Editor with root.json '{}': {}",
         path.display(),
@@ -163,8 +170,11 @@ pub(crate) enum Error {
     },
 
     #[snafu(display("Unable to initialize logger: {}", source))]
-    Logger {
-        source: simplelog::TermLogError,
+    Logger { source: simplelog::TermLogError },
+
+    #[snafu(display("Unable to load incoming metadata"))]
+    LoadMetadata {
+        source: tough::error::Error,
         backtrace: Backtrace,
     },
 
@@ -220,6 +230,16 @@ pub(crate) enum Error {
         source: tough::error::Error,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Unable to sign roles: {:?}", roles))]
+    SignRoles {
+        roles: Vec<String>,
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Unable to remove signed roles: {:?}", roles))]
+    SignRolesRemove { roles: Vec<String> },
 
     #[snafu(display("Failed to sign '{}': {}", path.display(), source))]
     SignRoot {
@@ -289,6 +309,13 @@ pub(crate) enum Error {
     #[snafu(display("Failed writing repo data to disk at '{}': {}", directory.display(), source))]
     WriteRepo {
         directory: PathBuf,
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Unable to write roles: {:?}", roles))]
+    WriteRoles {
+        roles: Vec<String>,
         source: tough::error::Error,
         backtrace: Backtrace,
     },

@@ -113,6 +113,10 @@ pub enum Error {
 
     #[snafu(display("Targets doesn't contain delegations field"))]
     NoDelegations,
+
+    /// No role with name
+    #[snafu(display("Role not found: {}", name))]
+    RoleNotFound { name: String },
 }
 
 /// Wrapper for error types that don't impl [`std::error::Error`].

@@ -73,19 +73,9 @@ mod tests {
         editor
             .targets(targets.signed)
             .unwrap()
-            .add_target("file4.txt".to_string(), target4)
+            .add_target("file4.txt", target4)
             .add_target_path(target3_path)
             .unwrap();
-
-        let existing_targets = editor.existing_targets.unwrap();
-        assert_eq!(existing_targets.len(), 2);
-        assert!(existing_targets.get("file1.txt").is_some());
-        assert!(existing_targets.get("file2.txt").is_some());
-
-        let new_targets = editor.new_targets.unwrap();
-        assert_eq!(new_targets.len(), 2);
-        assert!(new_targets.get("file3.txt").is_some());
-        assert!(new_targets.get("file4.txt").is_some());
     }
 
     #[test]
@@ -104,9 +94,6 @@ mod tests {
             .add_target_path(target3)
             .unwrap()
             .clear_targets();
-
-        assert!(editor.existing_targets.unwrap().is_empty());
-        assert!(editor.new_targets.unwrap().is_empty());
     }
 
     // Create and fully sign a repo
@@ -134,7 +121,7 @@ mod tests {
             .snapshot_version(snapshot_version)
             .timestamp_expires(timestamp_expiration)
             .timestamp_version(timestamp_version)
-            .add_target_paths(target_list)
+            .add_target_paths(target_list, "targets")
             .unwrap();
 
         assert!(editor.sign(&[Box::new(key_source)]).is_ok());
@@ -166,16 +153,10 @@ mod tests {
             .timestamp(timestamp.signed)
             .unwrap();
 
-        assert!(editor.targets_version.is_none());
-        assert!(editor.snapshot_version.is_none());
-        assert!(editor.timestamp_version.is_none());
+        assert!(editor.snapshot_version.is_some());
+        assert!(editor.timestamp_version.is_some());
 
-        assert!(editor.targets_expires.is_none());
-        assert!(editor.snapshot_expires.is_none());
-        assert!(editor.timestamp_expires.is_none());
-
-        let existing_targets = editor.existing_targets.unwrap();
-        assert!(existing_targets.get("file1.txt").is_some());
-        assert!(existing_targets.get("file2.txt").is_some());
+        assert!(editor.snapshot_expires.is_some());
+        assert!(editor.timestamp_expires.is_some());
     }
 }

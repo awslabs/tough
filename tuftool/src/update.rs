@@ -82,6 +82,14 @@ pub(crate) struct UpdateArgs {
     /// The directory where the updated repository will be written
     #[structopt(short = "o", long = "outdir")]
     outdir: PathBuf,
+
+    /// Incoming metadata from delegatee
+    #[structopt(short = "i", long = "incoming-metadata")]
+    indir: Option<Url>,
+
+    /// Role of incoming metadata
+    #[structopt(long = "role")]
+    role: Option<String>,
 }
 
 impl UpdateArgs {
@@ -99,18 +107,36 @@ impl UpdateArgs {
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         };
-
+        let update = self.role.is_some() && self.indir.is_some();
         // Load the `Repository` into the `RepositoryEditor`
         // Loading a `Repository` with different `Transport`s results in
         // different types. This is why we can't assign the `Repository`
         // to a variable with the if statement.
         let mut editor = if self.metadata_base_url.scheme() == "file" {
-            let repository =
+            let mut repository =
                 Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+            // If we were given incoming metadata we need to update it
+            if update {
+                repository
+                    .load_update_delegated_role(
+                        self.role.as_ref().unwrap(),
+                        self.indir.as_ref().unwrap().as_str(),
+                    )
+                    .context(error::LoadMetadata)?;
+            }
             RepositoryEditor::from_repo(&self.root, repository)
         } else {
             let transport = HttpTransport::new();
-            let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+            let mut repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+            // If we were given incoming metadata we need to update it
+            if update {
+                repository
+                    .load_update_delegated_role(
+                        self.role.as_ref().unwrap(),
+                        self.indir.as_ref().unwrap().as_str(),
+                    )
+                    .context(error::LoadMetadata)?;
+            }
             RepositoryEditor::from_repo(&self.root, repository)
         }
         .context(error::EditorFromRepo { path: &self.root })?;
@@ -137,7 +163,7 @@ impl UpdateArgs {
             let new_targets = build_targets(&targets_indir, self.follow)?;
 
             for (filename, target) in new_targets {
-                editor.add_target(filename, target);
+                editor.add_target(&filename, target);
             }
         };
 

@@ -11,13 +11,16 @@
     clippy::used_underscore_binding,
 )]
 
+mod add_role;
 mod create;
+mod create_role;
 mod datetime;
 mod download;
 mod error;
 mod root;
 mod source;
 mod update;
+mod update_targets;
 
 use crate::error::Result;
 use rayon::prelude::*;
@@ -71,9 +74,15 @@ enum Command {
     /// Download a TUF repository's resources
     Download(download::DownloadArgs),
     /// Update a TUF repository's metadata and optionally add targets
-    Update(update::UpdateArgs),
+    Update(Box<update::UpdateArgs>),
     /// Manipulate a root.json metadata file
     Root(root::Command),
+    //Create delegated role
+    CreateRole(Box<create_role::CreateRoleArgs>),
+    //Add delegated role
+    AddRole(Box<add_role::AddRoleArgs>),
+    //Update Delegated targets
+    UpdateDelegatedTargets(Box<update_targets::UpdateTargetsArgs>),
 }
 
 impl Command {
@@ -83,6 +92,9 @@ impl Command {
             Command::Root(root_subcommand) => root_subcommand.run(),
             Command::Download(args) => args.run(),
             Command::Update(args) => args.run(),
+            Command::CreateRole(args) => args.run(),
+            Command::AddRole(args) => args.run(),
+            Command::UpdateDelegatedTargets(args) => args.run(),
         }
     }
 }
