@@ -35,6 +35,10 @@ pub(crate) struct DownloadArgs {
     #[structopt(long)]
     allow_root_download: bool,
 
+    /// Download only these targets, if specified
+    #[structopt(short = "n", long = "target-name")]
+    target_names: Vec<String>,
+
     /// Output directory of targets
     outdir: PathBuf,
 }
@@ -107,10 +111,7 @@ impl DownloadArgs {
         )
         .context(error::Metadata)?;
 
-        // copy all available targets
-        println!("Downloading targets to {:?}", &self.outdir);
-        std::fs::create_dir_all(&self.outdir).context(error::DirCreate { path: &self.outdir })?;
-        for target in repository.targets().signed.targets.keys() {
+        let download_target = |target: &str| -> Result<()> {
             let path = PathBuf::from(&self.outdir).join(target);
             println!("\t-> {}", &target);
             let mut reader = repository
@@ -123,7 +124,28 @@ impl DownloadArgs {
                 .open(&path)
                 .context(error::OpenFile { path: &path })?;
             io::copy(&mut reader, &mut f).context(error::WriteTarget)?;
+            Ok(())
+        };
+
+        // copy requested targets, or all available targets if not specified
+        let targets = if self.target_names.is_empty() {
+            repository
+                .targets()
+                .signed
+                .targets
+                .keys()
+                .cloned()
+                .collect()
+        } else {
+            self.target_names.clone()
+        };
+
+        println!("Downloading targets to {:?}", &self.outdir);
+        std::fs::create_dir_all(&self.outdir).context(error::DirCreate { path: &self.outdir })?;
+        for target in targets {
+            download_target(&target)?;
         }
+
         Ok(())
     }
 }
