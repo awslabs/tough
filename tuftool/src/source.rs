@@ -1,6 +1,3 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: MIT OR Apache-2.0
-
 #![allow(clippy::doc_markdown)]
 //! Private keys are generally provided as paths, but may sometimes be provided as a URL. For
 //! example, when one of the Rusoto features is enabled, you can use an aws-ssm:// special URL

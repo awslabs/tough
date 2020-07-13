@@ -1,6 +1,3 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: MIT OR Apache-2.0
-
 // Not really worried about the memory penalty of large enum variants here
 #![allow(clippy::large_enum_variant)]
 #![allow(clippy::default_trait_access)]

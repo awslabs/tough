@@ -1,6 +1,3 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: MIT OR Apache-2.0
-
 //! `olpc-cjson` provides a [`serde_json::Formatter`] to serialize data as [canonical JSON], as
 //! defined by OLPC and used in [TUF].
 //!

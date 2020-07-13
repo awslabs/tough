@@ -1,6 +1,3 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: MIT OR Apache-2.0
-
 use snafu::{Backtrace, Snafu};
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -1,6 +1,3 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: MIT OR Apache-2.0
-
 //! Convenience binary for reading a JSON document on stdin and outputting the canonical JSON form
 //! on stdout.
 
