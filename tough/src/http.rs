@@ -1,3 +1,5 @@
+//! The `http` module provides `HttpTransport` which enables `Repository` objects to be
+//! loaded over HTTP
 use crate::error::{self, Error, Result};
 use crate::Transport;
 use log::{debug, error, trace};

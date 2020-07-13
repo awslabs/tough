@@ -1,5 +1,7 @@
 #![allow(clippy::used_underscore_binding)] // #20
 
+//! Provides the schema objects as defined by the TUF spec.
+
 mod de;
 pub mod decoded;
 mod error;
@@ -29,13 +31,21 @@ use std::io::Read;
 use std::num::NonZeroU64;
 use std::path::Path;
 
-/// A role type.
+/// The type of metadata role.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum RoleType {
+    /// The root role delegates trust to specific keys trusted for all other top-level roles used in
+    /// the system.
     Root,
+    /// The snapshot role signs a metadata file that provides information about the latest version
+    /// of all targets metadata on the repository (the top-level targets role and all delegated
+    /// roles).
     Snapshot,
+    /// The targets role's signature indicates which target files are trusted by clients.
     Targets,
+    /// The timestamp role is used to prevent an adversary from replaying an out-of-date signed
+    /// metadata file whose signature has not yet expired.
     Timestamp,
 }
 
@@ -44,12 +54,18 @@ forward_from_str_to_serde!(RoleType);
 
 /// Common trait implemented by all roles.
 pub trait Role: Serialize {
+    /// The type of role this object represents.
     const TYPE: RoleType;
 
+    /// Determines when metadata should be considered expired and no longer trusted by clients.
     fn expires(&self) -> DateTime<Utc>;
 
+    /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
+    /// number less than the one currently trusted.
     fn version(&self) -> NonZeroU64;
 
+    /// A deterministic JSON serialization used when calculating the digest of a metadata object.
+    /// [More info on canonical JSON](http://wiki.laptop.org/go/Canonical_JSON)
     fn canonical_form(&self) -> Result<Vec<u8>> {
         let mut data = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
@@ -79,16 +95,38 @@ pub struct Signature {
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
+/// TUF 4.3: The root.json file is signed by the root role's keys. It indicates which keys are
+/// authorized for all top-level roles, including the root role itself. Revocation and replacement
+/// of top-level role keys, including for the root role, is done by changing the keys listed for the
+/// roles in this file.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "root")]
 pub struct Root {
+    /// A string that contains the version number of the TUF specification. Its format follows the
+    /// Semantic Versioning 2.0.0 (semver) specification.
     pub spec_version: String,
+
+    /// A boolean indicating whether the repository supports consistent snapshots. When consistent
+    /// snapshots is `true`, targets and certain metadata filenames are prefixed with either a
+    /// a version number or digest.
     pub consistent_snapshot: bool,
+
+    /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
+    /// number less than the one currently trusted.
     pub version: NonZeroU64,
+
+    /// Determines when metadata should be considered expired and no longer trusted by clients.
     pub expires: DateTime<Utc>,
+
+    /// The KEYID must be correct for the specified KEY. Clients MUST calculate each KEYID to verify
+    /// this is correct for the associated key. Clients MUST ensure that for any KEYID represented
+    /// in this key list and in other files, only one unique key has that KEYID.
     #[serde(deserialize_with = "de::deserialize_keys")]
     pub keys: HashMap<Decoded<Hex>, Key>,
+
+    /// A list of roles, the keys associated with each role, and the threshold of signatures used
+    /// for each role.
     pub roles: HashMap<RoleType, RoleKeys>,
 
     /// Extra arguments found during deserialization.
@@ -101,9 +139,19 @@ pub struct Root {
     pub _extra: HashMap<String, Value>,
 }
 
+/// Represents the key IDs used for a role and the threshold of signatures required to validate it.
+/// TUF 4.3: A ROLE is one of "root", "snapshot", "targets", "timestamp", or "mirrors". A role for
+/// each of "root", "snapshot", "timestamp", and "targets" MUST be specified in the key list.
+/// The role of "mirror" is optional. If not specified, the mirror list will not need to be signed
+/// if mirror lists are being used. The THRESHOLD for a role is an integer of the number of keys of
+/// that role whose signatures are required in order to consider a file as being properly signed by
+/// that role.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct RoleKeys {
+    /// The key IDs used for the role.
     pub keyids: Vec<Decoded<Hex>>,
+
+    /// The threshold of signatures required to validate the role.
     pub threshold: NonZeroU64,
 
     /// Extra arguments found during deserialization.
@@ -116,6 +164,7 @@ pub struct RoleKeys {
 }
 
 impl Root {
+    /// An iterator over the keys for a given role.
     pub fn keys(&self, role: RoleType) -> impl Iterator<Item = &Key> {
         KeysIter {
             keyids_iter: match self.roles.get(&role) {
@@ -152,13 +201,28 @@ impl Role for Root {
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
+/// TUF 4.4 The snapshot.json file is signed by the snapshot role. It MUST list the version numbers
+/// of the top-level targets metadata and all delegated targets metadata. It MAY also list their
+/// lengths and file hashes.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "snapshot")]
 pub struct Snapshot {
+    /// A string that contains the version number of the TUF specification. Its format follows the
+    /// Semantic Versioning 2.0.0 (semver) specification.
     pub spec_version: String,
+
+    /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
+    /// number less than the one currently trusted.
     pub version: NonZeroU64,
+
+    /// Determines when metadata should be considered expired and no longer trusted by clients.
     pub expires: DateTime<Utc>,
+
+    /// A list of what the TUF spec calls 'METAFILES' (`SnapshotMeta` objects). The TUF spec
+    /// describes the hash key in 4.4: METAPATH is the file path of the metadata on the repository
+    /// relative to the metadata base URL. For snapshot.json, these are top-level targets metadata
+    /// and delegated targets metadata.
     pub meta: HashMap<String, SnapshotMeta>,
 
     /// Extra arguments found during deserialization.
@@ -171,12 +235,43 @@ pub struct Snapshot {
     pub _extra: HashMap<String, Value>,
 }
 
+/// Represents a metadata file in a `snapshot.json` file.
+/// TUF 4.4: METAFILES is an object whose format is the following:
+/// ```text
+///  { METAPATH : {
+///        "version" : VERSION,
+///        ("length" : LENGTH, |
+///         "hashes" : HASHES) }
+///    , ...
+///  }
+/// ```
+/// e.g.
+/// ```json
+///    "project1.json": {
+///     "version": 1,
+///     "hashes": {
+///      "sha256": "f592d072e1193688a686267e8e10d7257b4ebfcf28133350dae88362d82a0c8a"
+///     }
+///    },
+/// ```
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct SnapshotMeta {
+    /// LENGTH is the integer length in bytes of the metadata file at METAPATH. It is OPTIONAL and
+    /// can be omitted to reduce the snapshot metadata file size. In that case the client MUST use a
+    /// custom download limit for the listed metadata.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub length: Option<u64>,
+
+    /// HASHES is a dictionary that specifies one or more hashes of the metadata file at METAPATH,
+    /// including their cryptographic hash function. For example: `{ "sha256": HASH, ... }`. HASHES
+    /// is OPTIONAL and can be omitted to reduce the snapshot metadata file size. In that case the
+    /// repository MUST guarantee that VERSION alone unambiguously identifies the metadata at
+    /// METAPATH.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hashes: Option<Hashes>,
+
+    /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
+    /// number less than the one currently trusted.
     pub version: NonZeroU64,
 
     /// Extra arguments found during deserialization.
@@ -188,8 +283,10 @@ pub struct SnapshotMeta {
     pub _extra: HashMap<String, Value>,
 }
 
+/// Represents the hash dictionary in a `snapshot.json` file.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Hashes {
+    /// The SHA 256 digest of a metadata file.
     pub sha256: Decoded<Hex>,
 
     /// Extra arguments found during deserialization.
@@ -202,6 +299,7 @@ pub struct Hashes {
 }
 
 impl Snapshot {
+    /// Create a new `Snapshot` object.
     pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
         Snapshot {
             spec_version,
@@ -226,16 +324,43 @@ impl Role for Snapshot {
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
+/// Represents a `targets.json` file.
+/// TUF 4.5:
+/// The "signed" portion of targets.json is as follows:
+/// ```text
+/// { "_type" : "targets",
+///   "spec_version" : SPEC_VERSION,
+///   "version" : VERSION,
+///   "expires" : EXPIRES,
+///   "targets" : TARGETS,
+///   ("delegations" : DELEGATIONS)
+/// }
+/// ```
+///
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "targets")]
 pub struct Targets {
+    /// A string that contains the version number of the TUF specification. Its format follows the
+    /// Semantic Versioning 2.0.0 (semver) specification.
     pub spec_version: String,
+
+    /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
+    /// number less than the one currently trusted.
     pub version: NonZeroU64,
+
+    /// Determines when metadata should be considered expired and no longer trusted by clients.
     pub expires: DateTime<Utc>,
+
+    /// Each key of the TARGETS object is a TARGETPATH. A TARGETPATH is a path to a file that is
+    /// relative to a mirror's base URL of targets.
     pub targets: HashMap<String, Target>,
+
+    /// Delegations describes subsets of the targets for which responsibility is delegated to
+    /// another role.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delegations: Option<Delegations>,
+
     /// Extra arguments found during deserialization.
     ///
     /// We must store these to correctly verify signatures for this object.
@@ -246,10 +371,30 @@ pub struct Targets {
     pub _extra: HashMap<String, Value>,
 }
 
+/// TUF 4.5: TARGETS is an object whose format is the following:
+/// ```text
+/// { TARGETPATH : {
+///       "length" : LENGTH,
+///       "hashes" : HASHES,
+///       ("custom" : { ... }) }
+///   , ...
+/// }
+/// ```
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Target {
+    /// LENGTH is the integer length in bytes of the target file at TARGETPATH.
     pub length: u64,
+
+    /// HASHES is a dictionary that specifies one or more hashes, including the cryptographic hash
+    /// function. For example: `{ "sha256": HASH, ... }`. HASH is the hexdigest of the cryptographic
+    /// function computed on the target file.
     pub hashes: Hashes,
+
+    /// If defined, the elements and values of "custom" will be made available to the client
+    /// application. The information in "custom" is opaque to the framework and can include version
+    /// numbers, dependencies, requirements, and any other data that the application wants to
+    /// include to describe the file at TARGETPATH. The application may use this information to
+    /// guide download decisions.
     #[serde(default)]
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub custom: HashMap<String, Value>,
@@ -303,6 +448,7 @@ impl Target {
 }
 
 impl Targets {
+    /// Create a new `Targets` object.
     pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
         Targets {
             spec_version,
@@ -396,33 +542,82 @@ impl Role for Targets {
     }
 }
 
-// Implementation for delegated targets
+/// Delegations are found in a `targets.json` file.
+/// TUF 4.5: DELEGATIONS is an object whose format is the following:
+/// ```text
+/// { "keys" : {
+///       KEYID : KEY,
+///       ... },
+///   "roles" : [{
+///       "name": ROLENAME,
+///       "keyids" : [ KEYID, ... ] ,
+///       "threshold" : THRESHOLD,
+///       ("path_hash_prefixes" : [ HEX_DIGEST, ... ] |
+///        "paths" : [ PATHPATTERN, ... ]),
+///       "terminating": TERMINATING,
+///   }, ... ]
+/// }
+/// ```
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Delegations {
+    /// Lists the public keys to verify signatures of delegated targets roles. Revocation and
+    /// replacement of delegated targets roles keys is done by changing the keys in this field in
+    /// the delegating role's metadata.
     #[serde(deserialize_with = "de::deserialize_keys")]
     pub keys: HashMap<Decoded<Hex>, Key>,
+
+    /// The list of delegated roles.
     pub roles: Vec<DelegatedRole>,
 }
 
 /// Each role delegated in a targets file is considered a delegated role
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DelegatedRole {
+    /// The name of the delegated role. For example, "projects".
     pub name: String,
+
+    /// The key IDs used by this role.
     pub keyids: Vec<Decoded<Hex>>,
+
+    /// The threshold of signatures required to validate the role.
     pub threshold: NonZeroU64,
+
+    /// The paths governed by this role.
     #[serde(flatten)]
     paths: PathSet,
+
+    /// Indicates whether subsequent delegations should be considered.
     terminating: bool,
+
+    /// The targets that are signed by this role.
     #[serde(skip)]
     pub targets: Option<Signed<Targets>>,
 }
 
-/// Targets can delegate paths as paths or path hash prefixes
+/// Specifies the target paths that a delegated role controls.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub enum PathSet {
+    /// The "paths" list describes paths that the role is trusted to provide. Clients MUST check
+    /// that a target is in one of the trusted paths of all roles in a delegation chain, not just in
+    /// a trusted path of the role that describes the target file. PATHPATTERN can include shell-
+    /// style wildcards and supports the Unix filename pattern matching convention. Its format may
+    /// either indicate a path to a single file, or to multiple paths with the use of shell-style
+    /// wildcards. For example, the path pattern "targets/*.tgz" would match file paths
+    /// "targets/foo.tgz" and "targets/bar.tgz", but not "targets/foo.txt". Likewise, path pattern
+    /// "foo-version-?.tgz" matches "foo-version-2.tgz" and "foo-version-a.tgz", but not
+    /// "foo-version-alpha.tgz". To avoid surprising behavior when matching targets with
+    /// PATHPATTERN, it is RECOMMENDED that PATHPATTERN uses the forward slash (/) as directory
+    /// separator and does not start with a directory separator, akin to TARGETSPATH.
     #[serde(rename = "paths")]
     Paths(Vec<String>),
 
+    /// The "path_hash_prefixes" list is used to succinctly describe a set of target paths.
+    /// Specifically, each HEX_DIGEST in "path_hash_prefixes" describes a set of target paths;
+    /// therefore, "path_hash_prefixes" is the union over each prefix of its set of target paths.
+    /// The target paths must meet this condition: each target path, when hashed with the SHA-256
+    /// hash function to produce a 64-byte hexadecimal digest (HEX_DIGEST), must share the same
+    /// prefix as one of the prefixes in "path_hash_prefixes". This is useful to split a large
+    /// number of targets into separate bins identified by consistent hashing.
     #[serde(rename = "path_hash_prefixes")]
     PathHashPrefixes(Vec<String>),
 }
@@ -602,13 +797,27 @@ impl Delegations {
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
+/// Represents a `timestamp.json` file.
+/// TUF 4.6: The timestamp file is signed by a timestamp key. It indicates the latest version of the
+/// snapshot metadata and is frequently resigned to limit the amount of time a client can be kept
+/// unaware of interference with obtaining updates.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "timestamp")]
 pub struct Timestamp {
+    /// A string that contains the version number of the TUF specification. Its format follows the
+    /// Semantic Versioning 2.0.0 (semver) specification.
     pub spec_version: String,
+
+    /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
+    /// number less than the one currently trusted.
     pub version: NonZeroU64,
+
+    /// Determines when metadata should be considered expired and no longer trusted by clients.
     pub expires: DateTime<Utc>,
+
+    /// METAFILES is the same as described for the snapshot.json file. In the case of the
+    /// timestamp.json file, this MUST only include a description of the snapshot.json file.
     pub meta: HashMap<String, TimestampMeta>,
 
     /// Extra arguments found during deserialization.
@@ -621,10 +830,18 @@ pub struct Timestamp {
     pub _extra: HashMap<String, Value>,
 }
 
+/// METAFILES is the same as described for the snapshot.json file. In the case of the timestamp.json
+/// file, this MUST only include a description of the snapshot.json file.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct TimestampMeta {
+    /// The integer length in bytes of the snapshot.json file.
     pub length: u64,
+
+    /// The hashes of the snapshot.json file.
     pub hashes: Hashes,
+
+    /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
+    /// number less than the one currently trusted.
     pub version: NonZeroU64,
 
     /// Extra arguments found during deserialization.
@@ -637,6 +854,7 @@ pub struct TimestampMeta {
 }
 
 impl Timestamp {
+    /// Creates a new `Timestamp` object.
     pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
         Timestamp {
             spec_version,

@@ -1,5 +1,7 @@
 #![allow(clippy::use_self)]
 
+//! Handles cryptographic keys and their serialization in TUF metadata files.
+
 use crate::schema::decoded::{Decoded, EcdsaPem, Hex, RsaPem};
 use crate::schema::error::{self, Result};
 use olpc_cjson::CanonicalFormatter;
@@ -12,71 +14,115 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
+/// Serializes signing keys as defined by the TUF specification. All keys have the format
+/// ```json
+///  { "keytype" : "KEYTYPE",
+///     "scheme" : "SCHEME",
+///     "keyval" : "KEYVAL"
+///  }
+/// ```
+/// where:
+/// KEYTYPE is a string denoting a public key signature system, such as RSA or ECDSA.
+///
+/// SCHEME is a string denoting a corresponding signature scheme.  For example: "rsassa-pss-sha256"
+/// and "ecdsa-sha2-nistp256".
+///
+/// KEYVAL is a dictionary containing the public portion of the key:
+/// `"keyval" : {"public" : PUBLIC}`
+/// where:
+///  * `Rsa`: PUBLIC is in PEM format and a string. All RSA keys must be at least 2048 bits.
+///  * `Ed25519`: PUBLIC is a 64-byte hex encoded string.
+///  * `Ecdsa`: PUBLIC is in PEM format and a string.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 #[serde(tag = "keytype")]
 pub enum Key {
+    /// An RSA key.
     Rsa {
+        /// The RSA key.
         keyval: RsaKey,
+        /// Denotes the key's signature scheme.
         scheme: RsaScheme,
-
+        /// Any additional fields read during deserialization; will not be used.
         #[serde(flatten)]
         _extra: HashMap<String, Value>,
     },
+    /// An Ed25519 key.
     Ed25519 {
+        /// The Ed25519 key.
         keyval: Ed25519Key,
+        /// Denotes the key's signature scheme.
         scheme: Ed25519Scheme,
-
+        /// Any additional fields read during deserialization; will not be used.
         #[serde(flatten)]
         _extra: HashMap<String, Value>,
     },
+    /// An EcdsaKey
     Ecdsa {
+        /// The Ecdsa key.
         keyval: EcdsaKey,
+        /// Denotes the key's signature scheme.
         scheme: EcdsaScheme,
-
+        /// Any additional fields read during deserialization; will not be used.
         #[serde(flatten)]
         _extra: HashMap<String, Value>,
     },
 }
 
+/// Used to identify the RSA signature scheme in use.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum RsaScheme {
+    /// `rsassa-pss-sha256`: RSA Probabilistic signature scheme with appendix.
     RsassaPssSha256,
 }
 
+/// Represents a deserialized (decoded) RSA public key.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct RsaKey {
+    /// The public key.
     pub public: Decoded<RsaPem>,
 
+    /// Any additional fields read during deserialization; will not be used.
     #[serde(flatten)]
     pub _extra: HashMap<String, Value>,
 }
 
+/// Used to identify the `EdDSA` signature scheme in use.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Ed25519Scheme {
+    /// 'ed25519': Elliptic curve digital signature algorithm based on Twisted Edwards curves.
     Ed25519,
 }
 
+/// Represents a deserialized (decoded) Ed25519 public key.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Ed25519Key {
+    /// The public key.
     pub public: Decoded<Hex>,
 
+    /// Any additional fields read during deserialization; will not be used.
     #[serde(flatten)]
     pub _extra: HashMap<String, Value>,
 }
 
+/// Used to identify the ECDSA signature scheme in use.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum EcdsaScheme {
+    /// `ecdsa-sha2-nistp256`: Elliptic Curve Digital Signature Algorithm with NIST P-256 curve
+    /// signing and SHA-256 hashing.
     EcdsaSha2Nistp256,
 }
 
+/// Represents a deserialized (decoded)  Ecdsa public key.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct EcdsaKey {
+    /// The public key.
     pub public: Decoded<EcdsaPem>,
 
+    /// Any additional fields read during deserialization; will not be used.
     #[serde(flatten)]
     pub _extra: HashMap<String, Value>,
 }
@@ -171,6 +217,7 @@ impl FromStr for Key {
     }
 }
 
+/// An error object to be used when a key cannot be parsed.
 #[derive(Debug, Clone, Copy)]
 pub struct KeyParseError(());
 

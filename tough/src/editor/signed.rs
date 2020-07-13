@@ -1,6 +1,9 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Provides the `SignedRepository` object which represents the output of `RepositoryEditor` after
+//! signing, ready to be written to disk.
+
 use crate::editor::keys::get_root_keys;
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
@@ -36,6 +39,7 @@ impl<T> SignedRole<T>
 where
     T: Role + Serialize,
 {
+    /// Creates a new `SignedRole`
     pub fn new(
         role: T,
         root: &Root,
@@ -102,18 +106,23 @@ where
         Ok(signed_role)
     }
 
+    /// Provides access to the internal signed metadata object.
     pub fn signed(&self) -> &Signed<T> {
         &self.signed
     }
 
+    /// Provides access to the internal buffer containing the serialized form of the signed role.
+    /// This buffer should be used anywhere this role is written to file.
     pub fn buffer(&self) -> &Vec<u8> {
         &self.buffer
     }
 
+    /// Provides the sha256 digest of the signed role.
     pub fn sha256(&self) -> &[u8] {
         &self.sha256
     }
 
+    /// Provides the length in bytes of the serialized representation of the signed role.
     pub fn length(&self) -> &u64 {
         &self.length
     }
