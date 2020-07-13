@@ -423,9 +423,13 @@ impl<'a, T: Transport> Repository<'a, T> {
                     }
                 );
             }
-            if let Some(delegations) = role.signed.delegations.as_ref() {
-                delegations.verify_paths().context(error::InvalidPath {})?
-            }
+
+            role.signed
+                .delegations
+                .as_ref()
+                .ok_or_else(|| error::Error::NoDelegations)?
+                .verify_paths()
+                .context(error::InvalidPath {})?
         }
         let path = if self.root.signed.consistent_snapshot {
             format!("{}.{}.json", &role.signed.version, name)
@@ -523,35 +527,37 @@ impl<'a, T: Transport> Repository<'a, T> {
                 .unwrap_or_else(|| NonZeroU64::new(1).unwrap())
         };
 
-        if let Some(delegations) = &mut parent.delegations {
-            let mut keys = Vec::new();
-            for sig in &role.signatures {
-                keys.push(sig.keyid.clone());
-            }
-            if keys.is_empty() {
-                return Err(error::Error::NoKeys {
-                    role: name.to_string(),
-                });
-            }
-            // Creating a role stores the delegatee's keys in their delegations key field, now we need to move these to the parents keys
-            delegations.keys.extend(
-                role.signed
-                    .delegations
-                    .as_ref()
-                    .context(error::NoDelegations {})?
-                    .keys
-                    .clone(),
-            );
-            // Add the role
-            delegations.roles.push(DelegatedRole {
-                name: name.to_string(),
-                keyids: keys,
-                threshold,
-                paths,
-                terminating: false,
-                targets: Some(role),
-            })
+        let delegations = parent
+            .delegations
+            .as_mut()
+            .ok_or_else(|| error::Error::NoDelegations)?;
+        let mut keys = Vec::new();
+        for sig in &role.signatures {
+            keys.push(sig.keyid.clone());
         }
+        if keys.is_empty() {
+            return Err(error::Error::NoKeys {
+                role: name.to_string(),
+            });
+        }
+        // Creating a role stores the delegatee's keys in their delegations key field, now we need to move these to the parents keys
+        delegations.keys.extend(
+            role.signed
+                .delegations
+                .as_ref()
+                .context(error::NoDelegations {})?
+                .keys
+                .clone(),
+        );
+        // Add the role
+        delegations.roles.push(DelegatedRole {
+            name: name.to_string(),
+            keyids: keys,
+            threshold,
+            paths,
+            terminating: false,
+            targets: Some(role),
+        });
 
         Ok(())
     }
@@ -1163,9 +1169,12 @@ fn load_delegations<T: Transport>(
             }
         );
         {
-            if let Some(delegations) = role.signed.delegations.as_ref() {
-                delegations.verify_paths().context(error::InvalidPath {})?
-            }
+            role.signed
+                .delegations
+                .as_ref()
+                .ok_or_else(|| error::Error::NoDelegations)?
+                .verify_paths()
+                .context(error::InvalidPath {})?
         }
 
         datastore.create(&path, &role)?;
@@ -1178,19 +1187,24 @@ fn load_delegations<T: Transport>(
                 name: delegated_role.name.clone(),
             },
         )?;
-        if let Some(targets) = &mut delegated_role.targets {
-            if let Some(delegations) = &mut targets.signed.delegations {
-                load_delegations(
-                    transport,
-                    snapshot,
-                    consistent_snapshot,
-                    metadata_base_url,
-                    max_targets_size,
-                    delegations,
-                    datastore,
-                )?;
-            }
-        }
+
+        let delegations = delegated_role
+            .targets
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?
+            .signed
+            .delegations
+            .as_mut()
+            .ok_or_else(|| error::Error::NoDelegations)?;
+        load_delegations(
+            transport,
+            snapshot,
+            consistent_snapshot,
+            metadata_base_url,
+            max_targets_size,
+            delegations,
+            datastore,
+        )?;
     }
     Ok(())
 }

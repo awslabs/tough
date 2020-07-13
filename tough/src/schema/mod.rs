@@ -475,10 +475,10 @@ impl Targets {
 
     /// Given the name of a delegated role, return the delegated role
     pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
-        if let Some(delegations) = &self.delegations {
-            return delegations.delegated_role(name);
-        }
-        Err(Error::NoDelegations {})
+        self.delegations
+            .as_ref()
+            .ok_or_else(|| error::Error::NoDelegations)?
+            .delegated_role(name)
     }
 
     /// Returns an iterator of all targets delegated recursively
@@ -710,7 +710,7 @@ impl Role for Targets {
 ///   }, ... ]
 /// }
 /// ```
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct Delegations {
     /// Lists the public keys to verify signatures of delegated targets roles. Revocation and
     /// replacement of delegated targets roles keys is done by changing the keys in this field in

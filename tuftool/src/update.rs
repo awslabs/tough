@@ -143,7 +143,9 @@ impl UpdateArgs {
 
         editor
             .targets_version(self.targets_version)
+            .context(error::DelegationStructure)?
             .targets_expires(self.targets_expires)
+            .context(error::DelegationStructure)?
             .snapshot_version(self.snapshot_version)
             .snapshot_expires(self.snapshot_expires)
             .timestamp_version(self.timestamp_version)
@@ -163,7 +165,9 @@ impl UpdateArgs {
             let new_targets = build_targets(&targets_indir, self.follow)?;
 
             for (filename, target) in new_targets {
-                editor.add_target(&filename, target);
+                editor
+                    .add_target(&filename, target)
+                    .context(error::DelegationStructure)?;
             }
         };
 

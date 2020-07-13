@@ -146,93 +146,96 @@ where
         include_all: bool,
     ) -> Result<HashMap<String, SignedRole<Targets>>> {
         let mut signed_roles = HashMap::new();
-        if let Some(delegations) = &role.delegations {
-            if delegations.roles.is_empty() {
-                return Ok(signed_roles);
-            }
-            let root_keys = get_targets_keys(&delegations, keys)?;
-            for role in &delegations.roles {
-                let name = role.name.clone();
-                let role_keys = role.keys();
-
-                // Create new `SignedRole` for targets
-                if let Some(targets) = &role.targets {
-                    // Ensure the keys we have available to us will allow us
-                    // to sign this role. The role's key ids must match up with one of
-                    // the keys provided.
-                    let role = if let Some((signing_key_id, signing_key)) = root_keys
-                        .iter()
-                        .find(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid))
-                    {
-                        // Create the `Signed` struct for this role. This struct will be
-                        // mutated later to contain the signatures.
-                        let mut role = Signed {
-                            signed: targets.clone().signed,
-                            signatures: Vec::new(),
-                        };
-                        let mut data = Vec::new();
-                        let mut ser = serde_json::Serializer::with_formatter(
-                            &mut data,
-                            CanonicalFormatter::new(),
-                        );
-                        role.signed
-                            .serialize(&mut ser)
-                            .context(error::SerializeRole {
-                                role: T::TYPE.to_string(),
-                            })?;
-                        let sig = signing_key.sign(&data, rng)?;
-
-                        // Add the signatures to the `Signed` struct for this role
-                        role.signatures.push(Signature {
-                            keyid: signing_key_id.clone(),
-                            sig: sig.into(),
-                        });
-
-                        role
-                    } else if include_all {
-                        // Make sure the signature is valid targets
-                        //only sign targets that we have keys for without throwing an error
-                        //delegations allow a key to sign some roles without having to sign them all
-                        delegations
-                            .verify_role(targets, &name)
-                            .context(error::KeyNotFound { role: name.clone() })?;
-                        targets.clone()
-                    } else {
-                        // Don't worry about a valid signature
-                        targets.clone()
-                    };
-
-                    // Serialize the newly signed role, and calculate its length and
-                    // sha256.
-                    let mut buffer =
-                        serde_json::to_vec_pretty(&role).context(error::SerializeSignedRole {
-                            role: T::TYPE.to_string(),
-                        })?;
-                    buffer.push(b'\n');
-                    let length = buffer.len() as u64;
-
-                    let mut sha256 = [0; SHA256_OUTPUT_LEN];
-                    sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
-
-                    // Add all delegated targets roles from targets to our map of roles
-                    signed_roles.extend(SignedRole::<Targets>::new_targets(
-                        &role.signed.clone(),
-                        keys,
-                        rng,
-                        include_all,
-                    )?);
-                    // Create the `SignedRole` containing, the `Signed<role>`, serialized
-                    // buffer, length and sha256.
-                    let signed_role = SignedRole {
-                        signed: role,
-                        buffer,
-                        sha256,
-                        length,
-                    };
-                    signed_roles.insert(name, signed_role);
-                }
-            }
+        let delegations = role
+            .delegations
+            .as_ref()
+            .ok_or_else(|| error::Error::NoDelegations)?;
+        if delegations.roles.is_empty() {
+            return Ok(signed_roles);
         }
+        let root_keys = get_targets_keys(&delegations, keys)?;
+        for role in &delegations.roles {
+            let name = role.name.clone();
+            let role_keys = role.keys();
+
+            // Create new `SignedRole` for targets
+            let targets = role
+                .targets
+                .as_ref()
+                .ok_or_else(|| error::Error::NoTargets)?;
+            // Ensure the keys we have available to us will allow us
+            // to sign this role. The role's key ids must match up with one of
+            // the keys provided.
+            let role = if let Some((signing_key_id, signing_key)) = root_keys
+                .iter()
+                .find(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid))
+            {
+                // Create the `Signed` struct for this role. This struct will be
+                // mutated later to contain the signatures.
+                let mut role = Signed {
+                    signed: targets.clone().signed,
+                    signatures: Vec::new(),
+                };
+                let mut data = Vec::new();
+                let mut ser =
+                    serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
+                role.signed
+                    .serialize(&mut ser)
+                    .context(error::SerializeRole {
+                        role: T::TYPE.to_string(),
+                    })?;
+                let sig = signing_key.sign(&data, rng)?;
+
+                // Add the signatures to the `Signed` struct for this role
+                role.signatures.push(Signature {
+                    keyid: signing_key_id.clone(),
+                    sig: sig.into(),
+                });
+
+                role
+            } else if include_all {
+                // Make sure the signature is valid targets
+                //only sign targets that we have keys for without throwing an error
+                //delegations allow a key to sign some roles without having to sign them all
+                delegations
+                    .verify_role(targets, &name)
+                    .context(error::KeyNotFound { role: name.clone() })?;
+                targets.clone()
+            } else {
+                // Don't worry about a valid signature
+                targets.clone()
+            };
+
+            // Serialize the newly signed role, and calculate its length and
+            // sha256.
+            let mut buffer =
+                serde_json::to_vec_pretty(&role).context(error::SerializeSignedRole {
+                    role: T::TYPE.to_string(),
+                })?;
+            buffer.push(b'\n');
+            let length = buffer.len() as u64;
+
+            let mut sha256 = [0; SHA256_OUTPUT_LEN];
+            sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
+
+            // Add all delegated targets roles from targets to our map of roles
+            signed_roles.extend(SignedRole::<Targets>::new_targets(
+                &role.signed.clone(),
+                keys,
+                rng,
+                include_all,
+            )?);
+            // Create the `SignedRole` containing, the `Signed<role>`, serialized
+            // buffer, length and sha256.
+            let signed_role = SignedRole {
+                signed: role,
+                buffer,
+                sha256,
+                length,
+            };
+            signed_roles.insert(name, signed_role);
+        }
+
         Ok(signed_roles)
     }
 

@@ -74,6 +74,7 @@ mod tests {
             .targets(targets.signed)
             .unwrap()
             .add_target("file4.txt", target4)
+            .unwrap()
             .add_target_path(target3_path)
             .unwrap();
     }
@@ -116,7 +117,9 @@ mod tests {
         let mut editor = RepositoryEditor::new(&root).unwrap();
         editor
             .targets_expires(targets_expiration)
+            .unwrap()
             .targets_version(targets_version)
+            .unwrap()
             .snapshot_expires(snapshot_expiration)
             .snapshot_version(snapshot_version)
             .timestamp_expires(timestamp_expiration)

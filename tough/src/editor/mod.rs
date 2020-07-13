@@ -232,19 +232,23 @@ impl RepositoryEditor {
     }
 
     /// Add a `Target` to the repository
-    pub fn add_target(&mut self, name: &str, target: Target) -> &mut Self {
-        if let Some(targets) = self.targets_struct.as_mut() {
-            targets.add_target(&name, target);
-        }
-        self
+    pub fn add_target(&mut self, name: &str, target: Target) -> Result<&mut Self> {
+        self.targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?
+            .add_target(&name, target);
+
+        Ok(self)
     }
 
     /// Remove a `Target` to the repository
-    pub fn remove_target(&mut self, name: &str) -> &mut Self {
-        if let Some(targets) = self.targets_struct.as_mut() {
-            targets.remove_target(name);
-        }
-        self
+    pub fn remove_target(&mut self, name: &str) -> Result<&mut Self> {
+        self.targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?
+            .remove_target(name);
+
+        Ok(self)
     }
 
     /// Add a `Target` to the delegatee `role`
@@ -255,32 +259,34 @@ impl RepositoryEditor {
         role: &str,
     ) -> Result<&mut Self> {
         if role == "targets" {
-            return Ok(self.add_target(name, target));
+            return self.add_target(name, target);
         }
-        if let Some(targets) = self.targets_struct.as_mut() {
-            targets
-                .targets_by_name_verify_path(role, &name)
-                .context(error::TargetsNotFound {
-                    name: name.to_string(),
-                })?
-                .add_target(&name, target);
-        }
+        self.targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?
+            .targets_by_name_verify_path(role, &name)
+            .context(error::TargetsNotFound {
+                name: name.to_string(),
+            })?
+            .add_target(&name, target);
+
         Ok(self)
     }
 
     /// Remove a `Target` from the delegatee `role`
     pub fn remove_target_from_delegatee(&mut self, name: &str, role: &str) -> Result<&mut Self> {
         if role == "targets" {
-            return Ok(self.remove_target(name));
+            return self.remove_target(name);
         }
-        if let Some(targets) = self.targets_struct.as_mut() {
-            targets
-                .targets_by_name(role)
-                .context(error::TargetsNotFound {
-                    name: name.to_string(),
-                })?
-                .remove_target(&name);
-        }
+        self.targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?
+            .targets_by_name(role)
+            .context(error::TargetsNotFound {
+                name: name.to_string(),
+            })?
+            .remove_target(&name);
+
         Ok(self)
     }
 
@@ -295,7 +301,7 @@ impl RepositoryEditor {
         P: AsRef<Path>,
     {
         let (target_name, target) = RepositoryEditor::build_target(target_path)?;
-        self.add_target(&target_name, target);
+        self.add_target(&target_name, target)?;
         Ok(self)
     }
 
@@ -306,18 +312,21 @@ impl RepositoryEditor {
     where
         P: AsRef<Path>,
     {
-        if let Some(targets_struct) = self.targets_struct.as_mut() {
-            let cur_targets = match &role[..] {
-                "targets" => targets_struct,
-                _ => targets_struct
-                    .targets_by_name(role)
-                    .context(error::DelegateMissing { name: role })?,
-            };
-            for target in targets {
-                let (target_name, target) = RepositoryEditor::build_target(target)?;
-                cur_targets.add_target(&target_name, target);
-            }
+        let targets_struct = self
+            .targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?;
+        let cur_targets = match &role[..] {
+            "targets" => targets_struct,
+            _ => targets_struct
+                .targets_by_name(role)
+                .context(error::DelegateMissing { name: role })?,
+        };
+        for target in targets {
+            let (target_name, target) = RepositoryEditor::build_target(target)?;
+            cur_targets.add_target(&target_name, target);
         }
+
         Ok(self)
     }
 
@@ -380,85 +389,99 @@ impl RepositoryEditor {
                 })?;
         }
 
-        if let Some(targets) = self.targets_struct.as_mut() {
-            // Find the parent targets for the role we are creating
-            let mut parent = if from == "targets" {
-                targets
-            } else {
-                targets
-                    .targets_by_name(from)
-                    .context(error::DelegateMissing { name: from })?
-            };
-            // Get the keys used to sign the new role
-            let (keyids, key_pairs) = if let Some(key) = key_source {
-                let mut keyids = Vec::new();
-                let mut key_pairs = HashMap::new();
-                for source in key {
-                    let key_pair = source
-                        .as_sign()
-                        .context(error::KeyPairFromKeySource)?
-                        .tuf_key();
-                    let key_id = RepositoryEditor::add_key(&mut parent, key_pair.clone())?;
-                    key_pairs.insert(key_id.clone(), key_pair);
-                    keyids.push(key_id);
-                }
-                (keyids, key_pairs)
-            } else {
-                // If we weren't given a new key source create a role using parents keys
-                let mut keys = Vec::new();
-                if let Some(delegations) = parent.delegations.as_ref() {
-                    for key in delegations.keys.keys() {
-                        keys.push(key.clone());
-                    }
-                }
-                (keys, HashMap::new())
-            };
-            if let Some(delegations) = parent.delegations.as_mut() {
-                // Create new targets for `role`
-                let mut new_targets = Targets::new(SPEC_VERSION.to_string(), version, expiration);
-                let mut new_delegations = Delegations::new();
-                new_delegations.keys.extend(key_pairs);
-                // Create a new delegations for `role`
-                new_targets.delegations = Some(new_delegations);
-                let threshold =
-                    NonZeroU64::new(keyids.len().try_into().context(error::InvalidInto {})?)
-                        .context(error::InvalidThreshold {})?;
-                delegations.roles.push(DelegatedRole {
-                    name,
-                    keyids,
-                    threshold,
-                    paths,
-                    terminating: false,
-                    targets: Some(Signed {
-                        signed: new_targets,
-                        signatures: Vec::new(),
-                    }),
-                });
+        let targets = self
+            .targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?;
+        // Find the parent targets for the role we are creating
+        let mut parent = if from == "targets" {
+            targets
+        } else {
+            targets
+                .targets_by_name(from)
+                .context(error::DelegateMissing { name: from })?
+        };
+        // Get the keys used to sign the new role
+        let (keyids, key_pairs) = if let Some(key) = key_source {
+            let mut keyids = Vec::new();
+            let mut key_pairs = HashMap::new();
+            for source in key {
+                let key_pair = source
+                    .as_sign()
+                    .context(error::KeyPairFromKeySource)?
+                    .tuf_key();
+                let key_id = RepositoryEditor::add_key(&mut parent, key_pair.clone())?;
+                key_pairs.insert(key_id.clone(), key_pair);
+                keyids.push(key_id);
             }
-        }
+            (keyids, key_pairs)
+        } else {
+            // If we weren't given a new key source create a role using parents keys
+            let mut keys = Vec::new();
+            for key in parent
+                .delegations
+                .as_ref()
+                .ok_or_else(|| error::Error::NoDelegations)?
+                .keys
+                .keys()
+            {
+                keys.push(key.clone());
+            }
+
+            (keys, HashMap::new())
+        };
+        let delegations = parent
+            .delegations
+            .as_mut()
+            .ok_or_else(|| error::Error::NoDelegations)?;
+        // Create new targets for `role`
+        let mut new_targets = Targets::new(SPEC_VERSION.to_string(), version, expiration);
+        let mut new_delegations = Delegations::new();
+        new_delegations.keys.extend(key_pairs);
+        // Create a new delegations for `role`
+        new_targets.delegations = Some(new_delegations);
+        let threshold = NonZeroU64::new(keyids.len().try_into().context(error::InvalidInto {})?)
+            .context(error::InvalidThreshold {})?;
+        delegations.roles.push(DelegatedRole {
+            name,
+            keyids,
+            threshold,
+            paths,
+            terminating: false,
+            targets: Some(Signed {
+                signed: new_targets,
+                signatures: Vec::new(),
+            }),
+        });
+
         Ok(self)
     }
 
     /// Adds a key to the targets delegation role if not already present, and returns a result with the key id.
     fn add_key(targets: &mut Targets, key: Key) -> Result<Decoded<Hex>> {
-        if let Some(delegations) = targets.delegations.as_mut() {
-            let key_id = if let Some((key_id, _)) = delegations
+        let key_id = if let Some((key_id, _)) = targets
+            .delegations
+            .as_ref()
+            .ok_or_else(|| error::Error::NoDelegations)?
+            .keys
+            .iter()
+            .find(|(_, candidate_key)| key.eq(candidate_key))
+        {
+            key_id.clone()
+        } else {
+            // Key isn't present yet, so we need to add it
+            let key_id = key.key_id().context(error::JsonSerialization {})?;
+
+            targets
+                .delegations
+                .as_mut()
+                .ok_or_else(|| error::Error::NoDelegations)?
                 .keys
-                .iter()
-                .find(|(_, candidate_key)| key.eq(candidate_key))
-            {
-                key_id.clone()
-            } else {
-                // Key isn't present yet, so we need to add it
-                let key_id = key.key_id().context(error::JsonSerialization {})?;
+                .insert(key_id.clone(), key);
+            key_id
+        };
 
-                delegations.keys.insert(key_id.clone(), key);
-                key_id
-            };
-
-            return Ok(key_id);
-        }
-        Err(error::Error::NoDelegations {})
+        Ok(key_id)
     }
 
     /// Set the `Snapshot` version
@@ -474,19 +497,21 @@ impl RepositoryEditor {
     }
 
     /// Set the `Targets` version
-    pub fn targets_version(&mut self, targets_version: NonZeroU64) -> &mut Self {
-        if let Some(targets) = self.targets_struct.as_mut() {
-            targets.version = targets_version
-        };
-        self
+    pub fn targets_version(&mut self, targets_version: NonZeroU64) -> Result<&mut Self> {
+        self.targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?
+            .version = targets_version;
+        Ok(self)
     }
 
     /// Set the `Targets` expiration
-    pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> &mut Self {
-        if let Some(targets) = self.targets_struct.as_mut() {
-            targets.expires = targets_expires
-        };
-        self
+    pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> Result<&mut Self> {
+        self.targets_struct
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)?
+            .expires = targets_expires;
+        Ok(self)
     }
 
     /// Set the `Timestamp` version
@@ -505,11 +530,11 @@ impl RepositoryEditor {
 
     /// Build the `Targets` struct
     fn build_targets(&self) -> Result<Targets> {
-        if let Some(targets) = self.targets_struct.as_ref() {
-            Ok(targets.clone())
-        } else {
-            Err(error::Error::NoDelegations {})
-        }
+        Ok(self
+            .targets_struct
+            .as_ref()
+            .ok_or_else(|| error::Error::NoDelegations)?
+            .clone())
     }
 
     /// Build the `Snapshot` struct
