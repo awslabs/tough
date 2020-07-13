@@ -24,7 +24,7 @@ use ring::digest::{digest, Context, SHA256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_plain::{forward_display_to_serde, forward_from_str_to_serde};
-use snafu::{ensure, ResultExt};
+use snafu::ResultExt;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -866,42 +866,6 @@ impl Delegations {
             }
         }
         None
-    }
-
-    /// verifies that roles matches contain valid keys
-    pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
-        let role_keys = self.role(name).ok_or(Error::RoleNotFound {
-            name: name.to_string(),
-        })?;
-        let mut valid = 0;
-
-        // serialize the role to verify the key ID by using the JSON representation
-        let mut data = Vec::new();
-        let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
-        role.signed
-            .serialize(&mut ser)
-            .context(error::JsonSerialization {
-                what: format!("{} role", name.to_string()),
-            })?;
-        for signature in &role.signatures {
-            if role_keys.keyids.contains(&signature.keyid) {
-                if let Some(key) = self.keys.get(&signature.keyid) {
-                    if key.verify(&data, &signature.sig) {
-                        valid += 1;
-                    }
-                }
-            }
-        }
-
-        ensure!(
-            valid >= u64::from(role_keys.threshold),
-            error::SignatureThreshold {
-                role: RoleType::Targets,
-                threshold: role_keys.threshold,
-                valid,
-            }
-        );
-        Ok(())
     }
 
     /// Finds target using pre ordered search given `target_name` or error if the target is not found

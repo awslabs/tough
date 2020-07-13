@@ -1,5 +1,5 @@
 use super::error::{self, Result};
-use super::{Role, Root, Signed};
+use super::{Delegations, Role, RoleType, Root, Signed, Targets};
 use olpc_cjson::CanonicalFormatter;
 use serde::Serialize;
 use snafu::{ensure, OptionExt, ResultExt};
@@ -41,6 +41,44 @@ impl Root {
             valid >= u64::from(role_keys.threshold),
             error::SignatureThreshold {
                 role: T::TYPE,
+                threshold: role_keys.threshold,
+                valid,
+            }
+        );
+        Ok(())
+    }
+}
+
+impl Delegations {
+    /// verifies that roles matches contain valid keys
+    pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
+        let role_keys = self.role(name).ok_or(error::Error::RoleNotFound {
+            name: name.to_string(),
+        })?;
+        let mut valid = 0;
+
+        // serialize the role to verify the key ID by using the JSON representation
+        let mut data = Vec::new();
+        let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
+        role.signed
+            .serialize(&mut ser)
+            .context(error::JsonSerialization {
+                what: format!("{} role", name.to_string()),
+            })?;
+        for signature in &role.signatures {
+            if role_keys.keyids.contains(&signature.keyid) {
+                if let Some(key) = self.keys.get(&signature.keyid) {
+                    if key.verify(&data, &signature.sig) {
+                        valid += 1;
+                    }
+                }
+            }
+        }
+
+        ensure!(
+            valid >= u64::from(role_keys.threshold),
+            error::SignatureThreshold {
+                role: RoleType::Targets,
                 threshold: role_keys.threshold,
                 valid,
             }
