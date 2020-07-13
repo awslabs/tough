@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::error::{self, Result};
+use log::debug;
 use serde::Serialize;
 use snafu::ResultExt;
 use std::fs::{self, File};
@@ -53,6 +54,7 @@ impl<'a> Datastore<'a> {
 
     pub(crate) fn remove(&self, file: &str) -> Result<()> {
         let path = self.write().join(file);
+        debug!("removing '{}'", path.display());
         match fs::remove_file(&path) {
             Ok(()) => Ok(()),
             Err(err) => match err.kind() {

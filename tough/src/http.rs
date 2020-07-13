@@ -1,5 +1,6 @@
 use crate::error::{self, Error, Result};
 use crate::Transport;
+use log::{debug, error, trace};
 use reqwest::blocking::{Client, ClientBuilder, Request, Response};
 use reqwest::header::{self, HeaderValue, ACCEPT_RANGES};
 use reqwest::Method;
@@ -94,6 +95,7 @@ impl Read for RetryRead {
                 // store the error in `retry_err` to return later if there are no more retries
                 Err(err) => err,
             };
+            debug!("error during read of '{}': {:?}", self.url, retry_err);
 
             // increment the `retry_state` and fetch a new reader if retries are not exhausted
             if self.retry_state.current_try >= self.settings.tries - 1 {
@@ -105,6 +107,11 @@ impl Read for RetryRead {
             std::thread::sleep(self.retry_state.wait);
             if !self.supports_range() {
                 // we cannot send a byte range request to this server, so return the error
+                error!(
+                    "an error occurred and we cannot retry because the server \
+                    does not support range requests '{}': {:?}",
+                    self.url, retry_err
+                );
                 return Err(retry_err);
             }
             let new_retry_read =
@@ -172,6 +179,7 @@ impl RetryState {
 
 /// Sends a `GET` request to the `url`. Retries the request as necessary per the `ClientSettings`.
 fn fetch_with_retries(r: &mut RetryState, cs: &ClientSettings, url: &Url) -> Result<RetryRead> {
+    trace!("beginning fetch for '{}'", url);
     // create a reqwest client
     let client = ClientBuilder::new()
         .timeout(cs.timeout)
