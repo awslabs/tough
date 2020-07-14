@@ -95,8 +95,7 @@ fn create_command() {
     // Ensure the snapshot.json file is correct
     assert_eq!(repo.snapshot().signed.version.get(), snapshot_version);
     assert_eq!(repo.snapshot().signed.expires, snapshot_expiration);
-    assert_eq!(repo.snapshot().signed.meta.len(), 2);
-    assert_eq!(repo.snapshot().signed.meta["root.json"].version.get(), 1);
+    assert_eq!(repo.snapshot().signed.meta.len(), 1);
     assert_eq!(
         repo.snapshot().signed.meta["targets.json"].version.get(),
         targets_version

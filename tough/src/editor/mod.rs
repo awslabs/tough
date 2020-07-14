@@ -333,11 +333,9 @@ impl RepositoryEditor {
 
         // Snapshot stores metadata about targets and root
         let targets_meta = Self::snapshot_meta(signed_targets);
-        let root_meta = Self::snapshot_meta(&self.signed_root);
         snapshot
             .meta
             .insert("targets.json".to_owned(), targets_meta);
-        snapshot.meta.insert("root.json".to_owned(), root_meta);
 
         Ok(snapshot)
     }
