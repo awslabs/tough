@@ -3,7 +3,7 @@
 
 use crate::error::{self, Result};
 use snafu::{OptionExt, ResultExt};
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::{self};
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
@@ -78,11 +78,7 @@ impl DownloadArgs {
 
             root_warning(&path);
 
-            let mut f = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(&path)
-                .context(error::OpenFile { path: &path })?;
+            let mut f = File::create(&path).context(error::OpenFile { path: &path })?;
             reqwest::blocking::get(url.as_str())
                 .context(error::ReqwestGet)?
                 .copy_to(&mut f)
@@ -118,11 +114,7 @@ impl DownloadArgs {
                 .read_target(target)
                 .context(error::Metadata)?
                 .context(error::TargetNotFound { target })?;
-            let mut f = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(&path)
-                .context(error::OpenFile { path: &path })?;
+            let mut f = File::create(&path).context(error::OpenFile { path: &path })?;
             io::copy(&mut reader, &mut f).context(error::WriteTarget)?;
             Ok(())
         };

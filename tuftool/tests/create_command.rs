@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-mod utl;
+mod test_utils;
 
 use assert_cmd::Command;
 use chrono::{Duration, Utc};
@@ -18,9 +18,11 @@ fn create_command() {
     let snapshot_version: u64 = 5432;
     let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
     let targets_version: u64 = 789;
-    let targets_input_dir = utl::test_data().join("tuf-reference-impl").join("targets");
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
+    let targets_input_dir = test_utils::test_data()
+        .join("tuf-reference-impl")
+        .join("targets");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
     let repo_dir = TempDir::new().unwrap();
     let load_dir = TempDir::new().unwrap();
 
@@ -54,8 +56,8 @@ fn create_command() {
         .success();
 
     // Load our newly created repo
-    let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
-    let targets_base_url = &utl::dir_url(repo_dir.path().join("targets"));
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let targets_base_url = &test_utils::dir_url(repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
@@ -71,15 +73,15 @@ fn create_command() {
 
     // Ensure we can read the targets
     assert_eq!(
-        utl::read_to_end(repo.read_target("file1.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target("file1.txt").unwrap().unwrap()),
         &b"This is an example target file."[..]
     );
     assert_eq!(
-        utl::read_to_end(repo.read_target("file2.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target("file2.txt").unwrap().unwrap()),
         &b"This is an another example target file."[..]
     );
     assert_eq!(
-        utl::read_to_end(repo.read_target("file3.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target("file3.txt").unwrap().unwrap()),
         &b"This is role1's target file."[..]
     );
 
@@ -117,9 +119,9 @@ fn create_command() {
 #[test]
 // Ensure that the create command fails if none of the keys we give it match up with root.json.
 fn create_with_incorrect_key() {
-    let base = utl::test_data().join("tuf-reference-impl");
+    let base = test_utils::test_data().join("tuf-reference-impl");
     let root_json = base.join("metadata").join("1.root.json");
-    let bad_key = utl::test_data().join("snakeoil.pem");
+    let bad_key = test_utils::test_data().join("snakeoil.pem");
 
     // Call the create command passing a single key that cannot be found in root.json. Assert that
     // the command fails.

@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-mod utl;
+mod test_utils;
 
 use assert_cmd::Command;
 use chrono::{Duration, Utc};
@@ -17,9 +17,11 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let snapshot_version: u64 = 25;
     let targets_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let targets_version: u64 = 17;
-    let targets_input_dir = utl::test_data().join("tuf-reference-impl").join("targets");
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
+    let targets_input_dir = test_utils::test_data()
+        .join("tuf-reference-impl")
+        .join("targets");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
 
     // Create a repo using tuftool and the reference tuf implementation data
     Command::cargo_bin("tuftool")
@@ -54,8 +56,8 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
 #[test]
 // Ensure we can read a repo that has had its metadata updated by `tuftool create`
 fn update_command_without_new_targets() {
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
     let repo_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation data
@@ -68,7 +70,7 @@ fn update_command_without_new_targets() {
     let new_snapshot_version: u64 = 250;
     let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
     let new_targets_version: u64 = 170;
-    let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
@@ -102,8 +104,8 @@ fn update_command_without_new_targets() {
 
     // Load the updated repo
     let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &utl::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &utl::dir_url(update_out.path().join("targets"));
+    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
+    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
@@ -133,8 +135,8 @@ fn update_command_without_new_targets() {
 // Ensure we can read a repo that has had its metadata and targets updated
 // by `tuftool create`
 fn update_command_with_new_targets() {
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
     let repo_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation data
@@ -147,8 +149,8 @@ fn update_command_with_new_targets() {
     let new_snapshot_version: u64 = 250;
     let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
     let new_targets_version: u64 = 170;
-    let new_targets_input_dir = utl::test_data().join("targets");
-    let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
+    let new_targets_input_dir = test_utils::test_data().join("targets");
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
@@ -184,8 +186,8 @@ fn update_command_with_new_targets() {
 
     // Load the updated repo.
     let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &utl::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &utl::dir_url(update_out.path().join("targets"));
+    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
+    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
@@ -204,15 +206,15 @@ fn update_command_with_new_targets() {
 
     // Ensure we can read the newly added targets
     assert_eq!(
-        utl::read_to_end(repo.read_target("file4.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target("file4.txt").unwrap().unwrap()),
         &b"This is an example target file."[..]
     );
     assert_eq!(
-        utl::read_to_end(repo.read_target("file5.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target("file5.txt").unwrap().unwrap()),
         &b"This is another example target file."[..]
     );
     assert_eq!(
-        utl::read_to_end(repo.read_target("file6.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target("file6.txt").unwrap().unwrap()),
         &b"This is yet another example target file."[..]
     );
 
@@ -228,9 +230,9 @@ fn update_command_with_new_targets() {
 #[test]
 // Ensure that the update command fails if none of the keys we give it match up with root.json.
 fn update_with_incorrect_key() {
-    let base = utl::test_data().join("tuf-reference-impl");
+    let base = test_utils::test_data().join("tuf-reference-impl");
     let root_json = base.join("metadata").join("1.root.json");
-    let bad_key = utl::test_data().join("snakeoil.pem");
+    let bad_key = test_utils::test_data().join("snakeoil.pem");
 
     Command::cargo_bin("tuftool")
         .unwrap()
