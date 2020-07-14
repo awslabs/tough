@@ -93,6 +93,38 @@ pub struct Signature {
     pub sig: Decoded<Hex>,
 }
 
+/// A type to save extra metadata without using `_extra`
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct Verbatim<T> {
+    /// The TUF value represented
+    #[serde(flatten)]
+    pub inner: T,
+    /// Anything extra in the metadata
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
+}
+
+impl<T> From<T> for Verbatim<T>{
+    fn from(inner:T) -> Self {
+        Verbatim{
+            inner,
+            extra: HashMap::new(),
+        }
+    }
+}
+
+impl<T> AsRef<T> for Verbatim<T>{
+    fn as_ref(&self) -> &T {
+        &self.inner
+    }
+}
+
+impl<T> AsMut<T> for Verbatim<T>{
+    fn as_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
+}
+
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
 /// TUF 4.3: The root.json file is signed by the root role's keys. It indicates which keys are
@@ -127,7 +159,7 @@ pub struct Root {
 
     /// A list of roles, the keys associated with each role, and the threshold of signatures used
     /// for each role.
-    pub roles: HashMap<RoleType, RoleKeys>,
+    pub roles: HashMap<RoleType, Verbatim<RoleKeys>>,
 
     /// Extra arguments found during deserialization.
     ///
@@ -153,14 +185,6 @@ pub struct RoleKeys {
 
     /// The threshold of signatures required to validate the role.
     pub threshold: NonZeroU64,
-
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    pub _extra: HashMap<String, Value>,
 }
 
 impl Root {
@@ -168,7 +192,7 @@ impl Root {
     pub fn keys(&self, role: RoleType) -> impl Iterator<Item = &Key> {
         KeysIter {
             keyids_iter: match self.roles.get(&role) {
-                Some(role_keys) => role_keys.keyids.iter(),
+                Some(role_keys) => role_keys.as_ref().keyids.iter(),
                 None => [].iter(),
             },
             keys: &self.keys,

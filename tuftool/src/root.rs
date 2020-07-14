@@ -100,11 +100,10 @@ pub(crate) enum Command {
 
 macro_rules! role_keys {
     ($threshold:expr) => {
-        RoleKeys {
+        From::from(RoleKeys {
             keyids: Vec::new(),
             threshold: $threshold,
-            _extra: HashMap::new(),
-        }
+        })
     };
 
     () => {
@@ -190,7 +189,7 @@ impl Command {
         root.signed
             .roles
             .entry(role)
-            .and_modify(|rk| rk.threshold = threshold)
+            .and_modify(|rk| rk.as_mut().threshold = threshold)
             .or_insert_with(|| role_keys!(threshold));
         clear_sigs(&mut root);
         write_file(path, &root)
@@ -213,19 +212,19 @@ impl Command {
         let mut root: Signed<Root> = load_file(path)?;
         if let Some(role) = role {
             if let Some(role_keys) = root.signed.roles.get_mut(&role) {
-                role_keys
+                role_keys.as_ref()
                     .keyids
                     .iter()
                     .position(|k| k.eq(key_id))
-                    .map(|pos| role_keys.keyids.remove(pos));
+                    .map(|pos| role_keys.as_mut().keyids.remove(pos));
             }
         } else {
             for role_keys in root.signed.roles.values_mut() {
-                role_keys
+                role_keys.as_ref()
                     .keyids
                     .iter()
                     .position(|k| k.eq(key_id))
-                    .map(|pos| role_keys.keyids.remove(pos));
+                    .map(|pos| role_keys.as_mut().keyids.remove(pos));
             }
             root.signed.keys.remove(key_id);
         }
@@ -331,8 +330,8 @@ fn add_key(root: &mut Root, role: &[RoleType], key: Key) -> Result<Decoded<Hex>>
 
     for r in role {
         let entry = root.roles.entry(*r).or_insert_with(|| role_keys!());
-        if !entry.keyids.contains(&key_id) {
-            entry.keyids.push(key_id.clone());
+        if !entry.as_ref().keyids.contains(&key_id) {
+            entry.as_mut().keyids.push(key_id.clone());
         }
     }
 

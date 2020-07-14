@@ -25,7 +25,7 @@ impl Root {
         let mut valid_keyids = HashSet::new();
 
         for signature in &role.signatures {
-            if role_keys.keyids.contains(&signature.keyid) {
+            if role_keys.as_ref().keyids.contains(&signature.keyid) {
                 if let Some(key) = self.keys.get(&signature.keyid) {
                     if key.verify(&data, &signature.sig) {
                         // Ignore duplicate keyids.
@@ -38,10 +38,10 @@ impl Root {
         }
 
         ensure!(
-            valid >= u64::from(role_keys.threshold),
+            valid >= u64::from(role_keys.as_ref().threshold),
             error::SignatureThreshold {
                 role: T::TYPE,
-                threshold: role_keys.threshold,
+                threshold: role_keys.as_ref().threshold,
                 valid,
             }
         );

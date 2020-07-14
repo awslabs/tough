@@ -56,7 +56,7 @@ where
         // the keys provided.
         let (signing_key_id, signing_key) = root_keys
             .iter()
-            .find(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid))
+            .find(|(keyid, _signing_key)| role_keys.as_ref().keyids.contains(&keyid))
             .context(error::SigningKeysNotFound {
                 role: T::TYPE.to_string(),
             })?;
