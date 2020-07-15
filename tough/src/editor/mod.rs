@@ -315,7 +315,6 @@ impl RepositoryEditor {
             version,
             expires,
             targets,
-            _extra,
             delegations: None,
         }))
     }
@@ -341,7 +340,7 @@ impl RepositoryEditor {
             .meta
             .insert("targets.json".to_owned(), targets_meta);
 
-        Ok(From::from(snapshot))
+        Ok(Verbatim{inner:snapshot, extra: _extra})
     }
 
     /// Build a `SnapshotMeta` struct from a given `SignedRole<T>`. This metadata
@@ -380,9 +379,8 @@ impl RepositoryEditor {
         timestamp
             .meta
             .insert("snapshot.json".to_owned(), snapshot_meta);
-        timestamp._extra = _extra;
 
-        Ok(From::from(timestamp))
+        Ok(Verbatim{inner:timestamp, extra: _extra})
     }
 
     /// Build a `TimestampMeta` struct from a given `SignedRole<T>`. This metadata

@@ -240,14 +240,6 @@ pub struct Snapshot {
     /// and delegated targets metadata.
     pub meta: HashMap<String, SnapshotMeta>,
 
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    #[serde(deserialize_with = "de::extra_skip_type")]
-    pub _extra: HashMap<String, Value>,
 }
 
 /// Represents a metadata file in a `snapshot.json` file.
@@ -321,7 +313,6 @@ impl Snapshot {
             version,
             expires,
             meta: HashMap::new(),
-            _extra: HashMap::new(),
         }
     }
 }
@@ -376,14 +367,6 @@ pub struct Targets {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delegations: Option<Delegations>,
 
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    #[serde(deserialize_with = "de::extra_skip_type")]
-    pub _extra: HashMap<String, Value>,
 }
 
 /// TUF 4.5: TARGETS is an object whose format is the following:
@@ -470,7 +453,6 @@ impl Targets {
             version,
             expires,
             targets: HashMap::new(),
-            _extra: HashMap::new(),
             delegations: None,
         }
     }
@@ -835,14 +817,6 @@ pub struct Timestamp {
     /// timestamp.json file, this MUST only include a description of the snapshot.json file.
     pub meta: HashMap<String, TimestampMeta>,
 
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    #[serde(deserialize_with = "de::extra_skip_type")]
-    pub _extra: HashMap<String, Value>,
 }
 
 /// METAFILES is the same as described for the snapshot.json file. In the case of the timestamp.json
@@ -876,7 +850,6 @@ impl Timestamp {
             version,
             expires,
             meta: HashMap::new(),
-            _extra: HashMap::new(),
         }
     }
 }

@@ -115,13 +115,7 @@ fn create_command() {
         snapshot_version
     );
     assert_eq!(repo.snapshot().signed.as_ref().expires, snapshot_expiration);
-    assert_eq!(repo.snapshot().signed.as_ref().meta.len(), 2);
-    assert_eq!(
-        repo.snapshot().signed.as_ref().meta["root.json"]
-            .version
-            .get(),
-        1
-    );
+    assert_eq!(repo.snapshot().signed.as_ref().meta.len(), 1);
     assert_eq!(
         repo.snapshot().signed.as_ref().meta["targets.json"]
             .version
