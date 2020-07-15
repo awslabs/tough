@@ -689,7 +689,7 @@ fn load_snapshot<T: Transport>(
         })?,
         snapshot_meta.length,
         "timestamp.json",
-        &snapshot_meta.hashes.sha256,
+        &snapshot_meta.hashes.as_ref().sha256,
     )?;
     let snapshot: Signed<Verbatim<Snapshot>> =
         serde_json::from_reader(reader).context(error::ParseMetadata {
@@ -832,7 +832,7 @@ fn load_targets<T: Transport>(
             targets_url,
             max_targets_size,
             specifier,
-            &hashes.sha256,
+            &hashes.as_ref().sha256,
         )?) as Box<dyn Read>
     } else {
         Box::new(fetch_max_size(

@@ -350,10 +350,9 @@ impl RepositoryEditor {
         T: Role,
     {
         SnapshotMeta {
-            hashes: Some(Hashes {
+            hashes: Some(From::from(Hashes {
                 sha256: role.sha256.to_vec().into(),
-                _extra: HashMap::new(),
-            }),
+            })),
             length: Some(role.length),
             version: role.signed.signed.as_ref().version(),
             _extra: HashMap::new(),
@@ -390,10 +389,9 @@ impl RepositoryEditor {
         T: Role,
     {
         TimestampMeta {
-            hashes: Hashes {
+            hashes: From::from(Hashes {
                 sha256: role.sha256.to_vec().into(),
-                _extra: HashMap::new(),
-            },
+            }),
             length: role.length,
             version: role.signed.signed.as_ref().version(),
             _extra: HashMap::new(),

@@ -207,7 +207,7 @@ impl<'a, T: Transport> Repository<'a, T> {
         target: &Target,
         name: &str,
     ) -> (Vec<u8>, String) {
-        let sha256 = &target.hashes.sha256.clone().into_vec();
+        let sha256 = &target.hashes.as_ref().sha256.clone().into_vec();
         if self.consistent_snapshot {
             (sha256.clone(), format!("{}.{}", hex::encode(sha256), name))
         } else {

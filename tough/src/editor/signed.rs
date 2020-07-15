@@ -267,11 +267,11 @@ impl SignedRepository {
             // target we just created. If they are the same, this must
             // be the same file, symlink it.
             ensure!(
-                target_from_path.hashes.sha256 == repo_target.hashes.sha256,
+                target_from_path.hashes.as_ref().sha256 == repo_target.hashes.as_ref().sha256,
                 error::HashMismatch {
                     context: "target",
-                    calculated: hex::encode(target_from_path.hashes.sha256),
-                    expected: hex::encode(&repo_target.hashes.sha256),
+                    calculated: hex::encode(target_from_path.hashes.inner.sha256),
+                    expected: hex::encode(&repo_target.hashes.inner.sha256),
                 }
             );
         } else {
@@ -282,7 +282,7 @@ impl SignedRepository {
         let dest = if self.root.signed.signed.as_ref().consistent_snapshot {
             outdir.join(format!(
                 "{}.{}",
-                hex::encode(&target_from_path.hashes.sha256),
+                hex::encode(&target_from_path.hashes.as_ref().sha256),
                 file_name
             ))
         } else {

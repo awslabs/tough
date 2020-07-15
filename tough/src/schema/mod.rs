@@ -275,7 +275,7 @@ pub struct SnapshotMeta {
     /// repository MUST guarantee that VERSION alone unambiguously identifies the metadata at
     /// METAPATH.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub hashes: Option<Hashes>,
+    pub hashes: Option<Verbatim<Hashes>>,
 
     /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
     /// number less than the one currently trusted.
@@ -295,14 +295,6 @@ pub struct SnapshotMeta {
 pub struct Hashes {
     /// The SHA 256 digest of a metadata file.
     pub sha256: Decoded<Hex>,
-
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    pub _extra: HashMap<String, Value>,
 }
 
 impl Snapshot {
@@ -386,7 +378,7 @@ pub struct Target {
     /// HASHES is a dictionary that specifies one or more hashes, including the cryptographic hash
     /// function. For example: `{ "sha256": HASH, ... }`. HASH is the hexdigest of the cryptographic
     /// function computed on the target file.
-    pub hashes: Hashes,
+    pub hashes: Verbatim<Hashes>,
 
     /// If defined, the elements and values of "custom" will be made available to the client
     /// application. The information in "custom" is opaque to the framework and can include version
@@ -435,10 +427,9 @@ impl Target {
 
         Ok(Target {
             length,
-            hashes: Hashes {
+            hashes: From::from(Hashes {
                 sha256: Decoded::from(digest.finish().as_ref().to_vec()),
-                _extra: HashMap::new(),
-            },
+            }),
             custom: HashMap::new(),
             _extra: HashMap::new(),
         })
@@ -827,7 +818,7 @@ pub struct TimestampMeta {
     pub length: u64,
 
     /// The hashes of the snapshot.json file.
-    pub hashes: Hashes,
+    pub hashes: Verbatim<Hashes>,
 
     /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
     /// number less than the one currently trusted.
