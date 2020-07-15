@@ -93,21 +93,30 @@ fn create_command() {
     assert_eq!(repo.targets().signed.as_ref().expires, targets_expiration);
     assert_eq!(repo.targets().signed.as_ref().targets.len(), 3);
     assert_eq!(
-        repo.targets().signed.as_ref().targets["file1.txt"].length,
+        repo.targets().signed.as_ref().targets["file1.txt"]
+            .as_ref()
+            .length,
         31
     );
     assert_eq!(
-        repo.targets().signed.as_ref().targets["file2.txt"].length,
+        repo.targets().signed.as_ref().targets["file2.txt"]
+            .as_ref()
+            .length,
         39
     );
     assert_eq!(
-        repo.targets().signed.as_ref().targets["file3.txt"].length,
+        repo.targets().signed.as_ref().targets["file3.txt"]
+            .as_ref()
+            .length,
         28
     );
     assert_eq!(repo.targets().signatures.len(), 1);
 
     // Ensure the snapshot.json file is correct
-    assert_eq!(repo.snapshot().signed.as_ref().version.get(), snapshot_version);
+    assert_eq!(
+        repo.snapshot().signed.as_ref().version.get(),
+        snapshot_version
+    );
     assert_eq!(repo.snapshot().signed.as_ref().expires, snapshot_expiration);
     assert_eq!(repo.snapshot().signed.as_ref().meta.len(), 1);
     assert_eq!(

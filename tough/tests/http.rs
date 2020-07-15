@@ -67,6 +67,7 @@ mod http_happy {
                 .targets
                 .get("file1.txt")
                 .unwrap()
+                .as_ref()
                 .custom
                 .get("file_permissions")
                 .unwrap(),

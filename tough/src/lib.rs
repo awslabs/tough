@@ -352,8 +352,8 @@ impl<'a, T: Transport> Repository<'a, T> {
         //   non-volatile storage as FILENAME.EXT.
         Ok(
             if let Ok(target) = self.targets.signed.as_ref().find_target(name) {
-                let (sha256, file) = self.target_digest_and_filename(target, name);
-                Some(self.fetch_target(target, &sha256, file.as_str())?)
+                let (sha256, file) = self.target_digest_and_filename(target.as_ref(), name);
+                Some(self.fetch_target(target.as_ref(), &sha256, file.as_str())?)
             } else {
                 None
             },

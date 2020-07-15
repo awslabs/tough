@@ -343,7 +343,7 @@ pub struct Targets {
 
     /// Each key of the TARGETS object is a TARGETPATH. A TARGETPATH is a path to a file that is
     /// relative to a mirror's base URL of targets.
-    pub targets: HashMap<String, Target>,
+    pub targets: HashMap<String, Verbatim<Target>>,
 
     /// Delegations describes subsets of the targets for which responsibility is delegated to
     /// another role.
@@ -378,14 +378,6 @@ pub struct Target {
     #[serde(default)]
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub custom: HashMap<String, Value>,
-
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    pub _extra: HashMap<String, Value>,
 }
 
 impl Target {
@@ -417,11 +409,11 @@ impl Target {
 
         Ok(Target {
             length,
-            hashes: From::from(Hashes {
+            hashes: Hashes {
                 sha256: Decoded::from(digest.finish().as_ref().to_vec()),
-            }),
+            }
+            .into(),
             custom: HashMap::new(),
-            _extra: HashMap::new(),
         })
     }
 }
@@ -439,7 +431,7 @@ impl Targets {
     }
 
     /// Given a target url, returns a reference to the Target struct or error if the target is unreachable
-    pub fn find_target(&self, target_name: &str) -> Result<&Target> {
+    pub fn find_target(&self, target_name: &str) -> Result<&Verbatim<Target>> {
         match self.targets.get(target_name) {
             Some(target) => Ok(target),
             None => match &self.delegations {
@@ -465,7 +457,7 @@ impl Targets {
     }
 
     /// Returns a vec of all targets and all delegated targets recursively
-    pub fn targets_vec(&self) -> Vec<&Target> {
+    pub fn targets_vec(&self) -> Vec<&Verbatim<Target>> {
         let mut targets = Vec::new();
         for target in &self.targets {
             targets.push(target.1);
@@ -480,7 +472,7 @@ impl Targets {
     }
 
     /// Returns a hashmap of all targets and all delegated targets recursively
-    pub fn targets_map(&self) -> HashMap<String, &Target> {
+    pub fn targets_map(&self) -> HashMap<String, &Verbatim<Target>> {
         let mut targets = HashMap::new();
         for target in &self.targets {
             targets.insert(target.0.clone(), target.1);
@@ -715,7 +707,7 @@ impl Delegations {
     }
 
     /// Finds target using pre ordered search given `target_name` or error if the target is not found
-    pub fn find_target(&self, target_name: &str) -> Result<&Target> {
+    pub fn find_target(&self, target_name: &str) -> Result<&Verbatim<Target>> {
         for delegated_role in &self.roles {
             if let Some(targets) = &delegated_role.targets {
                 if let Ok(target) = &targets.signed.find_target(target_name) {
@@ -749,8 +741,8 @@ impl Delegations {
     }
 
     /// Returns all targets delegated by this struct recursively
-    pub fn targets_vec(&self) -> Vec<&Target> {
-        let mut targets = Vec::<&Target>::new();
+    pub fn targets_vec(&self) -> Vec<&Verbatim<Target>> {
+        let mut targets = Vec::<&Verbatim<Target>>::new();
         for role in &self.roles {
             if let Some(t) = &role.targets {
                 for t in t.signed.targets_vec() {
@@ -762,7 +754,7 @@ impl Delegations {
     }
 
     /// Returns all targets delegated by this struct recursively
-    pub fn targets_map(&self) -> HashMap<String, &Target> {
+    pub fn targets_map(&self) -> HashMap<String, &Verbatim<Target>> {
         let mut targets = HashMap::new();
         for role in &self.roles {
             if let Some(t) = &role.targets {

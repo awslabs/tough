@@ -267,11 +267,12 @@ impl SignedRepository {
             // target we just created. If they are the same, this must
             // be the same file, symlink it.
             ensure!(
-                target_from_path.hashes.as_ref().sha256 == repo_target.hashes.as_ref().sha256,
+                target_from_path.hashes.as_ref().sha256
+                    == repo_target.as_ref().hashes.as_ref().sha256,
                 error::HashMismatch {
                     context: "target",
                     calculated: hex::encode(target_from_path.hashes.inner.sha256),
-                    expected: hex::encode(&repo_target.hashes.inner.sha256),
+                    expected: hex::encode(&repo_target.as_ref().hashes.inner.sha256),
                 }
             );
         } else {

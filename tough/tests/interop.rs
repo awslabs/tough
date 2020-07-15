@@ -48,6 +48,7 @@ fn test_tuf_reference_impl() {
             .targets
             .get("file1.txt")
             .unwrap()
+            .as_ref()
             .custom
             .get("file_permissions")
             .unwrap(),

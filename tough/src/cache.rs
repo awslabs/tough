@@ -174,8 +174,8 @@ impl<'a, T: Transport> Repository<'a, T> {
                 .context(error::CacheTargetMissing {
                     target_name: name.to_owned(),
                 })?;
-        let (sha, filename) = self.target_digest_and_filename(&t, name);
-        let mut reader = self.fetch_target(t, &sha, filename.as_str())?;
+        let (sha, filename) = self.target_digest_and_filename(t.as_ref(), name);
+        let mut reader = self.fetch_target(t.as_ref(), &sha, filename.as_str())?;
         let path = outdir.as_ref().join(filename);
         let mut f = OpenOptions::new()
             .write(true)

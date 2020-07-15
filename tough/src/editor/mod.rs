@@ -47,8 +47,8 @@ const SPEC_VERSION: &str = "1.0.0";
 pub struct RepositoryEditor {
     signed_root: SignedRole<Verbatim<Root>>,
 
-    new_targets: Option<HashMap<String, Target>>,
-    existing_targets: Option<HashMap<String, Target>>,
+    new_targets: Option<HashMap<String, Verbatim<Target>>>,
+    existing_targets: Option<HashMap<String, Verbatim<Target>>>,
     targets_version: Option<NonZeroU64>,
     targets_expires: Option<DateTime<Utc>>,
     targets_extra: Option<HashMap<String, Value>>,
@@ -196,7 +196,7 @@ impl RepositoryEditor {
     pub fn add_target(&mut self, name: String, target: Target) -> &mut Self {
         self.new_targets
             .get_or_insert_with(HashMap::new)
-            .insert(name, target);
+            .insert(name, target.into());
         self
     }
 
@@ -301,7 +301,7 @@ impl RepositoryEditor {
         // the most common use case, it's possible this is what a user wants.
         // If it's important to have a non-empty targets, the object can be
         // inspected by the calling code.
-        let mut targets: HashMap<String, Target> = HashMap::new();
+        let mut targets: HashMap<String, Verbatim<Target>> = HashMap::new();
         if let Some(ref existing_targets) = self.existing_targets {
             targets.extend(existing_targets.clone());
         }
@@ -310,13 +310,14 @@ impl RepositoryEditor {
         }
 
         let _extra = self.targets_extra.clone().unwrap_or_else(HashMap::new);
-        Ok(From::from(Targets {
+        Ok(Targets {
             spec_version: SPEC_VERSION.to_string(),
             version,
             expires,
             targets,
             delegations: None,
-        }))
+        }
+        .into())
     }
 
     /// Build the `Snapshot` struct
@@ -338,7 +339,7 @@ impl RepositoryEditor {
         let targets_meta = Self::snapshot_meta(signed_targets);
         snapshot
             .meta
-            .insert("targets.json".to_owned(), From::from(targets_meta));
+            .insert("targets.json".to_owned(), targets_meta.into());
 
         Ok(Verbatim {
             inner: snapshot,
@@ -353,9 +354,12 @@ impl RepositoryEditor {
         T: Role,
     {
         SnapshotMeta {
-            hashes: Some(From::from(Hashes {
-                sha256: role.sha256.to_vec().into(),
-            })),
+            hashes: Some(
+                Hashes {
+                    sha256: role.sha256.to_vec().into(),
+                }
+                .into(),
+            ),
             length: Some(role.length),
             version: role.signed.signed.as_ref().version(),
         }
@@ -379,7 +383,7 @@ impl RepositoryEditor {
         let snapshot_meta = Self::timestamp_meta(signed_snapshot);
         timestamp
             .meta
-            .insert("snapshot.json".to_owned(), From::from(snapshot_meta));
+            .insert("snapshot.json".to_owned(), snapshot_meta.into());
         Ok(Verbatim {
             inner: timestamp,
             extra: _extra,
@@ -393,9 +397,10 @@ impl RepositoryEditor {
         T: Role,
     {
         TimestampMeta {
-            hashes: From::from(Hashes {
+            hashes: Hashes {
                 sha256: role.sha256.to_vec().into(),
-            }),
+            }
+            .into(),
             length: role.length,
             version: role.signed.signed.as_ref().version(),
         }

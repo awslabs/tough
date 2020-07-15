@@ -100,10 +100,11 @@ pub(crate) enum Command {
 
 macro_rules! role_keys {
     ($threshold:expr) => {
-        From::from(RoleKeys {
+        RoleKeys {
             keyids: Vec::new(),
             threshold: $threshold,
-        })
+        }
+        .into()
     };
 
     () => {

@@ -1,7 +1,7 @@
 use crate::schema::decoded::{Decoded, Hex};
 use crate::schema::error;
 use crate::schema::key::Key;
-use serde::{de::Error as _, Deserialize, Deserializer};
+use serde::{de::Error as _, Deserializer};
 use snafu::ensure;
 use std::collections::HashMap;
 use std::fmt;
@@ -61,29 +61,4 @@ where
     }
 
     deserializer.deserialize_map(Visitor)
-}
-
-/// Deserializes the `_extra` field on roles, skipping the `_type` tag.
-pub(super) fn extra_skip_type<'de, D>(
-    deserializer: D,
-) -> Result<HashMap<String, serde_json::Value>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let mut map = HashMap::deserialize(deserializer)?;
-    map.remove("_type");
-    Ok(map)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::schema::{Root, Signed};
-
-    #[test]
-    fn duplicate_keyid() {
-        assert!(serde_json::from_str::<Signed<Root>>(include_str!(
-            "../../tests/data/duplicate-keyid/root.json"
-        ))
-        .is_err());
-    }
 }
