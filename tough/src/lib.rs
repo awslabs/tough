@@ -677,7 +677,7 @@ fn load_snapshot<T: Transport>(
             role: RoleType::Timestamp,
         })?;
     let path = if root.signed.as_ref().consistent_snapshot {
-        format!("{}.snapshot.json", snapshot_meta.version)
+        format!("{}.snapshot.json", snapshot_meta.as_ref().version)
     } else {
         "snapshot.json".to_owned()
     };
@@ -687,9 +687,9 @@ fn load_snapshot<T: Transport>(
             path,
             url: metadata_base_url.to_owned(),
         })?,
-        snapshot_meta.length,
+        snapshot_meta.as_ref().length,
         "timestamp.json",
-        &snapshot_meta.hashes.as_ref().sha256,
+        &snapshot_meta.as_ref().hashes.as_ref().sha256,
     )?;
     let snapshot: Signed<Verbatim<Snapshot>> =
         serde_json::from_reader(reader).context(error::ParseMetadata {
@@ -703,11 +703,11 @@ fn load_snapshot<T: Transport>(
     //
     // (We already checked the hash in `fetch_sha256` above.)
     ensure!(
-        snapshot.signed.as_ref().version == snapshot_meta.version,
+        snapshot.signed.as_ref().version == snapshot_meta.as_ref().version,
         error::VersionMismatch {
             role: RoleType::Snapshot,
             fetched: snapshot.signed.as_ref().version,
-            expected: snapshot_meta.version
+            expected: snapshot_meta.as_ref().version
         }
     );
 
@@ -759,11 +759,11 @@ fn load_snapshot<T: Transport>(
                     },
                 )?;
                 ensure!(
-                    old_targets_meta.version <= targets_meta.version,
+                    old_targets_meta.as_ref().version <= targets_meta.as_ref().version,
                     error::OlderMetadata {
                         role: RoleType::Targets,
-                        current_version: old_targets_meta.version,
-                        new_version: targets_meta.version,
+                        current_version: old_targets_meta.as_ref().version,
+                        new_version: targets_meta.as_ref().version,
                     }
                 );
             }
@@ -814,7 +814,7 @@ fn load_targets<T: Transport>(
                 role: RoleType::Timestamp,
             })?;
     let path = if root.signed.as_ref().consistent_snapshot {
-        format!("{}.targets.json", targets_meta.version)
+        format!("{}.targets.json", targets_meta.as_ref().version)
     } else {
         "targets.json".to_owned()
     };
@@ -822,11 +822,11 @@ fn load_targets<T: Transport>(
         path,
         url: metadata_base_url.to_owned(),
     })?;
-    let (max_targets_size, specifier) = match targets_meta.length {
+    let (max_targets_size, specifier) = match targets_meta.as_ref().length {
         Some(length) => (length, "snapshot.json"),
         None => (max_targets_size, "max_targets_size parameter"),
     };
-    let reader = if let Some(hashes) = &targets_meta.hashes {
+    let reader = if let Some(hashes) = &targets_meta.as_ref().hashes {
         Box::new(fetch_sha256(
             transport,
             targets_url,
@@ -854,11 +854,11 @@ fn load_targets<T: Transport>(
     //
     // (We already checked the hash in `fetch_sha256` above.)
     ensure!(
-        targets.signed.as_ref().version == targets_meta.version,
+        targets.signed.as_ref().version == targets_meta.as_ref().version,
         error::VersionMismatch {
             role: RoleType::Targets,
             fetched: targets.signed.as_ref().version,
-            expected: targets_meta.version
+            expected: targets_meta.as_ref().version
         }
     );
 
@@ -967,11 +967,11 @@ fn load_delegations<T: Transport>(
                 role: RoleType::Targets,
             })?;
         ensure!(
-            role.signed.version == role_meta.version,
+            role.signed.version == role_meta.as_ref().version,
             error::VersionMismatch {
                 role: RoleType::Targets,
                 fetched: role.signed.version,
-                expected: role_meta.version
+                expected: role_meta.as_ref().version
             }
         );
         {

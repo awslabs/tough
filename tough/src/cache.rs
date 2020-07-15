@@ -122,6 +122,7 @@ impl<'a, T: Transport> Repository<'a, T> {
                     .as_ref()
                     .meta
                     .get(&format!("{}.json", name))?
+                    .as_ref()
                     .version,
                 name
             ))
@@ -197,7 +198,7 @@ impl<'a, T: Transport> Repository<'a, T> {
                 file: "snapshot.json",
                 role: RoleType::Timestamp,
             })?;
-        Ok(snapshot_meta.length)
+        Ok(snapshot_meta.as_ref().length)
     }
 
     /// Prepends the target digest to the name if using consistent snapshots. Returns both the

@@ -238,8 +238,7 @@ pub struct Snapshot {
     /// describes the hash key in 4.4: METAPATH is the file path of the metadata on the repository
     /// relative to the metadata base URL. For snapshot.json, these are top-level targets metadata
     /// and delegated targets metadata.
-    pub meta: HashMap<String, SnapshotMeta>,
-
+    pub meta: HashMap<String, Verbatim<SnapshotMeta>>,
 }
 
 /// Represents a metadata file in a `snapshot.json` file.
@@ -280,14 +279,6 @@ pub struct SnapshotMeta {
     /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
     /// number less than the one currently trusted.
     pub version: NonZeroU64,
-
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    pub _extra: HashMap<String, Value>,
 }
 
 /// Represents the hash dictionary in a `snapshot.json` file.
@@ -358,7 +349,6 @@ pub struct Targets {
     /// another role.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delegations: Option<Delegations>,
-
 }
 
 /// TUF 4.5: TARGETS is an object whose format is the following:
@@ -806,8 +796,7 @@ pub struct Timestamp {
 
     /// METAFILES is the same as described for the snapshot.json file. In the case of the
     /// timestamp.json file, this MUST only include a description of the snapshot.json file.
-    pub meta: HashMap<String, TimestampMeta>,
-
+    pub meta: HashMap<String, Verbatim<TimestampMeta>>,
 }
 
 /// METAFILES is the same as described for the snapshot.json file. In the case of the timestamp.json
@@ -823,14 +812,6 @@ pub struct TimestampMeta {
     /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
     /// number less than the one currently trusted.
     pub version: NonZeroU64,
-
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    pub _extra: HashMap<String, Value>,
 }
 
 impl Timestamp {

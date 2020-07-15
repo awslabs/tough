@@ -118,6 +118,7 @@ fn create_command() {
     assert_eq!(repo.snapshot().signed.as_ref().meta.len(), 1);
     assert_eq!(
         repo.snapshot().signed.as_ref().meta["targets.json"]
+            .as_ref()
             .version
             .get(),
         targets_version
@@ -136,6 +137,7 @@ fn create_command() {
     assert_eq!(repo.timestamp().signed.as_ref().meta.len(), 1);
     assert_eq!(
         repo.timestamp().signed.as_ref().meta["snapshot.json"]
+            .as_ref()
             .version
             .get(),
         snapshot_version

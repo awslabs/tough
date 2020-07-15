@@ -338,9 +338,12 @@ impl RepositoryEditor {
         let targets_meta = Self::snapshot_meta(signed_targets);
         snapshot
             .meta
-            .insert("targets.json".to_owned(), targets_meta);
+            .insert("targets.json".to_owned(), From::from(targets_meta));
 
-        Ok(Verbatim{inner:snapshot, extra: _extra})
+        Ok(Verbatim {
+            inner: snapshot,
+            extra: _extra,
+        })
     }
 
     /// Build a `SnapshotMeta` struct from a given `SignedRole<T>`. This metadata
@@ -355,7 +358,6 @@ impl RepositoryEditor {
             })),
             length: Some(role.length),
             version: role.signed.signed.as_ref().version(),
-            _extra: HashMap::new(),
         }
     }
 
@@ -377,9 +379,11 @@ impl RepositoryEditor {
         let snapshot_meta = Self::timestamp_meta(signed_snapshot);
         timestamp
             .meta
-            .insert("snapshot.json".to_owned(), snapshot_meta);
-
-        Ok(Verbatim{inner:timestamp, extra: _extra})
+            .insert("snapshot.json".to_owned(), From::from(snapshot_meta));
+        Ok(Verbatim {
+            inner: timestamp,
+            extra: _extra,
+        })
     }
 
     /// Build a `TimestampMeta` struct from a given `SignedRole<T>`. This metadata
@@ -394,7 +398,6 @@ impl RepositoryEditor {
             }),
             length: role.length,
             version: role.signed.signed.as_ref().version(),
-            _extra: HashMap::new(),
         }
     }
 }
