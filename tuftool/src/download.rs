@@ -124,6 +124,7 @@ impl DownloadArgs {
             repository
                 .targets()
                 .signed
+                .as_ref()
                 .targets
                 .keys()
                 .cloned()

@@ -86,30 +86,64 @@ fn create_command() {
     );
 
     // Ensure the targets.json file is correct
-    assert_eq!(repo.targets().signed.version.get(), targets_version);
-    assert_eq!(repo.targets().signed.expires, targets_expiration);
-    assert_eq!(repo.targets().signed.targets.len(), 3);
-    assert_eq!(repo.targets().signed.targets["file1.txt"].length, 31);
-    assert_eq!(repo.targets().signed.targets["file2.txt"].length, 39);
-    assert_eq!(repo.targets().signed.targets["file3.txt"].length, 28);
+    assert_eq!(
+        repo.targets().signed.as_ref().version.get(),
+        targets_version
+    );
+    assert_eq!(repo.targets().signed.as_ref().expires, targets_expiration);
+    assert_eq!(repo.targets().signed.as_ref().targets.len(), 3);
+    assert_eq!(
+        repo.targets().signed.as_ref().targets["file1.txt"].length,
+        31
+    );
+    assert_eq!(
+        repo.targets().signed.as_ref().targets["file2.txt"].length,
+        39
+    );
+    assert_eq!(
+        repo.targets().signed.as_ref().targets["file3.txt"].length,
+        28
+    );
     assert_eq!(repo.targets().signatures.len(), 1);
 
     // Ensure the snapshot.json file is correct
-    assert_eq!(repo.snapshot().signed.version.get(), snapshot_version);
-    assert_eq!(repo.snapshot().signed.expires, snapshot_expiration);
-    assert_eq!(repo.snapshot().signed.meta.len(), 1);
+    assert_eq!(repo.snapshot().signed.as_ref().version.get(), snapshot_version);
+    assert_eq!(repo.snapshot().signed.as_ref().expires, snapshot_expiration);
+    assert_eq!(repo.snapshot().signed.as_ref().meta.len(), 1);
     assert_eq!(
-        repo.snapshot().signed.meta["targets.json"].version.get(),
+        repo.snapshot().signed.as_ref().version.get(),
+        snapshot_version
+    );
+    assert_eq!(repo.snapshot().signed.as_ref().expires, snapshot_expiration);
+    assert_eq!(repo.snapshot().signed.as_ref().meta.len(), 2);
+    assert_eq!(
+        repo.snapshot().signed.as_ref().meta["root.json"]
+            .version
+            .get(),
+        1
+    );
+    assert_eq!(
+        repo.snapshot().signed.as_ref().meta["targets.json"]
+            .version
+            .get(),
         targets_version
     );
     assert_eq!(repo.snapshot().signatures.len(), 1);
 
     // Ensure the timestamp.json file is correct
-    assert_eq!(repo.timestamp().signed.version.get(), timestamp_version);
-    assert_eq!(repo.timestamp().signed.expires, timestamp_expiration);
-    assert_eq!(repo.timestamp().signed.meta.len(), 1);
     assert_eq!(
-        repo.timestamp().signed.meta["snapshot.json"].version.get(),
+        repo.timestamp().signed.as_ref().version.get(),
+        timestamp_version
+    );
+    assert_eq!(
+        repo.timestamp().signed.as_ref().expires,
+        timestamp_expiration
+    );
+    assert_eq!(repo.timestamp().signed.as_ref().meta.len(), 1);
+    assert_eq!(
+        repo.timestamp().signed.as_ref().meta["snapshot.json"]
+            .version
+            .get(),
         snapshot_version
     );
     assert_eq!(repo.snapshot().signatures.len(), 1);

@@ -140,7 +140,7 @@ fn repo_load_edit_write_load() {
     .unwrap();
 
     // Ensure the new repo only has the single target
-    assert_eq!(new_repo.targets().signed.targets.len(), 2);
+    assert_eq!(new_repo.targets().signed.as_ref().targets.len(), 2);
 
     // The repo shouldn't contain file1 or file2
     // `read_target()` returns a Result(Option<>) which is why we unwrap

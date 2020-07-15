@@ -63,6 +63,7 @@ mod http_happy {
         assert_eq!(
             repo.targets()
                 .signed
+                .as_ref()
                 .targets
                 .get("file1.txt")
                 .unwrap()

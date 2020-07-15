@@ -5,7 +5,7 @@
 mod tests {
     use crate::editor::RepositoryEditor;
     use crate::key_source::LocalKeySource;
-    use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp};
+    use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp, Verbatim};
     use chrono::{Duration, Utc};
     use std::num::NonZeroU64;
     use std::path::PathBuf;
@@ -59,7 +59,7 @@ mod tests {
     // Make sure we can add targets from different sources
     #[test]
     fn add_targets_from_multiple_sources() {
-        let targets: Signed<Targets> = serde_json::from_str(include_str!(
+        let targets: Signed<Verbatim<Targets>> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/targets.json"
         ))
         .unwrap();
@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn clear_targets() {
-        let targets: Signed<Targets> = serde_json::from_str(include_str!(
+        let targets: Signed<Verbatim<Targets>> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/targets.json"
         ))
         .unwrap();
@@ -143,15 +143,15 @@ mod tests {
     // Make sure we can add existing role structs and the proper data is kept.
     #[test]
     fn existing_roles() {
-        let targets: Signed<Targets> = serde_json::from_str(include_str!(
+        let targets: Signed<Verbatim<Targets>> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/targets.json"
         ))
         .unwrap();
-        let snapshot: Signed<Snapshot> = serde_json::from_str(include_str!(
+        let snapshot: Signed<Verbatim<Snapshot>> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/snapshot.json"
         ))
         .unwrap();
-        let timestamp: Signed<Timestamp> = serde_json::from_str(include_str!(
+        let timestamp: Signed<Verbatim<Timestamp>> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/timestamp.json"
         ))
         .unwrap();

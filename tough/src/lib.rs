@@ -49,7 +49,7 @@ use crate::fetch::{fetch_max_size, fetch_sha256};
 #[cfg(feature = "http")]
 pub use crate::http::{ClientSettings, HttpTransport, RetryRead};
 use crate::schema::{DelegatedRole, Delegations};
-use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
+use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp, Verbatim};
 pub use crate::transport::{FilesystemTransport, Transport};
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
@@ -181,10 +181,10 @@ pub struct Repository<'a, T: Transport> {
     datastore: Datastore<'a>,
     earliest_expiration: DateTime<Utc>,
     earliest_expiration_role: RoleType,
-    root: Signed<Root>,
-    snapshot: Signed<Snapshot>,
-    timestamp: Signed<Timestamp>,
-    targets: Signed<crate::schema::Targets>,
+    root: Signed<Verbatim<Root>>,
+    snapshot: Signed<Verbatim<Snapshot>>,
+    timestamp: Signed<Verbatim<Timestamp>>,
+    targets: Signed<Verbatim<crate::schema::Targets>>,
     limits: Limits,
     metadata_base_url: Url,
     targets_base_url: Url,
@@ -261,17 +261,17 @@ impl<'a, T: Transport> Repository<'a, T> {
         )?;
 
         let expires_iter = [
-            (root.signed.expires, RoleType::Root),
-            (timestamp.signed.expires, RoleType::Timestamp),
-            (snapshot.signed.expires, RoleType::Snapshot),
-            (targets.signed.expires, RoleType::Targets),
+            (root.signed.as_ref().expires, RoleType::Root),
+            (timestamp.signed.as_ref().expires, RoleType::Timestamp),
+            (snapshot.signed.as_ref().expires, RoleType::Snapshot),
+            (targets.signed.as_ref().expires, RoleType::Targets),
         ];
         let (earliest_expiration, earliest_expiration_role) =
             expires_iter.iter().min_by_key(|tup| tup.0).unwrap();
 
         Ok(Self {
             transport,
-            consistent_snapshot: root.signed.consistent_snapshot,
+            consistent_snapshot: root.signed.as_ref().consistent_snapshot,
             datastore,
             earliest_expiration: earliest_expiration.to_owned(),
             earliest_expiration_role: *earliest_expiration_role,
@@ -287,28 +287,28 @@ impl<'a, T: Transport> Repository<'a, T> {
     }
 
     /// Returns the list of targets present in the repository.
-    pub fn targets(&self) -> &Signed<crate::schema::Targets> {
+    pub fn targets(&self) -> &Signed<Verbatim<crate::schema::Targets>> {
         &self.targets
     }
 
     /// Returns a reference to the signed root
-    pub fn root(&self) -> &Signed<Root> {
+    pub fn root(&self) -> &Signed<Verbatim<Root>> {
         &self.root
     }
 
     /// Returns a reference to the signed snapshot
-    pub fn snapshot(&self) -> &Signed<Snapshot> {
+    pub fn snapshot(&self) -> &Signed<Verbatim<Snapshot>> {
         &self.snapshot
     }
 
     /// Returns a reference to the signed timestamp
-    pub fn timestamp(&self) -> &Signed<Timestamp> {
+    pub fn timestamp(&self) -> &Signed<Verbatim<Timestamp>> {
         &self.timestamp
     }
 
     ///return a vec of all targets including all target files delegated by targets
     pub fn all_targets<'b>(&'b self) -> impl Iterator + 'b {
-        self.targets.signed.targets_iter()
+        self.targets.signed.as_ref().targets_iter()
     }
 
     /// Fetches a target from the repository.
@@ -350,17 +350,19 @@ impl<'a, T: Transport> Repository<'a, T> {
         //   HASH is one of the hashes of the targets file listed in the targets metadata file
         //   found earlier in step 4. In either case, the client MUST write the file to
         //   non-volatile storage as FILENAME.EXT.
-        Ok(if let Ok(target) = self.targets.signed.find_target(name) {
-            let (sha256, file) = self.target_digest_and_filename(target, name);
-            Some(self.fetch_target(target, &sha256, file.as_str())?)
-        } else {
-            None
-        })
+        Ok(
+            if let Ok(target) = self.targets.signed.as_ref().find_target(name) {
+                let (sha256, file) = self.target_digest_and_filename(target, name);
+                Some(self.fetch_target(target, &sha256, file.as_str())?)
+            } else {
+                None
+            },
+        )
     }
 
     /// Return the named `DelegatedRole` if found.
     pub fn delegated_role(&self, name: &str) -> Option<&DelegatedRole> {
-        self.targets.signed.delegated_role(name).ok()
+        self.targets.signed.as_ref().delegated_role(name).ok()
     }
 }
 
@@ -415,28 +417,31 @@ fn load_root<R: Read, T: Transport>(
     max_root_updates: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-) -> Result<Signed<Root>> {
+) -> Result<Signed<Verbatim<Root>>> {
     // 0. Load the trusted root metadata file. We assume that a good, trusted copy of this file was
     //    shipped with the package manager or software updater using an out-of-band process. Note
     //    that the expiration of the trusted root metadata file does not matter, because we will
     //    attempt to update it in the next step.
-    let mut root: Signed<Root> =
+    let mut root: Signed<Verbatim<Root>> =
         serde_json::from_reader(root).context(error::ParseTrustedMetadata)?;
     root.signed
+        .as_ref()
         .verify_role(&root)
         .context(error::VerifyTrustedMetadata)?;
 
     // Used in step 1.2
-    let original_root_version = root.signed.version.get();
+    let original_root_version = root.signed.as_ref().version.get();
 
     // Used in step 1.9
     let original_timestamp_keys = root
         .signed
+        .as_ref()
         .keys(RoleType::Timestamp)
         .cloned()
         .collect::<Vec<_>>();
     let original_snapshot_keys = root
         .signed
+        .as_ref()
         .keys(RoleType::Snapshot)
         .cloned()
         .collect::<Vec<_>>();
@@ -458,10 +463,10 @@ fn load_root<R: Read, T: Transport>(
         //   step 1.8. The value for Y is set by the authors of the application using TUF. For
         //   example, Y may be 2^10.
         ensure!(
-            root.signed.version.get() < original_root_version + max_root_updates,
+            root.signed.as_ref().version.get() < original_root_version + max_root_updates,
             error::MaxUpdatesExceeded { max_root_updates }
         );
-        let path = format!("{}.root.json", root.signed.version.get() + 1);
+        let path = format!("{}.root.json", root.signed.as_ref().version.get() + 1);
         match fetch_max_size(
             transport,
             metadata_base_url.join(&path).context(error::JoinUrl {
@@ -473,7 +478,7 @@ fn load_root<R: Read, T: Transport>(
         ) {
             Err(_) => break, // If this file is not available, then go to step 1.8.
             Ok(reader) => {
-                let new_root: Signed<Root> =
+                let new_root: Signed<Verbatim<Root>> =
                     serde_json::from_reader(reader).context(error::ParseMetadata {
                         role: RoleType::Root,
                     })?;
@@ -485,12 +490,14 @@ fn load_root<R: Read, T: Transport>(
                 //   discard it, abort the update cycle, and report the signature failure. On the
                 //   next update cycle, begin at step 0 and version N of the root metadata file.
                 root.signed
+                    .as_ref()
                     .verify_role(&new_root)
                     .context(error::VerifyMetadata {
                         role: RoleType::Root,
                     })?;
                 new_root
                     .signed
+                    .as_ref()
                     .verify_role(&new_root)
                     .context(error::VerifyMetadata {
                         role: RoleType::Root,
@@ -505,11 +512,11 @@ fn load_root<R: Read, T: Transport>(
                 //   the next update cycle, begin at step 0 and version N of the root metadata
                 //   file.
                 ensure!(
-                    root.signed.version <= new_root.signed.version,
+                    root.signed.as_ref().version <= new_root.signed.as_ref().version,
                     error::OlderMetadata {
                         role: RoleType::Root,
-                        current_version: root.signed.version,
-                        new_version: new_root.signed.version
+                        current_version: root.signed.as_ref().version,
+                        new_version: new_root.signed.as_ref().version
                     }
                 );
 
@@ -519,7 +526,7 @@ fn load_root<R: Read, T: Transport>(
                 // root metadata file but do not report an error. This could only happen if the
                 // path we built above, referencing N+1, has a filename that doesn't match its
                 // contents, which would have to list version N.
-                if root.signed.version == new_root.signed.version {
+                if root.signed.as_ref().version == new_root.signed.as_ref().version {
                     break;
                 }
 
@@ -542,7 +549,7 @@ fn load_root<R: Read, T: Transport>(
     //   has expired, abort the update cycle, report the potential freeze attack. On the next
     //   update cycle, begin at step 0 and version N of the root metadata file.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &root.signed)?;
+        check_expired(datastore, root.signed.as_ref())?;
     }
 
     // 1.9. If the timestamp and / or snapshot keys have been rotated, then delete the trusted
@@ -553,10 +560,10 @@ fn load_root<R: Read, T: Transport>(
     //   metadata file in the snapshot metadata.
     if original_timestamp_keys
         .iter()
-        .ne(root.signed.keys(RoleType::Timestamp))
+        .ne(root.signed.as_ref().keys(RoleType::Timestamp))
         || original_snapshot_keys
             .iter()
-            .ne(root.signed.keys(RoleType::Snapshot))
+            .ne(root.signed.as_ref().keys(RoleType::Snapshot))
     {
         let r1 = datastore.remove("timestamp.json");
         let r2 = datastore.remove("snapshot.json");
@@ -575,12 +582,12 @@ fn load_root<R: Read, T: Transport>(
 /// Step 2 of the client application, which loads the timestamp metadata file.
 fn load_timestamp<T: Transport>(
     transport: &T,
-    root: &Signed<Root>,
+    root: &Signed<Verbatim<Root>>,
     datastore: &Datastore<'_>,
     max_timestamp_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-) -> Result<Signed<Timestamp>> {
+) -> Result<Signed<Verbatim<Timestamp>>> {
     // 2. Download the timestamp metadata file, up to Y number of bytes (because the size is
     //    unknown.) The value for Y is set by the authors of the application using TUF. For
     //    example, Y may be tens of kilobytes. The filename used to download the timestamp metadata
@@ -595,7 +602,7 @@ fn load_timestamp<T: Transport>(
         max_timestamp_size,
         "max_timestamp_size argument",
     )?;
-    let timestamp: Signed<Timestamp> =
+    let timestamp: Signed<Verbatim<Timestamp>> =
         serde_json::from_reader(reader).context(error::ParseMetadata {
             role: RoleType::Timestamp,
         })?;
@@ -604,6 +611,7 @@ fn load_timestamp<T: Transport>(
     //   of keys specified in the trusted root metadata file. If the new timestamp metadata file is
     //   not properly signed, discard it, abort the update cycle, and report the signature failure.
     root.signed
+        .as_ref()
         .verify_role(&timestamp)
         .context(error::VerifyMetadata {
             role: RoleType::Timestamp,
@@ -615,15 +623,15 @@ fn load_timestamp<T: Transport>(
     //   file, discard it, abort the update cycle, and report the potential rollback attack.
     if let Some(Ok(old_timestamp)) = datastore
         .reader("timestamp.json")?
-        .map(serde_json::from_reader::<_, Signed<Timestamp>>)
+        .map(serde_json::from_reader::<_, Signed<Verbatim<Timestamp>>>)
     {
-        if root.signed.verify_role(&old_timestamp).is_ok() {
+        if root.signed.as_ref().verify_role(&old_timestamp).is_ok() {
             ensure!(
-                old_timestamp.signed.version <= timestamp.signed.version,
+                old_timestamp.signed.as_ref().version <= timestamp.signed.as_ref().version,
                 error::OlderMetadata {
                     role: RoleType::Timestamp,
-                    current_version: old_timestamp.signed.version,
-                    new_version: timestamp.signed.version
+                    current_version: old_timestamp.signed.as_ref().version,
+                    new_version: timestamp.signed.as_ref().version
                 }
             );
         }
@@ -634,7 +642,7 @@ fn load_timestamp<T: Transport>(
     //   becomes the trusted timestamp metadata file. If the new timestamp metadata file has
     //   expired, discard it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &timestamp.signed)?;
+        check_expired(datastore, timestamp.signed.as_ref())?;
     }
 
     // Now that everything seems okay, write the timestamp file to the datastore.
@@ -646,12 +654,12 @@ fn load_timestamp<T: Transport>(
 /// Step 3 of the client application, which loads the snapshot metadata file.
 fn load_snapshot<T: Transport>(
     transport: &T,
-    root: &Signed<Root>,
-    timestamp: &Signed<Timestamp>,
+    root: &Signed<Verbatim<Root>>,
+    timestamp: &Signed<Verbatim<Timestamp>>,
     datastore: &Datastore<'_>,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-) -> Result<Signed<Snapshot>> {
+) -> Result<Signed<Verbatim<Snapshot>>> {
     // 3. Download snapshot metadata file, up to the number of bytes specified in the timestamp
     //    metadata file. If consistent snapshots are not used (see Section 7), then the filename
     //    used to download the snapshot metadata file is of the fixed form FILENAME.EXT (e.g.,
@@ -661,13 +669,14 @@ fn load_snapshot<T: Transport>(
     //    file to non-volatile storage as FILENAME.EXT.
     let snapshot_meta = timestamp
         .signed
+        .as_ref()
         .meta
         .get("snapshot.json")
         .context(error::MetaMissing {
             file: "snapshot.json",
             role: RoleType::Timestamp,
         })?;
-    let path = if root.signed.consistent_snapshot {
+    let path = if root.signed.as_ref().consistent_snapshot {
         format!("{}.snapshot.json", snapshot_meta.version)
     } else {
         "snapshot.json".to_owned()
@@ -682,7 +691,7 @@ fn load_snapshot<T: Transport>(
         "timestamp.json",
         &snapshot_meta.hashes.sha256,
     )?;
-    let snapshot: Signed<Snapshot> =
+    let snapshot: Signed<Verbatim<Snapshot>> =
         serde_json::from_reader(reader).context(error::ParseMetadata {
             role: RoleType::Snapshot,
         })?;
@@ -694,10 +703,10 @@ fn load_snapshot<T: Transport>(
     //
     // (We already checked the hash in `fetch_sha256` above.)
     ensure!(
-        snapshot.signed.version == snapshot_meta.version,
+        snapshot.signed.as_ref().version == snapshot_meta.version,
         error::VersionMismatch {
             role: RoleType::Snapshot,
-            fetched: snapshot.signed.version,
+            fetched: snapshot.signed.as_ref().version,
             expected: snapshot_meta.version
         }
     );
@@ -707,6 +716,7 @@ fn load_snapshot<T: Transport>(
     //   not signed as required, discard it, abort the update cycle, and report the signature
     //   failure.
     root.signed
+        .as_ref()
         .verify_role(&snapshot)
         .context(error::VerifyMetadata {
             role: RoleType::Snapshot,
@@ -718,19 +728,19 @@ fn load_snapshot<T: Transport>(
     //   expiration does not matter for the following purposes.
     if let Some(Ok(old_snapshot)) = datastore
         .reader("snapshot.json")?
-        .map(serde_json::from_reader::<_, Signed<Snapshot>>)
+        .map(serde_json::from_reader::<_, Signed<Verbatim<Snapshot>>>)
     {
         // 3.3.2. The version number of the trusted snapshot metadata file, if any, MUST be less
         //   than or equal to the version number of the new snapshot metadata file. If the new
         //   snapshot metadata file is older than the trusted metadata file, discard it, abort the
         //   update cycle, and report the potential rollback attack.
-        if root.signed.verify_role(&old_snapshot).is_ok() {
+        if root.signed.as_ref().verify_role(&old_snapshot).is_ok() {
             ensure!(
-                old_snapshot.signed.version <= snapshot.signed.version,
+                old_snapshot.signed.as_ref().version <= snapshot.signed.as_ref().version,
                 error::OlderMetadata {
                     role: RoleType::Snapshot,
-                    current_version: old_snapshot.signed.version,
-                    new_version: snapshot.signed.version
+                    current_version: old_snapshot.signed.as_ref().version,
+                    new_version: snapshot.signed.as_ref().version
                 }
             );
 
@@ -741,16 +751,13 @@ fn load_snapshot<T: Transport>(
             //   metadata file, if any, MUST continue to be listed in the new snapshot metadata
             //   file. If any of these conditions are not met, discard the new snaphot metadadata
             //   file, abort the update cycle, and report the failure.
-            if let Some(old_targets_meta) = old_snapshot.signed.meta.get("targets.json") {
-                let targets_meta =
-                    snapshot
-                        .signed
-                        .meta
-                        .get("targets.json")
-                        .context(error::MetaMissing {
-                            file: "targets.json",
-                            role: RoleType::Snapshot,
-                        })?;
+            if let Some(old_targets_meta) = old_snapshot.signed.as_ref().meta.get("targets.json") {
+                let targets_meta = snapshot.signed.as_ref().meta.get("targets.json").context(
+                    error::MetaMissing {
+                        file: "targets.json",
+                        role: RoleType::Snapshot,
+                    },
+                )?;
                 ensure!(
                     old_targets_meta.version <= targets_meta.version,
                     error::OlderMetadata {
@@ -768,7 +775,7 @@ fn load_snapshot<T: Transport>(
     //   the trusted snapshot metadata file. If the new snapshot metadata file is expired, discard
     //   it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &snapshot.signed)?;
+        check_expired(datastore, snapshot.signed.as_ref())?;
     }
 
     // Now that everything seems okay, write the snapshot file to the datastore.
@@ -780,13 +787,13 @@ fn load_snapshot<T: Transport>(
 /// Step 4 of the client application, which loads the targets metadata file.
 fn load_targets<T: Transport>(
     transport: &T,
-    root: &Signed<Root>,
-    snapshot: &Signed<Snapshot>,
+    root: &Signed<Verbatim<Root>>,
+    snapshot: &Signed<Verbatim<Snapshot>>,
     datastore: &Datastore<'_>,
     max_targets_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-) -> Result<Signed<crate::schema::Targets>> {
+) -> Result<Signed<Verbatim<crate::schema::Targets>>> {
     // 4. Download the top-level targets metadata file, up to either the number of bytes specified
     //    in the snapshot metadata file, or some Z number of bytes. The value for Z is set by the
     //    authors of the application using TUF. For example, Z may be tens of kilobytes. If
@@ -796,15 +803,17 @@ fn load_targets<T: Transport>(
     //    VERSION_NUMBER is the version number of the targets metadata file listed in the snapshot
     //    metadata file. In either case, the client MUST write the file to non-volatile storage as
     //    FILENAME.EXT.
-    let targets_meta = snapshot
-        .signed
-        .meta
-        .get("targets.json")
-        .context(error::MetaMissing {
-            file: "targets.json",
-            role: RoleType::Timestamp,
-        })?;
-    let path = if root.signed.consistent_snapshot {
+    let targets_meta =
+        snapshot
+            .signed
+            .as_ref()
+            .meta
+            .get("targets.json")
+            .context(error::MetaMissing {
+                file: "targets.json",
+                role: RoleType::Timestamp,
+            })?;
+    let path = if root.signed.as_ref().consistent_snapshot {
         format!("{}.targets.json", targets_meta.version)
     } else {
         "targets.json".to_owned()
@@ -833,8 +842,8 @@ fn load_targets<T: Transport>(
             specifier,
         )?)
     };
-    let mut targets: Signed<crate::schema::Targets> =
-        serde_json::from_reader(reader).context(error::ParseMetadata {
+    let mut targets: Signed<Verbatim<crate::schema::Targets>> = serde_json::from_reader(reader)
+        .context(error::ParseMetadata {
             role: RoleType::Targets,
         })?;
 
@@ -845,10 +854,10 @@ fn load_targets<T: Transport>(
     //
     // (We already checked the hash in `fetch_sha256` above.)
     ensure!(
-        targets.signed.version == targets_meta.version,
+        targets.signed.as_ref().version == targets_meta.version,
         error::VersionMismatch {
             role: RoleType::Targets,
-            fetched: targets.signed.version,
+            fetched: targets.signed.as_ref().version,
             expected: targets_meta.version
         }
     );
@@ -858,6 +867,7 @@ fn load_targets<T: Transport>(
     //   targets metadata file is not signed as required, discard it, abort the update cycle, and
     //   report the failure.
     root.signed
+        .as_ref()
         .verify_role(&targets)
         .context(error::VerifyMetadata {
             role: RoleType::Targets,
@@ -869,15 +879,15 @@ fn load_targets<T: Transport>(
     //   it, abort the update cycle, and report the potential rollback attack.
     if let Some(Ok(old_targets)) = datastore
         .reader("targets.json")?
-        .map(serde_json::from_reader::<_, Signed<crate::schema::Targets>>)
+        .map(serde_json::from_reader::<_, Signed<Verbatim<crate::schema::Targets>>>)
     {
-        if root.signed.verify_role(&old_targets).is_ok() {
+        if root.signed.as_ref().verify_role(&old_targets).is_ok() {
             ensure!(
-                old_targets.signed.version <= targets.signed.version,
+                old_targets.signed.as_ref().version <= targets.signed.as_ref().version,
                 error::OlderMetadata {
                     role: RoleType::Targets,
-                    current_version: old_targets.signed.version,
-                    new_version: targets.signed.version
+                    current_version: old_targets.signed.as_ref().version,
+                    new_version: targets.signed.as_ref().version
                 }
             );
         }
@@ -888,7 +898,7 @@ fn load_targets<T: Transport>(
     //   the trusted targets metadata file. If the new targets metadata file is expired, discard
     //   it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &targets.signed)?;
+        check_expired(datastore, targets.signed.as_ref())?;
     }
 
     // Now that everything seems okay, write the targets file to the datastore.
@@ -896,7 +906,7 @@ fn load_targets<T: Transport>(
 
     // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
     //   with the top-level targets role.
-    if let Some(delegations) = &mut targets.signed.delegations {
+    if let Some(delegations) = &mut targets.signed.as_mut().delegations {
         load_delegations(
             transport,
             snapshot,
@@ -913,7 +923,7 @@ fn load_targets<T: Transport>(
 // Follow the paths of delegations starting with the top level targets.json delegation
 fn load_delegations<T: Transport>(
     transport: &T,
-    snapshot: &Signed<Snapshot>,
+    snapshot: &Signed<Verbatim<Snapshot>>,
     metadata_base_url: &Url,
     max_targets_size: u64,
     delegation: &mut Delegations,
@@ -925,6 +935,7 @@ fn load_delegations<T: Transport>(
         // find the role file metadata
         let role_meta = snapshot
             .signed
+            .as_ref()
             .meta
             .get(&format!("{}.json", &delegated_role.name))
             .context(error::RoleNotInMeta {

@@ -18,7 +18,7 @@ use tempfile::NamedTempFile;
 use tough::editor::signed::SignedRole;
 use tough::key_source::KeySource;
 use tough::schema::decoded::{Decoded, Hex};
-use tough::schema::{key::Key, RoleKeys, RoleType, Root, Signed};
+use tough::schema::{key::Key, RoleKeys, RoleType, Root, Signed, Verbatim};
 use tough::sign::{parse_keypair, Sign};
 
 #[derive(Debug, StructOpt)]
@@ -156,7 +156,6 @@ impl Command {
                         RoleType::Targets => role_keys!(),
                         RoleType::Timestamp => role_keys!(),
                     },
-                    _extra: HashMap::new(),
                 },
                 signatures: Vec::new(),
             },
@@ -212,7 +211,8 @@ impl Command {
         let mut root: Signed<Root> = load_file(path)?;
         if let Some(role) = role {
             if let Some(role_keys) = root.signed.roles.get_mut(&role) {
-                role_keys.as_ref()
+                role_keys
+                    .as_ref()
                     .keyids
                     .iter()
                     .position(|k| k.eq(key_id))
@@ -220,7 +220,8 @@ impl Command {
             }
         } else {
             for role_keys in root.signed.roles.values_mut() {
-                role_keys.as_ref()
+                role_keys
+                    .as_ref()
                     .keyids
                     .iter()
                     .position(|k| k.eq(key_id))
@@ -240,7 +241,7 @@ impl Command {
         bits: u16,
         exponent: u32,
     ) -> Result<()> {
-        let mut root: Signed<Root> = load_file(path)?;
+        let mut root: Signed<Verbatim<Root>> = load_file(path)?;
 
         // ring doesn't support RSA key generation yet
         // https://github.com/briansmith/ring/issues/219
@@ -265,7 +266,7 @@ impl Command {
             String::from_utf8(output.stdout).context(error::CommandUtf8 { command_str })?;
 
         let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParse)?;
-        let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
+        let key_id = hex::encode(add_key(root.signed.as_mut(), roles, key_pair.tuf_key())?);
         key_source
             .write(&stdout, &key_id)
             .context(error::WriteKeySource)?;
@@ -275,11 +276,11 @@ impl Command {
     }
 
     fn sign(path: &PathBuf, key_source: Box<dyn KeySource>) -> Result<()> {
-        let root: Signed<Root> = load_file(path)?;
+        let root: Signed<Verbatim<Root>> = load_file(path)?;
 
         let signed_root = SignedRole::new(
             root.signed.clone(),
-            &root.signed,
+            root.signed.as_ref(),
             &[key_source],
             &SystemRandom::new(),
         )

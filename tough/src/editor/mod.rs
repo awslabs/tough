@@ -13,6 +13,7 @@ use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::{
     Hashes, Role, Root, Signed, Snapshot, SnapshotMeta, Target, Targets, Timestamp, TimestampMeta,
+    Verbatim,
 };
 use crate::transport::Transport;
 use crate::Repository;
@@ -44,7 +45,7 @@ const SPEC_VERSION: &str = "1.0.0";
 /// `SignedRepository` which can be used to write the repo to disk.
 #[derive(Debug)]
 pub struct RepositoryEditor {
-    signed_root: SignedRole<Root>,
+    signed_root: SignedRole<Verbatim<Root>>,
 
     new_targets: Option<HashMap<String, Target>>,
     existing_targets: Option<HashMap<String, Target>>,
@@ -72,7 +73,7 @@ impl RepositoryEditor {
         let root_path = root_path.as_ref();
         let root_buf = std::fs::read(root_path).context(error::FileRead { path: root_path })?;
         let root_buf_len = root_buf.len() as u64;
-        let root = serde_json::from_slice::<Signed<Root>>(&root_buf)
+        let root = serde_json::from_slice::<Signed<Verbatim<Root>>>(&root_buf)
             .context(error::FileParseJson { path: root_path })?;
         let mut digest = [0; SHA256_OUTPUT_LEN];
         digest.copy_from_slice(ring::digest::digest(&SHA256, &root_buf).as_ref());
@@ -125,7 +126,7 @@ impl RepositoryEditor {
     /// each role; e.g. `targets_version`, `targets_expires`, etc.
     pub fn sign(self, keys: &[Box<dyn KeySource>]) -> Result<SignedRepository> {
         let rng = SystemRandom::new();
-        let root = &self.signed_root.signed.signed;
+        let root = &self.signed_root.signed.signed.as_ref();
 
         let signed_targets = self
             .build_targets()
@@ -148,46 +149,46 @@ impl RepositoryEditor {
     /// Add an existing `Targets` struct to the repository. Any `Target`
     /// objects contained in the `Targets` struct will be preserved in
     /// `self.existing_targets`
-    pub fn targets(&mut self, targets: Targets) -> Result<&mut Self> {
+    pub fn targets(&mut self, targets: Verbatim<Targets>) -> Result<&mut Self> {
         ensure!(
-            targets.spec_version == SPEC_VERSION,
+            targets.as_ref().spec_version == SPEC_VERSION,
             error::SpecVersion {
-                given: targets.spec_version,
+                given: targets.as_ref().spec_version.clone(),
                 supported: SPEC_VERSION
             }
         );
 
         // Hold on to the existing targets
-        self.existing_targets = Some(targets.targets);
-        self.targets_extra = Some(targets._extra);
+        self.existing_targets = Some(targets.as_ref().targets.clone());
+        self.targets_extra = Some(targets.extra);
         Ok(self)
     }
 
     /// Add an existing `Snapshot` to the repository. Only the `_extra` data
     /// is preserved
-    pub fn snapshot(&mut self, snapshot: Snapshot) -> Result<&mut Self> {
+    pub fn snapshot(&mut self, snapshot: Verbatim<Snapshot>) -> Result<&mut Self> {
         ensure!(
-            snapshot.spec_version == SPEC_VERSION,
+            snapshot.as_ref().spec_version == SPEC_VERSION,
             error::SpecVersion {
-                given: snapshot.spec_version,
+                given: snapshot.as_ref().spec_version.clone(),
                 supported: SPEC_VERSION
             }
         );
-        self.snapshot_extra = Some(snapshot._extra);
+        self.snapshot_extra = Some(snapshot.extra);
         Ok(self)
     }
 
     /// Add an existing `Timestamp` to the repository. Only the `_extra` data
     /// is preserved
-    pub fn timestamp(&mut self, timestamp: Timestamp) -> Result<&mut Self> {
+    pub fn timestamp(&mut self, timestamp: Verbatim<Timestamp>) -> Result<&mut Self> {
         ensure!(
-            timestamp.spec_version == SPEC_VERSION,
+            timestamp.as_ref().spec_version == SPEC_VERSION,
             error::SpecVersion {
-                given: timestamp.spec_version,
+                given: timestamp.as_ref().spec_version.clone(),
                 supported: SPEC_VERSION
             }
         );
-        self.timestamp_extra = Some(timestamp._extra);
+        self.timestamp_extra = Some(timestamp.extra);
         Ok(self)
     }
 
@@ -288,7 +289,7 @@ impl RepositoryEditor {
     // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
     /// Build the `Targets` struct
-    fn build_targets(&self) -> Result<Targets> {
+    fn build_targets(&self) -> Result<Verbatim<Targets>> {
         let version = self.targets_version.context(error::Missing {
             field: "targets version",
         })?;
@@ -309,18 +310,21 @@ impl RepositoryEditor {
         }
 
         let _extra = self.targets_extra.clone().unwrap_or_else(HashMap::new);
-        Ok(Targets {
+        Ok(From::from(Targets {
             spec_version: SPEC_VERSION.to_string(),
             version,
             expires,
             targets,
             _extra,
             delegations: None,
-        })
+        }))
     }
 
     /// Build the `Snapshot` struct
-    fn build_snapshot(&self, signed_targets: &SignedRole<Targets>) -> Result<Snapshot> {
+    fn build_snapshot(
+        &self,
+        signed_targets: &SignedRole<Verbatim<Targets>>,
+    ) -> Result<Verbatim<Snapshot>> {
         let version = self.snapshot_version.context(error::Missing {
             field: "snapshot version",
         })?;
@@ -337,12 +341,12 @@ impl RepositoryEditor {
             .meta
             .insert("targets.json".to_owned(), targets_meta);
 
-        Ok(snapshot)
+        Ok(From::from(snapshot))
     }
 
     /// Build a `SnapshotMeta` struct from a given `SignedRole<T>`. This metadata
     /// includes the sha256 and length of the signed role.
-    fn snapshot_meta<T>(role: &SignedRole<T>) -> SnapshotMeta
+    fn snapshot_meta<T>(role: &SignedRole<Verbatim<T>>) -> SnapshotMeta
     where
         T: Role,
     {
@@ -352,13 +356,16 @@ impl RepositoryEditor {
                 _extra: HashMap::new(),
             }),
             length: Some(role.length),
-            version: role.signed.signed.version(),
+            version: role.signed.signed.as_ref().version(),
             _extra: HashMap::new(),
         }
     }
 
     /// Build the `Timestamp` struct
-    fn build_timestamp(&self, signed_snapshot: &SignedRole<Snapshot>) -> Result<Timestamp> {
+    fn build_timestamp(
+        &self,
+        signed_snapshot: &SignedRole<Verbatim<Snapshot>>,
+    ) -> Result<Verbatim<Timestamp>> {
         let version = self.timestamp_version.context(error::Missing {
             field: "timestamp version",
         })?;
@@ -375,12 +382,12 @@ impl RepositoryEditor {
             .insert("snapshot.json".to_owned(), snapshot_meta);
         timestamp._extra = _extra;
 
-        Ok(timestamp)
+        Ok(From::from(timestamp))
     }
 
     /// Build a `TimestampMeta` struct from a given `SignedRole<T>`. This metadata
     /// includes the sha256 and length of the signed role.
-    fn timestamp_meta<T>(role: &SignedRole<T>) -> TimestampMeta
+    fn timestamp_meta<T>(role: &SignedRole<Verbatim<T>>) -> TimestampMeta
     where
         T: Role,
     {
@@ -390,7 +397,7 @@ impl RepositoryEditor {
                 _extra: HashMap::new(),
             },
             length: role.length,
-            version: role.signed.signed.version(),
+            version: role.signed.signed.as_ref().version(),
             _extra: HashMap::new(),
         }
     }

@@ -8,7 +8,7 @@ use crate::editor::keys::get_root_keys;
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::{
-    Role, RoleType, Root, Signature, Signed, Snapshot, Target, Targets, Timestamp,
+    Role, RoleType, Root, Signature, Signed, Snapshot, Target, Targets, Timestamp, Verbatim,
 };
 use olpc_cjson::CanonicalFormatter;
 use ring::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
@@ -35,13 +35,13 @@ pub struct SignedRole<T> {
     pub(crate) length: u64,
 }
 
-impl<T> SignedRole<T>
+impl<T> SignedRole<Verbatim<T>>
 where
     T: Role + Serialize,
 {
     /// Creates a new `SignedRole`
     pub fn new(
-        role: T,
+        role: Verbatim<T>,
         root: &Root,
         keys: &[Box<dyn KeySource>],
         rng: &dyn SecureRandom,
@@ -107,7 +107,7 @@ where
     }
 
     /// Provides access to the internal signed metadata object.
-    pub fn signed(&self) -> &Signed<T> {
+    pub fn signed(&self) -> &Signed<Verbatim<T>> {
         &self.signed
     }
 
@@ -139,20 +139,20 @@ where
         let filename = match T::TYPE {
             RoleType::Targets => {
                 if consistent_snapshot {
-                    format!("{}.targets.json", self.signed.signed.version())
+                    format!("{}.targets.json", self.signed.signed.as_ref().version())
                 } else {
                     "targets.json".to_string()
                 }
             }
             RoleType::Snapshot => {
                 if consistent_snapshot {
-                    format!("{}.snapshot.json", self.signed.signed.version())
+                    format!("{}.snapshot.json", self.signed.signed.as_ref().version())
                 } else {
                     "snapshot.json".to_string()
                 }
             }
             RoleType::Timestamp => "timestamp.json".to_string(),
-            RoleType::Root => format!("{}.root.json", self.signed.signed.version()),
+            RoleType::Root => format!("{}.root.json", self.signed.signed.as_ref().version()),
         };
 
         let path = outdir.join(filename);
@@ -172,10 +172,10 @@ where
 /// available. There are convenience methods to help with this.
 #[derive(Debug)]
 pub struct SignedRepository {
-    pub(crate) root: SignedRole<Root>,
-    pub(crate) targets: SignedRole<Targets>,
-    pub(crate) snapshot: SignedRole<Snapshot>,
-    pub(crate) timestamp: SignedRole<Timestamp>,
+    pub(crate) root: SignedRole<Verbatim<Root>>,
+    pub(crate) targets: SignedRole<Verbatim<Targets>>,
+    pub(crate) snapshot: SignedRole<Verbatim<Snapshot>>,
+    pub(crate) timestamp: SignedRole<Verbatim<Timestamp>>,
 }
 
 impl SignedRepository {
@@ -185,7 +185,7 @@ impl SignedRepository {
     where
         P: AsRef<Path>,
     {
-        let consistent_snapshot = self.root.signed.signed.consistent_snapshot;
+        let consistent_snapshot = self.root.signed.signed.as_ref().consistent_snapshot;
         self.root.write(&outdir, consistent_snapshot)?;
         self.targets.write(&outdir, consistent_snapshot)?;
         self.snapshot.write(&outdir, consistent_snapshot)?;
@@ -261,7 +261,7 @@ impl SignedRepository {
 
         // Use the file name to see if a target exists in the repo
         // with that name. If so...
-        let repo_targets = &self.targets.signed.signed.targets;
+        let repo_targets = &self.targets.signed.signed.as_ref().targets;
         if let Some(repo_target) = repo_targets.get(file_name) {
             // compare the hashes of the target from the repo and the
             // target we just created. If they are the same, this must
@@ -279,7 +279,7 @@ impl SignedRepository {
             return Ok(None);
         }
 
-        let dest = if self.root.signed.signed.consistent_snapshot {
+        let dest = if self.root.signed.signed.as_ref().consistent_snapshot {
             outdir.join(format!(
                 "{}.{}",
                 hex::encode(&target_from_path.hashes.sha256),

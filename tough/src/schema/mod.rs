@@ -104,22 +104,22 @@ pub struct Verbatim<T> {
     pub extra: HashMap<String, Value>,
 }
 
-impl<T> From<T> for Verbatim<T>{
-    fn from(inner:T) -> Self {
-        Verbatim{
+impl<T> From<T> for Verbatim<T> {
+    fn from(inner: T) -> Self {
+        Verbatim {
             inner,
             extra: HashMap::new(),
         }
     }
 }
 
-impl<T> AsRef<T> for Verbatim<T>{
+impl<T> AsRef<T> for Verbatim<T> {
     fn as_ref(&self) -> &T {
         &self.inner
     }
 }
 
-impl<T> AsMut<T> for Verbatim<T>{
+impl<T> AsMut<T> for Verbatim<T> {
     fn as_mut(&mut self) -> &mut T {
         &mut self.inner
     }
@@ -160,15 +160,6 @@ pub struct Root {
     /// A list of roles, the keys associated with each role, and the threshold of signatures used
     /// for each role.
     pub roles: HashMap<RoleType, Verbatim<RoleKeys>>,
-
-    /// Extra arguments found during deserialization.
-    ///
-    /// We must store these to correctly verify signatures for this object.
-    ///
-    /// If you're instantiating this struct, you should make this `HashMap::empty()`.
-    #[serde(flatten)]
-    #[serde(deserialize_with = "de::extra_skip_type")]
-    pub _extra: HashMap<String, Value>,
 }
 
 /// Represents the key IDs used for a role and the threshold of signatures required to validate it.

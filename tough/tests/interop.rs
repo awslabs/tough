@@ -44,6 +44,7 @@ fn test_tuf_reference_impl() {
     assert_eq!(
         repo.targets()
             .signed
+            .as_ref()
             .targets
             .get("file1.txt")
             .unwrap()
@@ -56,6 +57,7 @@ fn test_tuf_reference_impl() {
     assert!(repo
         .targets()
         .signed
+        .as_ref()
         .delegations
         .as_ref()
         .unwrap()
