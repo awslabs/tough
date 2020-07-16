@@ -74,6 +74,14 @@ impl RepositoryEditor {
         let root_buf_len = root_buf.len() as u64;
         let root = serde_json::from_slice::<Signed<Root>>(&root_buf)
             .context(error::FileParseJson { path: root_path })?;
+
+        // Sanity check of root
+        for (roletype, rolekeys) in &root.signed.roles {
+            if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
+                return Err(error::Error::UnstableRoot { role: *roletype });
+            }
+        }
+
         let mut digest = [0; SHA256_OUTPUT_LEN];
         digest.copy_from_slice(ring::digest::digest(&SHA256, &root_buf).as_ref());
 
