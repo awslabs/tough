@@ -172,7 +172,7 @@ impl RetryState {
                 Ordering::Greater => {
                     self.wait = settings.max_backoff;
                 }
-                _ => {}
+                Ordering::Equal => {}
             }
         }
         self.current_try += 1;

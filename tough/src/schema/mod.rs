@@ -759,7 +759,7 @@ impl Delegations {
             if let Some(targets) = &delegated_role.targets {
                 match targets.signed.delegated_role(name) {
                     Ok(delegations) => return Ok(delegations),
-                    _ => continue,
+                    Err(_) => continue,
                 }
             } else {
                 return Err(Error::NoDelegations {});
