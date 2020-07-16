@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-mod utl;
+mod test_utils;
 
 use assert_cmd::Command;
 use chrono::{Duration, Utc};
@@ -19,9 +19,9 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let snapshot_version: u64 = 25;
     let targets_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let targets_version: u64 = 17;
-    let targets_input_dir = utl::test_data().join("tuf-reference-impl").join("targets");
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
+    let targets_input_dir = test_utils::test_data().join("tuf-reference-impl").join("targets");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
 
     // Create a repo using tuftool and the reference tuf implementation data
     Command::cargo_bin("tuftool")
@@ -57,10 +57,10 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
 // Ensure we can create a role, add the role to parent metadata, and sign repo
 // Structure targets -> A -> B
 fn create_add_role_command() {
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
-    let targets_key = utl::test_data().join("targetskey");
-    let targets_key1 = utl::test_data().join("targetskey-1");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
+    let targets_key = test_utils::test_data().join("targetskey");
+    let targets_key1 = test_utils::test_data().join("targetskey-1");
     let repo_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation data
@@ -68,7 +68,7 @@ fn create_add_role_command() {
 
     // Set new expiration date for the new role
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -123,8 +123,8 @@ fn create_add_role_command() {
 
     // Load the updated repo
     let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &utl::dir_url(new_repo_dir.path().join("metadata"));
-    let updated_targets_base_url = &utl::dir_url(new_repo_dir.path().join("targets"));
+    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let updated_targets_base_url = &test_utils::dir_url(new_repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
@@ -235,8 +235,8 @@ fn create_add_role_command() {
 
     // Load the updated repo
     let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &utl::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &utl::dir_url(update_out.path().join("targets"));
+    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
+    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
@@ -257,9 +257,9 @@ fn create_add_role_command() {
 #[test]
 // Ensure an error is thrown when trying to update targets without permission
 fn update_target_command_invalid_target() {
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
-    let targets_key = utl::test_data().join("targetskey");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
+    let targets_key = test_utils::test_data().join("targetskey");
     let repo_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation data
@@ -267,7 +267,7 @@ fn update_target_command_invalid_target() {
 
     // Set new expiration date for the new role
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -322,8 +322,8 @@ fn update_target_command_invalid_target() {
 
     // Update A's targets (file?.txt has not been delegated to A)
     let ut_out = TempDir::new().unwrap();
-    let updated_metadata_base_url = &utl::dir_url(new_repo_dir.path().join("metadata"));
-    let targets_input_dir = utl::test_data().join("targets");
+    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let targets_input_dir = test_utils::test_data().join("targets");
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
@@ -348,9 +348,9 @@ fn update_target_command_invalid_target() {
 #[test]
 // Ensure we can update targets of delegated roles
 fn update_target_command() {
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
-    let targets_key = utl::test_data().join("targetskey");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
+    let targets_key = test_utils::test_data().join("targetskey");
     let repo_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation data
@@ -358,7 +358,7 @@ fn update_target_command() {
 
     // Set new expiration date for the new role
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -417,8 +417,8 @@ fn update_target_command() {
     let ut_out = TempDir::new().unwrap();
     let meta_out_url = dir_url(&ut_out.path().join("metadata"));
     let targets_out_url = ut_out.path().join("targets");
-    let updated_metadata_base_url = &utl::dir_url(new_repo_dir.path().join("metadata"));
-    let targets_input_dir = utl::test_data().join("targets");
+    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let targets_input_dir = test_utils::test_data().join("targets");
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
@@ -487,8 +487,8 @@ fn update_target_command() {
 
     // Load the updated repo
     let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &utl::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &utl::dir_url(update_out.path().join("targets"));
+    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
+    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
@@ -524,10 +524,10 @@ fn read_to_end<R: Read>(mut reader: R) -> Vec<u8> {
 #[test]
 // Ensure we get an error for creating an invalid path delegation
 fn create_add_role_command_invalid_path() {
-    let root_json = utl::test_data().join("simple-rsa").join("root.json");
-    let root_key = utl::test_data().join("snakeoil.pem");
-    let targets_key = utl::test_data().join("targetskey");
-    let targets_key1 = utl::test_data().join("targetskey-1");
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
+    let targets_key = test_utils::test_data().join("targetskey");
+    let targets_key1 = test_utils::test_data().join("targetskey-1");
     let repo_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation data
@@ -535,7 +535,7 @@ fn create_add_role_command_invalid_path() {
 
     // Set new expiration date for the new role
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &utl::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -590,8 +590,8 @@ fn create_add_role_command_invalid_path() {
 
     // Load the updated repo
     let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &utl::dir_url(new_repo_dir.path().join("metadata"));
-    let updated_targets_base_url = &utl::dir_url(new_repo_dir.path().join("targets"));
+    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let updated_targets_base_url = &test_utils::dir_url(new_repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
