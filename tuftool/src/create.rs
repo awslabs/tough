@@ -10,6 +10,7 @@ use snafu::ResultExt;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use structopt::StructOpt;
+use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::key_source::KeySource;
 
@@ -50,6 +51,12 @@ pub(crate) struct CreateArgs {
     /// Directory of targets
     #[structopt(short = "t", long = "add-targets")]
     targets_indir: PathBuf,
+
+    /// Behavior when a target exists with the same name and hash in the targets directory,
+    /// for example from another repository when they share a targets directory.
+    /// Options are "replace", "fail", and "skip"
+    #[structopt(long = "target-path-exists", default_value = "skip")]
+    target_path_exists: PathExists,
 
     /// Follow symbolic links in the given directory when adding targets
     #[structopt(short = "f", long = "follow")]
@@ -100,7 +107,7 @@ impl CreateArgs {
         let metadata_dir = &self.outdir.join("metadata");
         let targets_outdir = &self.outdir.join("targets");
         signed_repo
-            .link_targets(&self.targets_indir, targets_outdir)
+            .link_targets(&self.targets_indir, targets_outdir, self.target_path_exists)
             .context(error::LinkTargets {
                 indir: &self.targets_indir,
                 outdir: targets_outdir,

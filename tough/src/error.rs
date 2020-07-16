@@ -75,6 +75,20 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Failed to stat '{}': {}", path.display(), source))]
+    FileMetadata {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to open {}: {}", path.display(), source))]
+    FileOpen {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Failed to read {}: {}", path.display(), source))]
     FileRead {
         path: PathBuf,
@@ -88,6 +102,9 @@ pub enum Error {
         source: serde_json::Error,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Can't build URL from relative path '{}'", path.display()))]
+    FileUrl { path: PathBuf, backtrace: Backtrace },
 
     #[snafu(display("Failed to write to {}: {}", path.display(), source))]
     FileWrite {
@@ -110,6 +127,9 @@ pub enum Error {
         expected: String,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Source path for target must be file or symlink - '{}'", path.display()))]
+    InvalidFileType { path: PathBuf, backtrace: Backtrace },
 
     /// The library failed to create a URL from a base URL and a path.
     #[snafu(display("Failed to join \"{}\" to URL \"{}\": {}", path, url, source))]
@@ -226,6 +246,9 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Target path exists, caller requested we fail - '{}'", path.display()))]
+    PathExistsFail { path: PathBuf, backtrace: Backtrace },
+
     #[snafu(display("Requested copy/link of '{}' which is not a file", path.display()))]
     PathIsNotFile { path: PathBuf, backtrace: Backtrace },
 
@@ -235,6 +258,13 @@ pub enum Error {
     /// Path isn't a valid UTF8 string
     #[snafu(display("Path {} is not valid UTF-8", path.display()))]
     PathUtf8 { path: PathBuf, backtrace: Backtrace },
+
+    #[snafu(display("Failed to remove existing target path '{}': {}", path.display(), source))]
+    RemoveTarget {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
 
     #[snafu(display("Failed to serialize role '{}' for signing: {}", role, source))]
     SerializeRole {
@@ -279,6 +309,14 @@ pub enum Error {
     SystemTimeSteppedBackward {
         sys_time: DateTime<Utc>,
         latest_known_time: DateTime<Utc>,
+    },
+
+    #[snafu(display("Refusing to replace {} with requested {} for target {}", found, expected, path.display()))]
+    TargetFileTypeMismatch {
+        expected: String,
+        found: String,
+        path: PathBuf,
+        backtrace: Backtrace,
     },
 
     #[snafu(display("Unable to create Target from path '{}': {}", path.display(), source))]
