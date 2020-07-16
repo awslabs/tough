@@ -1,6 +1,7 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use crate::test_utils::{dir_url, read_to_end, test_data};
 use chrono::{Duration, Utc};
 use ring::rand::SystemRandom;
 use ring::signature;
@@ -64,12 +65,6 @@ fn targets_path() -> PathBuf {
     test_data().join("tuf-reference-impl").join("targets")
 }
 
-fn read_to_end<R: Read>(mut reader: R) -> Vec<u8> {
-    let mut v = Vec::new();
-    reader.read_to_end(&mut v).unwrap();
-    v
-}
-
 fn load_tuf_reference_impl<'a>(paths: &'a mut RepoPaths) -> Repository<'a, FilesystemTransport> {
     Repository::load(
         &tough::FilesystemTransport,
@@ -122,9 +117,9 @@ fn repository_editor_from_repository() {
     assert!(RepositoryEditor::from_repo(&root, repo).is_ok());
 }
 
-//Create sign write and reload repo
+// Create sign write and reload repo
 #[test]
-fn cre_sig_wri_rel() {
+fn create_sign_write_reload_repo() {
     let root = root_path();
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };

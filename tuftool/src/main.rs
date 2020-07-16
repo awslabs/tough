@@ -77,11 +77,11 @@ enum Command {
     Update(Box<update::UpdateArgs>),
     /// Manipulate a root.json metadata file
     Root(root::Command),
-    //Create delegated role
+    /// Create delegated role
     CreateRole(Box<create_role::CreateRoleArgs>),
-    //Add delegated role
+    /// Add delegated role
     AddRole(Box<add_role::AddRoleArgs>),
-    //Update Delegated targets
+    /// Update Delegated targets
     UpdateDelegatedTargets(Box<update_targets::UpdateTargetsArgs>),
 }
 

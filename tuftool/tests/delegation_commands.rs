@@ -19,7 +19,9 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let snapshot_version: u64 = 25;
     let targets_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let targets_version: u64 = 17;
-    let targets_input_dir = test_utils::test_data().join("tuf-reference-impl").join("targets");
+    let targets_input_dir = test_utils::test_data()
+        .join("tuf-reference-impl")
+        .join("targets");
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
 

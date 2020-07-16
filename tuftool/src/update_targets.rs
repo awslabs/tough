@@ -57,7 +57,7 @@ pub(crate) struct UpdateTargetsArgs {
     #[structopt(short = "f", long = "follow")]
     follow: bool,
 
-    /// Determins if entire repo should be signed
+    /// Determines if entire repo should be signed
     #[structopt(long = "sign-all")]
     sign_all: bool,
 
@@ -70,11 +70,11 @@ impl UpdateTargetsArgs {
     pub(crate) fn run(&self) -> Result<()> {
         // load the repo
         let datastore = tempdir().context(error::TempDir)?;
-        // We don't do anything with targets so we will use metadata url
         let settings = tough::Settings {
             root: File::open(&self.root).unwrap(),
             datastore: &datastore.path(),
             metadata_base_url: self.metadata_base_url.as_str(),
+            // We don't do anything with targets so we will use metadata url
             targets_base_url: self.metadata_base_url.as_str(),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
@@ -106,7 +106,7 @@ impl UpdateTargetsArgs {
                 })?;
         }
 
-        // if signall is included sign and write entire repo
+        // if sign_all is requested, sign and write entire repo
         if self.sign_all {
             let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
             let metadata_dir = &self.outdir.join("metadata");
@@ -117,7 +117,7 @@ impl UpdateTargetsArgs {
             return Ok(());
         }
         // if not, write updated role to outdir/metadata
-        // sign the updated role and recieve SignedRole for the new role
+        // sign the updated role and receive SignedRole for the new role
         let mut roles = editor
             .sign_roles(&self.keys, [self.role.as_str()].to_vec())
             .context(error::SignRoles {

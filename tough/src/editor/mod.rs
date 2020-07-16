@@ -241,7 +241,7 @@ impl RepositoryEditor {
         Ok(self)
     }
 
-    /// Remove a `Target` to the repository
+    /// Remove a `Target` from the repository
     pub fn remove_target(&mut self, name: &str) -> Result<&mut Self> {
         self.targets_struct
             .as_mut()
@@ -360,7 +360,7 @@ impl RepositoryEditor {
         self
     }
 
-    ///Delegate target with name. If `key_source` is given, new keys are given to the role if not parent keys are used
+    /// Delegate target with name. If `key_source` is given, new keys are given to the role if not parent keys are used
     pub fn add_delegate(
         &mut self,
         from: &str,
@@ -416,7 +416,7 @@ impl RepositoryEditor {
             }
             (keyids, key_pairs)
         } else {
-            // If we weren't given a new key source create a role using parents keys
+            // If we weren't given a new key source create a role using parent keys
             let mut keys = Vec::new();
             for key in parent
                 .delegations
@@ -623,7 +623,7 @@ impl RepositoryEditor {
     }
 
     /// Refreshes the timestamp and snapshot
-    /// Allows for expiration to be moved sooner
+    /// Allows for expirations to be changed
     pub fn update_snapshot<T>(
         repo: Repository<'_, T>,
         keys: &[Box<dyn KeySource>],
@@ -645,9 +645,9 @@ impl RepositoryEditor {
         snapshot.version = NonZeroU64::new(
             u64::from(snapshot.version)
                 .checked_add(1)
-                .unwrap_or(1 as u64),
+                .ok_or_else(|| error::Error::Overflow)?,
         )
-        .unwrap_or_else(|| NonZeroU64::new(1).unwrap());
+        .ok_or_else(|| error::Error::Overflow)?;
         // Snapshot stores metadata about targets and root
         let targets_meta = Self::snapshot_meta(&signed_targets);
         let root_meta = Self::snapshot_meta(&signed_root);
@@ -669,9 +669,9 @@ impl RepositoryEditor {
         timestamp.version = NonZeroU64::new(
             u64::from(timestamp.version)
                 .checked_add(1)
-                .unwrap_or(1 as u64),
+                .ok_or_else(|| error::Error::Overflow)?,
         )
-        .unwrap_or_else(|| NonZeroU64::new(1).unwrap());
+        .ok_or_else(|| error::Error::Overflow)?;
         // Timestamp stores metadata about snapshot
         let snapshot_meta = Self::timestamp_meta(&signed_snapshot);
         timestamp

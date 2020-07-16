@@ -49,7 +49,7 @@ pub(crate) struct AddRoleArgs {
     #[structopt(short = "m", long = "metadata-url")]
     metadata_base_url: Url,
 
-    /// incoming metadata
+    /// Incoming metadata
     #[structopt(short = "i", long = "incoming-metadata")]
     indir: Url,
 

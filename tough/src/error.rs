@@ -469,7 +469,7 @@ pub enum Error {
     #[snafu(display("Delegated role not found: {}", name))]
     DelegateNotFound { name: String },
 
-    #[snafu(display("Targets role not found: {}", name))]
+    #[snafu(display("Targets role '{}' not found: {}", name, source))]
     TargetsNotFound {
         name: String,
         source: crate::schema::Error,
@@ -530,6 +530,10 @@ pub enum Error {
         paths: Vec<String>,
         source: schema::Error,
     },
+
+    /// Overflow error with checked add
+    #[snafu(display("Overflow of checked add"))]
+    Overflow,
 }
 
 // used in `std::io::Read` implementations

@@ -88,27 +88,7 @@ where
             sig: sig.into(),
         });
 
-        // Serialize the newly signed role, and calculate its length and
-        // sha256.
-        let mut buffer = serde_json::to_vec_pretty(&role).context(error::SerializeSignedRole {
-            role: T::TYPE.to_string(),
-        })?;
-        buffer.push(b'\n');
-        let length = buffer.len() as u64;
-
-        let mut sha256 = [0; SHA256_OUTPUT_LEN];
-        sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
-
-        // Create the `SignedRole` containing, the `Signed<role>`, serialized
-        // buffer, length and sha256.
-        let signed_role = SignedRole {
-            signed: role,
-            buffer,
-            sha256,
-            length,
-        };
-
-        Ok(signed_role)
+        SignedRole::from_signed(role)
     }
 
     /// Creates a `SignedRole<Role>` from a `Signed<Role>`.
@@ -138,7 +118,7 @@ where
     }
 
     /// creates a map of all signed targets roles excluding the toplevel Targets
-    ///  if `include_all`, throw error if needed keys are not present if not just ignore
+    /// if `include_all`, throw error if needed keys are not present if not just ignore
     pub fn new_targets(
         role: &Targets,
         keys: &[Box<dyn KeySource>],
@@ -194,9 +174,10 @@ where
 
                 role
             } else if include_all {
-                // Make sure the signature is valid targets
-                //only sign targets that we have keys for without throwing an error
-                //delegations allow a key to sign some roles without having to sign them all
+                // Make sure the signature of targets are valid
+                // any targets here were not signed by the provided keys
+                // delegations allow a key to sign some roles without having to sign them all
+                // so as long as the original signature is valid the Targets is ok
                 delegations
                     .verify_role(targets, &name)
                     .context(error::KeyNotFound { role: name.clone() })?;
@@ -206,18 +187,6 @@ where
                 targets.clone()
             };
 
-            // Serialize the newly signed role, and calculate its length and
-            // sha256.
-            let mut buffer =
-                serde_json::to_vec_pretty(&role).context(error::SerializeSignedRole {
-                    role: T::TYPE.to_string(),
-                })?;
-            buffer.push(b'\n');
-            let length = buffer.len() as u64;
-
-            let mut sha256 = [0; SHA256_OUTPUT_LEN];
-            sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
-
             // Add all delegated targets roles from targets to our map of roles
             signed_roles.extend(SignedRole::<Targets>::new_targets(
                 &role.signed.clone(),
@@ -225,15 +194,9 @@ where
                 rng,
                 include_all,
             )?);
-            // Create the `SignedRole` containing, the `Signed<role>`, serialized
-            // buffer, length and sha256.
-            let signed_role = SignedRole {
-                signed: role,
-                buffer,
-                sha256,
-                length,
-            };
-            signed_roles.insert(name, signed_role);
+
+            // Add the new signed role to the map
+            signed_roles.insert(name, SignedRole::from_signed(role)?);
         }
 
         Ok(signed_roles)
@@ -417,7 +380,6 @@ impl SignedRepository {
         Ok(())
     }
 
-<<<<<<< HEAD
     /// Determines the output path of a target based on consistent snapshot rules. Returns Err if
     /// the target already exists in the repo with a different hash, or if the target is not known
     /// to the repo.  (We're dealing with a signed repo, so it's too late to add targets.)
@@ -509,8 +471,6 @@ impl SignedRepository {
         }
     }
 
-=======
->>>>>>> 2ba9d2f... Integration of write signing in tough library and tuftool commands to use delegated targets
     /// Crawls a given directory and symlinks any targets found to the given
     /// "out" directory. If consistent snapshots are used, the target files
     /// are prefixed with their `sha256`.
@@ -529,19 +489,11 @@ impl SignedRepository {
         P1: AsRef<Path>,
         P2: AsRef<Path>,
     {
-<<<<<<< HEAD
         self.walk_targets(
             indir.as_ref(),
             outdir.as_ref(),
             Self::link_target,
             replace_behavior,
-=======
-        link_targets(
-            indir.as_ref(),
-            outdir.as_ref(),
-            &self.targets.signed.signed,
-            self.root.signed.signed.consistent_snapshot,
->>>>>>> 2ba9d2f... Integration of write signing in tough library and tuftool commands to use delegated targets
         )
     }
 
@@ -563,24 +515,15 @@ impl SignedRepository {
         P1: AsRef<Path>,
         P2: AsRef<Path>,
     {
-<<<<<<< HEAD
         self.walk_targets(
             indir.as_ref(),
             outdir.as_ref(),
             Self::copy_target,
             replace_behavior,
-=======
-        copy_targets(
-            indir.as_ref(),
-            outdir.as_ref(),
-            &self.targets.signed.signed,
-            self.root.signed.signed.consistent_snapshot,
->>>>>>> 2ba9d2f... Integration of write signing in tough library and tuftool commands to use delegated targets
         )
     }
 }
 
-<<<<<<< HEAD
     /// Symlinks a single target to the desired directory. If `target_filename` is given, it
     /// becomes the filename suffix, otherwise the original filename is used. (A unique filename
     /// prefix is used if consistent snapshots are enabled.)  Fails if the target already exists in
@@ -636,88 +579,6 @@ impl SignedRepository {
         replace_behavior: PathExists,
         target_filename: Option<&str>,
     ) -> Result<()> {
-=======
-/// Walks a given directory and calls the provided function with every file found.
-/// The function is given the file path, the output directory where the user expects
-/// it to go, and optionally a desired filename.
-fn walk_targets<F>(
-    indir: &Path,
-    outdir: &Path,
-    f: F,
-    targets: &Targets,
-    consistent_snapshot: bool,
-) -> Result<()>
-where
-    F: Fn(&Path, &Path, Option<&str>, &Targets, bool) -> Result<()>,
-{
-    std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
-
-    // Get the absolute path of the indir and outdir
-    let abs_indir = std::fs::canonicalize(indir).context(error::AbsolutePath { path: indir })?;
-
-    // Walk the absolute path of the indir. Using the absolute path here
-    // means that `entry.path()` call will return its absolute path.
-    let walker = WalkDir::new(&abs_indir).follow_links(true);
-    for entry in walker {
-        let entry = entry.context(error::WalkDir {
-            directory: &abs_indir,
-        })?;
-
-        // If the entry is not a file, move on
-        if !entry.file_type().is_file() {
-            continue;
-        };
-
-        // Call the requested function to manipulate the path we found
-        if let Err(e) = f(entry.path(), outdir, None, targets, consistent_snapshot) {
-            match e {
-                // If we found a path that isn't a known target in the repo, skip it.
-                error::Error::PathIsNotTarget { .. } => continue,
-                _ => return Err(e),
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Determines the output path of a target based on consistent snapshot rules. Returns Err if
-/// the target already exists in the repo with a different hash.  Returns Ok(None) if the given
-/// path is not a known target in the repository.  (We're dealing with a signed repo, so it's
-/// too late to add targets.)
-fn target_path(
-    input: &Path,
-    outdir: &Path,
-    target_filename: Option<&str>,
-    targets: &Targets,
-    consistent_snapshot: bool,
-) -> Result<Option<PathBuf>> {
-    let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
-
-    // If the caller requested a specific target filename, use that, otherwise use the filename
-    // component of the input path.
-    let file_name = if let Some(target_filename) = target_filename {
-        target_filename
-    } else {
-        input
-            .file_name()
-            .context(error::NoFileName { path: input })?
-            .to_str()
-            .context(error::PathUtf8 { path: input })?
-    };
-
-    // create a Target object using the input path.
-    let target_from_path =
-        Target::from_path(input).context(error::TargetFromPath { path: input })?;
-
-    // Use the file name to see if a target exists in the repo
-    // with that name. If so...
-    let repo_targets = &targets.targets_map();
-    if let Some(repo_target) = repo_targets.get(file_name) {
-        // compare the hashes of the target from the repo and the
-        // target we just created. If they are the same, this must
-        // be the same file, symlink it.
->>>>>>> 2ba9d2f... Integration of write signing in tough library and tuftool commands to use delegated targets
         ensure!(
             target_from_path.hashes.sha256 == repo_target.hashes.sha256,
             error::HashMismatch {
@@ -726,7 +587,6 @@ fn target_path(
                 expected: hex::encode(&repo_target.hashes.sha256),
             }
         );
-<<<<<<< HEAD
         match self.target_path(input_path, outdir, target_filename)? {
             TargetPath::New { path } => {
                 fs::copy(input_path, &path).context(error::FileWrite { path })?;
@@ -750,11 +610,6 @@ fn target_path(
         }
 
         Ok(())
-=======
-    } else {
-        // Given path is not a target; caller can decide if that's a problem
-        return Ok(None);
->>>>>>> 2ba9d2f... Integration of write signing in tough library and tuftool commands to use delegated targets
     }
 
     let dest = if consistent_snapshot {
