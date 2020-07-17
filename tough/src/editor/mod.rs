@@ -126,7 +126,7 @@ impl RepositoryEditor {
     /// each role; e.g. `targets_version`, `targets_expires`, etc.
     pub fn sign(self, keys: &[Box<dyn KeySource>]) -> Result<SignedRepository> {
         let rng = SystemRandom::new();
-        let root = &self.signed_root.signed.signed.as_ref();
+        let root = &*self.signed_root.signed.signed;
 
         let signed_targets = self
             .build_targets()
@@ -151,15 +151,15 @@ impl RepositoryEditor {
     /// `self.existing_targets`
     pub fn targets(&mut self, targets: Verbatim<Targets>) -> Result<&mut Self> {
         ensure!(
-            targets.as_ref().spec_version == SPEC_VERSION,
+            (*targets).spec_version == SPEC_VERSION,
             error::SpecVersion {
-                given: targets.as_ref().spec_version.clone(),
+                given: (*targets).spec_version.clone(),
                 supported: SPEC_VERSION
             }
         );
 
         // Hold on to the existing targets
-        self.existing_targets = Some(targets.as_ref().targets.clone());
+        self.existing_targets = Some((*targets).targets.clone());
         self.targets_extra = Some(targets.extra);
         Ok(self)
     }
@@ -168,9 +168,9 @@ impl RepositoryEditor {
     /// is preserved
     pub fn snapshot(&mut self, snapshot: Verbatim<Snapshot>) -> Result<&mut Self> {
         ensure!(
-            snapshot.as_ref().spec_version == SPEC_VERSION,
+            (*snapshot).spec_version == SPEC_VERSION,
             error::SpecVersion {
-                given: snapshot.as_ref().spec_version.clone(),
+                given: (*snapshot).spec_version.clone(),
                 supported: SPEC_VERSION
             }
         );
@@ -182,9 +182,9 @@ impl RepositoryEditor {
     /// is preserved
     pub fn timestamp(&mut self, timestamp: Verbatim<Timestamp>) -> Result<&mut Self> {
         ensure!(
-            timestamp.as_ref().spec_version == SPEC_VERSION,
+            (*timestamp).spec_version == SPEC_VERSION,
             error::SpecVersion {
-                given: timestamp.as_ref().spec_version.clone(),
+                given: (*timestamp).spec_version.clone(),
                 supported: SPEC_VERSION
             }
         );
@@ -361,7 +361,7 @@ impl RepositoryEditor {
                 .into(),
             ),
             length: Some(role.length),
-            version: role.signed.signed.as_ref().version(),
+            version: (*role.signed.signed).version(),
         }
     }
 
@@ -402,7 +402,7 @@ impl RepositoryEditor {
             }
             .into(),
             length: role.length,
-            version: role.signed.signed.as_ref().version(),
+            version: (*role.signed.signed).version(),
         }
     }
 }

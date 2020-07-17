@@ -121,10 +121,7 @@ impl DownloadArgs {
 
         // copy requested targets, or all available targets if not specified
         let targets = if self.target_names.is_empty() {
-            repository
-                .targets()
-                .signed
-                .as_ref()
+            (*repository.targets().signed)
                 .targets
                 .keys()
                 .cloned()

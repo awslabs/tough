@@ -61,13 +61,7 @@ mod http_happy {
             &b"This is an another example target file."[..]
         );
         assert_eq!(
-            repo.targets()
-                .signed
-                .as_ref()
-                .targets
-                .get("file1.txt")
-                .unwrap()
-                .as_ref()
+            (*(*repo.targets().signed).targets.get("file1.txt").unwrap())
                 .custom
                 .get("file_permissions")
                 .unwrap(),

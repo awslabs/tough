@@ -42,7 +42,7 @@ impl<'a, T: Transport> Repository<'a, T> {
                 self.cache_target(&targets_outdir, target_name.as_ref())?;
             }
         } else {
-            let targets = &self.targets.signed.as_ref().targets_map();
+            let targets = (*self.targets.signed).targets_map();
             for target_name in targets.keys() {
                 self.cache_target(&targets_outdir, target_name)?;
             }
@@ -68,7 +68,7 @@ impl<'a, T: Transport> Repository<'a, T> {
             &metadata_outdir,
         )?;
 
-        for name in self.targets.signed.as_ref().role_names() {
+        for name in (*self.targets.signed).role_names() {
             if let Some(filename) = self.delegated_filename(name) {
                 self.cache_file_from_transport(
                     filename.as_str(),
@@ -81,7 +81,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 
         if cache_root_chain {
             // Copy all versions of root.json less than or equal to the current version.
-            for ver in (1..=self.root.signed.as_ref().version.get()).rev() {
+            for ver in (1..=(*self.root.signed).version.get()).rev() {
                 let root_json_filename = format!("{}.root.json", ver);
                 self.cache_file_from_transport(
                     root_json_filename.as_str(),
@@ -96,8 +96,8 @@ impl<'a, T: Transport> Repository<'a, T> {
 
     /// Prepends the version number to the snapshot.json filename if using consistent snapshot mode.
     fn snapshot_filename(&self) -> String {
-        if self.root.signed.as_ref().consistent_snapshot {
-            format!("{}.snapshot.json", self.snapshot.signed.as_ref().version)
+        if (*self.root.signed).consistent_snapshot {
+            format!("{}.snapshot.json", (*self.snapshot.signed).version)
         } else {
             "snapshot.json".to_owned()
         }
@@ -105,8 +105,8 @@ impl<'a, T: Transport> Repository<'a, T> {
 
     /// Prepends the version number to the targets.json filename if using consistent snapshot mode.
     fn targets_filename(&self) -> String {
-        if self.root.signed.as_ref().consistent_snapshot {
-            format!("{}.targets.json", self.targets.signed.as_ref().version)
+        if (*self.root.signed).consistent_snapshot {
+            format!("{}.targets.json", (*self.targets.signed).version)
         } else {
             "targets.json".to_owned()
         }
@@ -114,16 +114,13 @@ impl<'a, T: Transport> Repository<'a, T> {
 
     /// Prepends the version number to the role.json filename if using consistent snapshot mode.
     fn delegated_filename(&self, name: &str) -> Option<String> {
-        if self.root.signed.as_ref().consistent_snapshot {
+        if (*self.root.signed).consistent_snapshot {
             Some(format!(
                 "{}.{}.json",
-                self.snapshot
-                    .signed
-                    .as_ref()
+                (*(*self.snapshot.signed)
                     .meta
-                    .get(&format!("{}.json", name))?
-                    .as_ref()
-                    .version,
+                    .get(&format!("{}.json", name))?)
+                .version,
                 name
             ))
         } else {
@@ -166,16 +163,13 @@ impl<'a, T: Transport> Repository<'a, T> {
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
     /// consistent snapshots are used.
     fn cache_target<P: AsRef<Path>>(&self, outdir: P, name: &str) -> Result<()> {
-        let t =
-            self.targets
-                .signed
-                .as_ref()
-                .find_target(name)
-                .context(error::CacheTargetMissing {
-                    target_name: name.to_owned(),
-                })?;
-        let (sha, filename) = self.target_digest_and_filename(t.as_ref(), name);
-        let mut reader = self.fetch_target(t.as_ref(), &sha, filename.as_str())?;
+        let t = (*self.targets.signed)
+            .find_target(name)
+            .context(error::CacheTargetMissing {
+                target_name: name.to_owned(),
+            })?;
+        let (sha, filename) = self.target_digest_and_filename(&*t, name);
+        let mut reader = self.fetch_target(&*t, &sha, filename.as_str())?;
         let path = outdir.as_ref().join(filename);
         let mut f = OpenOptions::new()
             .write(true)
@@ -188,17 +182,14 @@ impl<'a, T: Transport> Repository<'a, T> {
 
     /// Gets the max size of the snapshot.json file as specified by the timestamp file.
     fn max_snapshot_size(&self) -> Result<u64> {
-        let snapshot_meta = self
-            .timestamp()
-            .signed
-            .as_ref()
+        let snapshot_meta = (*self.timestamp().signed)
             .meta
             .get("snapshot.json")
             .context(error::MetaMissing {
                 file: "snapshot.json",
                 role: RoleType::Timestamp,
             })?;
-        Ok(snapshot_meta.as_ref().length)
+        Ok((*snapshot_meta).length)
     }
 
     /// Prepends the target digest to the name if using consistent snapshots. Returns both the
@@ -208,7 +199,7 @@ impl<'a, T: Transport> Repository<'a, T> {
         target: &Target,
         name: &str,
     ) -> (Vec<u8>, String) {
-        let sha256 = &target.hashes.as_ref().sha256.clone().into_vec();
+        let sha256 = &(*target.hashes).sha256.clone().into_vec();
         if self.consistent_snapshot {
             (sha256.clone(), format!("{}.{}", hex::encode(sha256), name))
         } else {

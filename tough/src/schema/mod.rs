@@ -10,9 +10,8 @@ pub mod key;
 mod spki;
 mod verify;
 
-pub use crate::schema::error::{Error, Result};
-
 use crate::schema::decoded::{Decoded, Hex};
+pub use crate::schema::error::{Error, Result};
 use crate::schema::iter::KeysIter;
 use crate::schema::key::Key;
 use crate::sign::Sign;
@@ -29,6 +28,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::num::NonZeroU64;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 /// The type of metadata role.
@@ -113,14 +113,16 @@ impl<T> From<T> for Verbatim<T> {
     }
 }
 
-impl<T> AsRef<T> for Verbatim<T> {
-    fn as_ref(&self) -> &T {
+impl<T> Deref for Verbatim<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<T> AsMut<T> for Verbatim<T> {
-    fn as_mut(&mut self) -> &mut T {
+impl<T> DerefMut for Verbatim<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
@@ -183,7 +185,7 @@ impl Root {
     pub fn keys(&self, role: RoleType) -> impl Iterator<Item = &Key> {
         KeysIter {
             keyids_iter: match self.roles.get(&role) {
-                Some(role_keys) => role_keys.as_ref().keyids.iter(),
+                Some(role_keys) => (*role_keys).keyids.iter(),
                 None => [].iter(),
             },
             keys: &self.keys,

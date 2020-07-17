@@ -42,23 +42,14 @@ fn test_tuf_reference_impl() {
         &b"This is an another example target file."[..]
     );
     assert_eq!(
-        repo.targets()
-            .signed
-            .as_ref()
-            .targets
-            .get("file1.txt")
-            .unwrap()
-            .as_ref()
+        (*(*repo.targets().signed).targets.get("file1.txt").unwrap())
             .custom
             .get("file_permissions")
             .unwrap(),
         "0644"
     );
 
-    assert!(repo
-        .targets()
-        .signed
-        .as_ref()
+    assert!((*repo.targets().signed)
         .delegations
         .as_ref()
         .unwrap()

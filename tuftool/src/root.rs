@@ -189,7 +189,7 @@ impl Command {
         root.signed
             .roles
             .entry(role)
-            .and_modify(|rk| rk.as_mut().threshold = threshold)
+            .and_modify(|rk| (*rk).threshold = threshold)
             .or_insert_with(|| role_keys!(threshold));
         clear_sigs(&mut root);
         write_file(path, &root)
@@ -212,21 +212,19 @@ impl Command {
         let mut root: Signed<Root> = load_file(path)?;
         if let Some(role) = role {
             if let Some(role_keys) = root.signed.roles.get_mut(&role) {
-                role_keys
-                    .as_ref()
+                (*role_keys)
                     .keyids
                     .iter()
                     .position(|k| k.eq(key_id))
-                    .map(|pos| role_keys.as_mut().keyids.remove(pos));
+                    .map(|pos| (*role_keys).keyids.remove(pos));
             }
         } else {
             for role_keys in root.signed.roles.values_mut() {
-                role_keys
-                    .as_ref()
+                (*role_keys)
                     .keyids
                     .iter()
                     .position(|k| k.eq(key_id))
-                    .map(|pos| role_keys.as_mut().keyids.remove(pos));
+                    .map(|pos| (*role_keys).keyids.remove(pos));
             }
             root.signed.keys.remove(key_id);
         }
@@ -267,7 +265,7 @@ impl Command {
             String::from_utf8(output.stdout).context(error::CommandUtf8 { command_str })?;
 
         let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParse)?;
-        let key_id = hex::encode(add_key(root.signed.as_mut(), roles, key_pair.tuf_key())?);
+        let key_id = hex::encode(add_key(&mut *root.signed, roles, key_pair.tuf_key())?);
         key_source
             .write(&stdout, &key_id)
             .context(error::WriteKeySource)?;
@@ -281,7 +279,7 @@ impl Command {
 
         let signed_root = SignedRole::new(
             root.signed.clone(),
-            root.signed.as_ref(),
+            &*root.signed,
             &[key_source],
             &SystemRandom::new(),
         )
@@ -332,8 +330,8 @@ fn add_key(root: &mut Root, role: &[RoleType], key: Key) -> Result<Decoded<Hex>>
 
     for r in role {
         let entry = root.roles.entry(*r).or_insert_with(|| role_keys!());
-        if !entry.as_ref().keyids.contains(&key_id) {
-            entry.as_mut().keyids.push(key_id.clone());
+        if !(*entry).keyids.contains(&key_id) {
+            (*entry).keyids.push(key_id.clone());
         }
     }
 

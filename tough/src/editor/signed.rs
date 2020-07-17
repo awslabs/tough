@@ -56,7 +56,7 @@ where
         // the keys provided.
         let (signing_key_id, signing_key) = root_keys
             .iter()
-            .find(|(keyid, _signing_key)| role_keys.as_ref().keyids.contains(&keyid))
+            .find(|(keyid, _signing_key)| (*role_keys).keyids.contains(&keyid))
             .context(error::SigningKeysNotFound {
                 role: T::TYPE.to_string(),
             })?;
@@ -139,20 +139,20 @@ where
         let filename = match T::TYPE {
             RoleType::Targets => {
                 if consistent_snapshot {
-                    format!("{}.targets.json", self.signed.signed.as_ref().version())
+                    format!("{}.targets.json", (*self.signed.signed).version())
                 } else {
                     "targets.json".to_string()
                 }
             }
             RoleType::Snapshot => {
                 if consistent_snapshot {
-                    format!("{}.snapshot.json", self.signed.signed.as_ref().version())
+                    format!("{}.snapshot.json", (*self.signed.signed).version())
                 } else {
                     "snapshot.json".to_string()
                 }
             }
             RoleType::Timestamp => "timestamp.json".to_string(),
-            RoleType::Root => format!("{}.root.json", self.signed.signed.as_ref().version()),
+            RoleType::Root => format!("{}.root.json", (*self.signed.signed).version()),
         };
 
         let path = outdir.join(filename);
@@ -185,7 +185,7 @@ impl SignedRepository {
     where
         P: AsRef<Path>,
     {
-        let consistent_snapshot = self.root.signed.signed.as_ref().consistent_snapshot;
+        let consistent_snapshot = (*self.root.signed.signed).consistent_snapshot;
         self.root.write(&outdir, consistent_snapshot)?;
         self.targets.write(&outdir, consistent_snapshot)?;
         self.snapshot.write(&outdir, consistent_snapshot)?;
@@ -261,18 +261,17 @@ impl SignedRepository {
 
         // Use the file name to see if a target exists in the repo
         // with that name. If so...
-        let repo_targets = &self.targets.signed.signed.as_ref().targets;
+        let repo_targets = &(*self.targets.signed.signed).targets;
         if let Some(repo_target) = repo_targets.get(file_name) {
             // compare the hashes of the target from the repo and the
             // target we just created. If they are the same, this must
             // be the same file, symlink it.
             ensure!(
-                target_from_path.hashes.as_ref().sha256
-                    == repo_target.as_ref().hashes.as_ref().sha256,
+                (*target_from_path.hashes).sha256 == (*(*repo_target).hashes).sha256,
                 error::HashMismatch {
                     context: "target",
                     calculated: hex::encode(target_from_path.hashes.inner.sha256),
-                    expected: hex::encode(&repo_target.as_ref().hashes.inner.sha256),
+                    expected: hex::encode(&(*repo_target).hashes.inner.sha256),
                 }
             );
         } else {
@@ -280,10 +279,10 @@ impl SignedRepository {
             return Ok(None);
         }
 
-        let dest = if self.root.signed.signed.as_ref().consistent_snapshot {
+        let dest = if (*self.root.signed.signed).consistent_snapshot {
             outdir.join(format!(
                 "{}.{}",
-                hex::encode(&target_from_path.hashes.as_ref().sha256),
+                hex::encode(&(*target_from_path.hashes).sha256),
                 file_name
             ))
         } else {

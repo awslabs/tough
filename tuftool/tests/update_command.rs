@@ -120,33 +120,21 @@ fn update_command_without_new_targets() {
     .unwrap();
 
     // Ensure all the existing targets are accounted for
-    assert_eq!(repo.targets().signed.as_ref().targets.len(), 3);
+    assert_eq!((*repo.targets().signed).targets.len(), 3);
 
     // Ensure all the metadata has been updated
+    assert_eq!((*repo.targets().signed).version.get(), new_targets_version);
+    assert_eq!((*repo.targets().signed).expires, new_targets_expiration);
     assert_eq!(
-        repo.targets().signed.as_ref().version.get(),
-        new_targets_version
-    );
-    assert_eq!(
-        repo.targets().signed.as_ref().expires,
-        new_targets_expiration
-    );
-    assert_eq!(
-        repo.snapshot().signed.as_ref().version.get(),
+        (*repo.snapshot().signed).version.get(),
         new_snapshot_version
     );
+    assert_eq!((*repo.snapshot().signed).expires, new_snapshot_expiration);
     assert_eq!(
-        repo.snapshot().signed.as_ref().expires,
-        new_snapshot_expiration
-    );
-    assert_eq!(
-        repo.timestamp().signed.as_ref().version.get(),
+        (*repo.timestamp().signed).version.get(),
         new_timestamp_version
     );
-    assert_eq!(
-        repo.timestamp().signed.as_ref().expires,
-        new_timestamp_expiration
-    );
+    assert_eq!((*repo.timestamp().signed).expires, new_timestamp_expiration);
 }
 
 #[test]
@@ -220,7 +208,7 @@ fn update_command_with_new_targets() {
     .unwrap();
 
     // Ensure all the targets (new and existing) are accounted for
-    assert_eq!(repo.targets().signed.as_ref().targets.len(), 6);
+    assert_eq!((*repo.targets().signed).targets.len(), 6);
 
     // Ensure we can read the newly added targets
     assert_eq!(
@@ -237,30 +225,18 @@ fn update_command_with_new_targets() {
     );
 
     // Ensure all the metadata has been updated
+    assert_eq!((*repo.targets().signed).version.get(), new_targets_version);
+    assert_eq!((*repo.targets().signed).expires, new_targets_expiration);
     assert_eq!(
-        repo.targets().signed.as_ref().version.get(),
-        new_targets_version
-    );
-    assert_eq!(
-        repo.targets().signed.as_ref().expires,
-        new_targets_expiration
-    );
-    assert_eq!(
-        repo.snapshot().signed.as_ref().version.get(),
+        (*repo.snapshot().signed).version.get(),
         new_snapshot_version
     );
+    assert_eq!((*repo.snapshot().signed).expires, new_snapshot_expiration);
     assert_eq!(
-        repo.snapshot().signed.as_ref().expires,
-        new_snapshot_expiration
-    );
-    assert_eq!(
-        repo.timestamp().signed.as_ref().version.get(),
+        (*repo.timestamp().signed).version.get(),
         new_timestamp_version
     );
-    assert_eq!(
-        repo.timestamp().signed.as_ref().expires,
-        new_timestamp_expiration
-    );
+    assert_eq!((*repo.timestamp().signed).expires, new_timestamp_expiration);
 }
 
 #[test]

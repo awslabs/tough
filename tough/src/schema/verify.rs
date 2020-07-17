@@ -25,7 +25,7 @@ impl Root {
         let mut valid_keyids = HashSet::new();
 
         for signature in &role.signatures {
-            if role_keys.as_ref().keyids.contains(&signature.keyid) {
+            if (*role_keys).keyids.contains(&signature.keyid) {
                 if let Some(key) = self.keys.get(&signature.keyid) {
                     if key.verify(&data, &signature.sig) {
                         // Ignore duplicate keyids.
@@ -38,10 +38,10 @@ impl Root {
         }
 
         ensure!(
-            valid >= u64::from(role_keys.as_ref().threshold),
+            valid >= u64::from((*role_keys).threshold),
             error::SignatureThreshold {
                 role: T::TYPE,
-                threshold: role_keys.as_ref().threshold,
+                threshold: (*role_keys).threshold,
                 valid,
             }
         );
@@ -57,7 +57,7 @@ mod tests {
     fn simple_rsa() {
         let root: Signed<Verbatim<Root>> =
             serde_json::from_str(include_str!("../../tests/data/simple-rsa/root.json")).unwrap();
-        root.signed.as_ref().verify_role(&root).unwrap();
+        (*root.signed).verify_role(&root).unwrap();
     }
 
     #[test]
@@ -66,8 +66,7 @@ mod tests {
             "../../tests/data/no-root-json-signatures/root.json"
         ))
         .expect("should be parsable root.json");
-        root.signed
-            .as_ref()
+        (*root.signed)
             .verify_role(&root)
             .expect_err("missing signature should not verify");
     }
@@ -78,8 +77,7 @@ mod tests {
             "../../tests/data/invalid-root-json-signature/root.json"
         ))
         .expect("should be parsable root.json");
-        root.signed
-            .as_ref()
+        (*root.signed)
             .verify_role(&root)
             .expect_err("invalid (unauthentic) root signature should not verify");
     }
@@ -93,8 +91,7 @@ mod tests {
             "../../tests/data/expired-root-json-signature/root.json"
         ))
         .expect("should be parsable root.json");
-        root.signed
-            .as_ref()
+        (*root.signed)
             .verify_role(&root)
             .expect_err("expired root signature should not verify");
     }
@@ -105,8 +102,7 @@ mod tests {
             "../../tests/data/mismatched-root-json-keyids/root.json"
         ))
         .expect("should be parsable root.json");
-        root.signed
-            .as_ref()
+        (*root.signed)
             .verify_role(&root)
             .expect_err("mismatched root role keyids (provided and signed) should not verify");
     }
@@ -116,8 +112,7 @@ mod tests {
         let root: Signed<Verbatim<Root>> =
             serde_json::from_str(include_str!("../../tests/data/duplicate-sigs/root.json"))
                 .expect("should be parsable root.json");
-        root.signed
-            .as_ref()
+        (*root.signed)
             .verify_role(&root)
             .expect_err("expired root signature should not verify");
     }
@@ -130,8 +125,7 @@ mod tests {
             "../../tests/data/duplicate-sig-keys/root.json"
         ))
         .expect("should be parsable root.json");
-        root.signed
-            .as_ref()
+        (*root.signed)
             .verify_role(&root)
             .expect_err("expired root signature should not verify");
     }
