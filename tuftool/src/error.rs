@@ -221,6 +221,16 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display(
+        "Root was signed with less than {} signatures: {}",
+        threshold,
+        signature_count
+    ))]
+    SignatureRoot {
+        threshold: u64,
+        signature_count: usize,
+    },
+
     #[snafu(display("Failed to sign '{}': {}", path.display(), source))]
     SignRoot {
         path: PathBuf,
@@ -259,6 +269,10 @@ pub(crate) enum Error {
         scheme: String,
         backtrace: Backtrace,
     },
+
+    /// Root creates an unloadable repo
+    #[snafu(display("Unstable root, less keys then threshold for: {}", role))]
+    UnstableRoot { role: tough::schema::RoleType },
 
     #[snafu(display("Failed to parse URL \"{}\": {}", url, source))]
     UrlParse {
