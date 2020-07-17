@@ -289,7 +289,11 @@ impl Command {
         // Sanity check of root
         for (roletype, rolekeys) in &signed_root.signed().signed.roles {
             if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
-                return Err(error::Error::UnstableRoot { role: *roletype });
+                return Err(error::Error::UnstableRoot {
+                    role: *roletype,
+                    threshold: rolekeys.threshold.get(),
+                    actual: rolekeys.keyids.len(),
+                });
             }
         }
 
@@ -300,7 +304,10 @@ impl Command {
             .roles
             .get(&RoleType::Root)
             .ok_or_else(|| error::Error::UnstableRoot {
+                // The code should never reach this point
                 role: RoleType::Root,
+                threshold: 0,
+                actual: 0,
             })?
             .threshold
             .get();

@@ -222,9 +222,9 @@ pub(crate) enum Error {
     },
 
     #[snafu(display(
-        "Root was signed with less than {} signatures: {}",
+        "Root was signed with {} signatures; it must be signed with at least {}",
+        signature_count,
         threshold,
-        signature_count
     ))]
     SignatureRoot {
         threshold: u64,
@@ -271,8 +271,17 @@ pub(crate) enum Error {
     },
 
     /// Root creates an unloadable repo
-    #[snafu(display("Unstable root, less keys then threshold for: {}", role))]
-    UnstableRoot { role: tough::schema::RoleType },
+    #[snafu(display(
+        "Unstable root: '{}' role contains {} keys, threshold is {}",
+        role,
+        actual,
+        threshold
+    ))]
+    UnstableRoot {
+        role: tough::schema::RoleType,
+        threshold: u64,
+        actual: usize,
+    },
 
     #[snafu(display("Failed to parse URL \"{}\": {}", url, source))]
     UrlParse {
