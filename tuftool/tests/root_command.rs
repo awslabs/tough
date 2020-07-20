@@ -2,18 +2,23 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 mod test_utils;
+use tempfile::TempDir;
 
 use assert_cmd::Command;
 
-#[ignore]
 #[test]
 // Ensure we can create and sign a root file
 fn create_root() {
     let key = test_utils::test_data().join("snakeoil.pem");
+    let outdir = TempDir::new().unwrap();
     // Create root.json
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "init", "tests/root_test/root.json"])
+        .args(&[
+            "root",
+            "init",
+            outdir.path().join("root.json").to_str().unwrap(),
+        ])
         .assert()
         .success();
 
@@ -23,7 +28,7 @@ fn create_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "root",
             "1",
         ])
@@ -34,7 +39,7 @@ fn create_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "targets",
             "1",
         ])
@@ -45,7 +50,7 @@ fn create_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "snapshot",
             "1",
         ])
@@ -56,7 +61,7 @@ fn create_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "timestamp",
             "1",
         ])
@@ -69,7 +74,7 @@ fn create_root() {
         .args(&[
             "root",
             "add-key",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             key.to_str().unwrap(),
             "-r",
             "root",
@@ -89,22 +94,26 @@ fn create_root() {
         .args(&[
             "root",
             "sign",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             key.to_str().unwrap(),
         ])
         .assert()
         .success();
 }
 
-#[ignore]
 #[test]
 // Ensure creating an unstable root throws error
 fn create_unstable_root() {
+    let outdir = TempDir::new().unwrap();
     let key = test_utils::test_data().join("snakeoil.pem");
     // Create root.json
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "init", "tests/root_test/root.json"])
+        .args(&[
+            "root",
+            "init",
+            outdir.path().join("root.json").to_str().unwrap(),
+        ])
         .assert()
         .success();
 
@@ -114,7 +123,7 @@ fn create_unstable_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "root",
             "1",
         ])
@@ -125,7 +134,7 @@ fn create_unstable_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "targets",
             "2",
         ])
@@ -136,7 +145,7 @@ fn create_unstable_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "snapshot",
             "1",
         ])
@@ -147,7 +156,7 @@ fn create_unstable_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "timestamp",
             "1",
         ])
@@ -160,7 +169,7 @@ fn create_unstable_root() {
         .args(&[
             "root",
             "add-key",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             key.to_str().unwrap(),
             "-r",
             "root",
@@ -180,22 +189,26 @@ fn create_unstable_root() {
         .args(&[
             "root",
             "sign",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             key.to_str().unwrap(),
         ])
         .assert()
         .failure();
 }
 
-#[ignore]
 #[test]
 // Ensure signing a root with insuffecient keys throws error
 fn create_invalid_root() {
+    let outdir = TempDir::new().unwrap();
     let key = test_utils::test_data().join("snakeoil.pem");
     // Create root.json
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "init", "tests/root_test/root.json"])
+        .args(&[
+            "root",
+            "init",
+            outdir.path().join("root.json").to_str().unwrap(),
+        ])
         .assert()
         .success();
 
@@ -205,7 +218,7 @@ fn create_invalid_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "root",
             "1",
         ])
@@ -216,7 +229,7 @@ fn create_invalid_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "targets",
             "1",
         ])
@@ -227,7 +240,7 @@ fn create_invalid_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "snapshot",
             "1",
         ])
@@ -238,7 +251,7 @@ fn create_invalid_root() {
         .args(&[
             "root",
             "set-threshold",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             "timestamp",
             "1",
         ])
@@ -251,7 +264,7 @@ fn create_invalid_root() {
         .args(&[
             "root",
             "add-key",
-            "tests/root_test/root.json",
+            outdir.path().join("root.json").to_str().unwrap(),
             key.to_str().unwrap(),
             "-r",
             "root",
@@ -268,7 +281,11 @@ fn create_invalid_root() {
     // Sign root.json (error because key is not valid)
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "sign", "tests/root_test/root.json"])
+        .args(&[
+            "root",
+            "sign",
+            outdir.path().join("root.json").to_str().unwrap(),
+        ])
         .assert()
         .failure();
 }
