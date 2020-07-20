@@ -78,7 +78,11 @@ impl RepositoryEditor {
         // Sanity check of root
         for (roletype, rolekeys) in &root.signed.roles {
             if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
-                return Err(error::Error::UnstableRoot { role: *roletype });
+                return Err(error::Error::UnstableRoot {
+                    role: *roletype,
+                    threshold: rolekeys.threshold.get(),
+                    actual: rolekeys.keyids.len(),
+                });
             }
         }
 

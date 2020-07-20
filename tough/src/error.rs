@@ -442,8 +442,17 @@ pub enum Error {
     RoleNotInMeta { name: String },
 
     /// Root creates an unloadable repo
-    #[snafu(display("Unstable root, less keys then threshold for: {}", role))]
-    UnstableRoot { role: RoleType },
+    #[snafu(display(
+        "Unstable root; found {} keys for role {}, threshold is {}",
+        role,
+        actual,
+        threshold
+    ))]
+    UnstableRoot {
+        role: RoleType,
+        actual: usize,
+        threshold: u64,
+    },
 }
 
 // used in `std::io::Read` implementations
