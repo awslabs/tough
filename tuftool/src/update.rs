@@ -12,6 +12,7 @@ use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tempfile::tempdir;
+use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
@@ -59,6 +60,12 @@ pub(crate) struct UpdateArgs {
     /// Directory of targets
     #[structopt(short = "t", long = "add-targets")]
     targets_indir: Option<PathBuf>,
+
+    /// Behavior when a target exists with the same name and hash in the desired repository
+    /// directory, for example from another repository when you're sharing target directories.
+    /// Options are "replace", "fail", and "skip"
+    #[structopt(long = "target-path-exists", default_value = "skip")]
+    target_path_exists: PathExists,
 
     /// Follow symbolic links in the given directory when adding targets
     #[structopt(short = "f", long = "follow")]
@@ -141,7 +148,7 @@ impl UpdateArgs {
         if let Some(ref targets_indir) = self.targets_indir {
             let targets_outdir = &self.outdir.join("targets");
             signed_repo
-                .link_targets(&targets_indir, &targets_outdir)
+                .link_targets(&targets_indir, &targets_outdir, self.target_path_exists)
                 .context(error::LinkTargets {
                     indir: &targets_indir,
                     outdir: targets_outdir,

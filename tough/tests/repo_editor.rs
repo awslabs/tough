@@ -8,6 +8,7 @@ use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use test_utils::{dir_url, test_data};
+use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::key_source::LocalKeySource;
 use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings};
@@ -116,10 +117,14 @@ fn repo_load_edit_write_load() {
     let targets_destination = destination.as_ref().join("targets");
     assert!(signed_repo.write(&metadata_destination).is_ok());
     assert!(signed_repo
-        .link_targets(&reference_targets_location, &targets_destination)
+        .link_targets(
+            &reference_targets_location,
+            &targets_destination,
+            PathExists::Skip,
+        )
         .is_ok());
     assert!(signed_repo
-        .copy_targets(&targets_location, &targets_destination)
+        .copy_targets(&targets_location, &targets_destination, PathExists::Skip)
         .is_ok());
 
     // Load the repo we just created
