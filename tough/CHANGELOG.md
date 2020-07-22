@@ -4,12 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] - 2020-07-20
 ### Breaking Changes
 - The `HttpTransport` type and the `Read` and `Error` types that it uses have changed.
+- Remove `root.json` from Snapshot metadata per [theupdateframework/specification#40](https://github.com/theupdateframework/specification/pull/40) 
 
 ### Added
-- Added HTTP retry logic. #143
+- Added HTTP retry logic.
+- Added early support for delegations.
+- Added logging.
+- Added documentation to all remaining items.
+- Allow control of link/copy behavior for existing paths.
+
+### Changed
+- Dependency updates.
+- Fix new clippy lints in Rust 1.45.
 
 ## [0.7.1] - 2020-07-09
 
@@ -69,7 +78,9 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.7.0...HEAD
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.8.0...HEAD
+[0.8.0]: https://github.com/awslabs/tough/compare/tough-v0.7.1...tough-v0.8.0
+[0.7.1]: https://github.com/awslabs/tough/compare/tough-v0.7.0...tough-v0.7.1
 [0.7.0]: https://github.com/awslabs/tough/compare/tough-v0.6.0...tough-v0.7.0
 [0.6.0]: https://github.com/awslabs/tough/compare/tough-v0.5.0...tough-v0.6.0
 [0.5.0]: https://github.com/awslabs/tough/compare/tough-v0.4.0...tough-v0.5.0
