@@ -4,10 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.1] - 2020-07-20
+### Added
+- Added logging.
+- Added downloading of specific targets.
+- Allow control of link/copy behavior for existing paths.
+
 ### Changed
-- Bumped `tough` to 0.7.0
-- Bumped `tough-ssm` to 0.2.0
+- Bumped `tough` to 0.8.0.
+- Bumped `tough-ssm` to 0.2.1.
+- Truncate targets that already exist before downloading with `tuftool`.
 
 ## [0.4.0] - 2020-06-11
 
@@ -66,6 +72,9 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
+[0.4.1]: https://github.com/awslabs/tough/compare/tuftool-v0.4.0...tuftool-v0.4.1
+[0.4.0]: https://github.com/awslabs/tough/compare/tuftool-v0.3.1...tuftool-v0.4.0
+[0.3.1]: https://github.com/awslabs/tough/compare/tuftool-v0.3.0...tuftool-v0.3.1
 [0.3.0]: https://github.com/awslabs/tough/compare/tuftool-v0.2.0...tuftool-v0.3.0
 [0.2.0]: https://github.com/awslabs/tough/compare/tuftool-v0.1.1...tuftool-v0.2.0
 [0.1.1]: https://github.com/awslabs/tough/compare/tuftool-v0.1.0...tuftool-v0.1.1
