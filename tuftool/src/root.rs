@@ -286,7 +286,7 @@ impl Command {
         )
         .context(error::SignRoot { path })?;
 
-        // Sanity check of root
+        // Quick check that root is signed by enough key IDs
         for (roletype, rolekeys) in &signed_root.signed().signed.roles {
             if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
                 return Err(error::Error::UnstableRoot {
