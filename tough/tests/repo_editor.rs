@@ -153,11 +153,12 @@ fn create_sign_write_reload_repo() {
     editor
         .add_delegate(
             "targets",
-            "role1".to_string(),
+            "role1",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -172,11 +173,12 @@ fn create_sign_write_reload_repo() {
     editor
         .add_delegate(
             "role1",
-            "role2".to_string(),
+            "role2",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -185,9 +187,10 @@ fn create_sign_write_reload_repo() {
     editor
         .add_delegate(
             "role1",
-            "role3".to_string(),
+            "role3",
             None,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -195,11 +198,12 @@ fn create_sign_write_reload_repo() {
     editor
         .add_delegate(
             "targets",
-            "role4".to_string(),
+            "role4",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })]),
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -323,11 +327,12 @@ fn partial_sign() {
     editor
         .add_delegate(
             "targets",
-            "role1".to_string(),
+            "role1",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -342,11 +347,12 @@ fn partial_sign() {
     editor
         .add_delegate(
             "role1",
-            "role2".to_string(),
+            "role2",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -355,9 +361,10 @@ fn partial_sign() {
     editor
         .add_delegate(
             "role1",
-            "role3".to_string(),
+            "role3",
             None,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -365,11 +372,12 @@ fn partial_sign() {
     editor
         .add_delegate(
             "role3",
-            "role4".to_string(),
+            "role4",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })]),
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -493,11 +501,12 @@ fn partial_invalid_sign() {
     editor
         .add_delegate(
             "targets",
-            "role1".to_string(),
+            "role1",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -512,11 +521,12 @@ fn partial_invalid_sign() {
     editor
         .add_delegate(
             "role1",
-            "role2".to_string(),
+            "role2",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -525,9 +535,10 @@ fn partial_invalid_sign() {
     editor
         .add_delegate(
             "role1",
-            "role3".to_string(),
+            "role3",
             None,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -535,11 +546,12 @@ fn partial_invalid_sign() {
     editor
         .add_delegate(
             "targets",
-            "role4".to_string(),
+            "role4",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })]),
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -768,11 +780,12 @@ fn create_role_flow() {
     editor
         .add_delegate(
             "targets",
-            "A".to_string(),
+            "A",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["main/*".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -885,11 +898,12 @@ fn create_role_flow() {
     editor
         .add_delegate(
             "A",
-            "B".to_string(),
+            "B",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })]),
             PathSet::Paths([].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -1085,11 +1099,12 @@ fn update_targets_flow() {
     editor
         .add_delegate(
             "targets",
-            "A".to_string(),
+            "A",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })]),
             PathSet::Paths(["main/*".to_string()].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
@@ -1202,11 +1217,12 @@ fn update_targets_flow() {
     editor
         .add_delegate(
             "A",
-            "B".to_string(),
+            "B",
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })]),
             PathSet::Paths([].to_vec()),
+            None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )

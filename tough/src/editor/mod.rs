@@ -51,7 +51,7 @@ const SPEC_VERSION: &str = "1.0.0";
 pub struct RepositoryEditor {
     signed_root: SignedRole<Root>,
 
-    targets_struct: Option<Targets>,
+    targets_struct: Targets,
 
     snapshot_version: Option<NonZeroU64>,
     snapshot_expires: Option<DateTime<Utc>>,
@@ -87,11 +87,11 @@ impl RepositoryEditor {
 
         Ok(RepositoryEditor {
             signed_root,
-            targets_struct: Some(Targets::new(
+            targets_struct: Targets::new(
                 SPEC_VERSION.to_string(),
                 NonZeroU64::new(1).unwrap(),
                 Utc::now(),
-            )),
+            ),
             snapshot_version: None,
             snapshot_expires: None,
             snapshot_extra: None,
@@ -128,12 +128,9 @@ impl RepositoryEditor {
         let rng = SystemRandom::new();
         let root = &self.signed_root.signed.signed;
 
-        let signed_targets = self
-            .build_targets()
-            .and_then(|targets| SignedRole::new(targets, root, keys, &rng))?;
-        let signed_delegations = self
-            .build_targets()
-            .and_then(|targets| SignedRole::<Targets>::new_targets(&targets, keys, &rng, true))?;
+        let signed_targets = SignedRole::new(self.targets_struct.clone(), root, keys, &rng)?;
+        let signed_delegations =
+            SignedRole::<Targets>::new_targets(&self.targets_struct, keys, &rng, true)?;
         let signed_snapshot = self
             .build_snapshot(&signed_targets, &signed_delegations)
             .and_then(|snapshot| SignedRole::new(snapshot, root, keys, &rng))?;
@@ -160,18 +157,20 @@ impl RepositoryEditor {
 
         // Create `SignedRole` for each target
         let mut signed_roles = HashMap::new();
-        let mut targets = self
-            .build_targets()
-            .and_then(|targets| SignedRole::<Targets>::new_targets(&targets, keys, &rng, false))?;
+        let mut targets =
+            SignedRole::<Targets>::new_targets(&self.targets_struct, keys, &rng, false)?;
 
         // Take the signed targets we want
         for name in names {
             if name == "targets" {
                 signed_roles.insert(
                     name.to_string(),
-                    self.build_targets().and_then(|targets| {
-                        SignedRole::new(targets, &self.signed_root.signed.signed, keys, &rng)
-                    })?,
+                    SignedRole::new(
+                        self.targets_struct.clone(),
+                        &self.signed_root.signed.signed,
+                        keys,
+                        &rng,
+                    )?,
                 );
                 continue;
             }
@@ -195,7 +194,7 @@ impl RepositoryEditor {
             }
         );
         // Hold on to the existing targets
-        self.targets_struct = Some(targets);
+        self.targets_struct = targets;
         Ok(self)
     }
 
@@ -233,20 +232,14 @@ impl RepositoryEditor {
 
     /// Add a `Target` to the repository
     pub fn add_target(&mut self, name: &str, target: Target) -> Result<&mut Self> {
-        self.targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?
-            .add_target(&name, target);
+        self.targets_struct.add_target(&name, target);
 
         Ok(self)
     }
 
     /// Remove a `Target` from the repository
     pub fn remove_target(&mut self, name: &str) -> Result<&mut Self> {
-        self.targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?
-            .remove_target(name);
+        self.targets_struct.remove_target(name);
 
         Ok(self)
     }
@@ -262,8 +255,6 @@ impl RepositoryEditor {
             return self.add_target(name, target);
         }
         self.targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?
             .targets_by_name_verify_path(role, &name)
             .context(error::TargetsNotFound {
                 name: name.to_string(),
@@ -279,8 +270,6 @@ impl RepositoryEditor {
             return self.remove_target(name);
         }
         self.targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?
             .targets_by_name(role)
             .context(error::TargetsNotFound {
                 name: name.to_string(),
@@ -312,13 +301,10 @@ impl RepositoryEditor {
     where
         P: AsRef<Path>,
     {
-        let targets_struct = self
-            .targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?;
         let cur_targets = match &role[..] {
-            "targets" => targets_struct,
-            _ => targets_struct
+            "targets" => &mut self.targets_struct,
+            _ => self
+                .targets_struct
                 .targets_by_name(role)
                 .context(error::DelegateMissing { name: role })?,
         };
@@ -354,9 +340,7 @@ impl RepositoryEditor {
 
     /// Remove all targets from this repo
     pub fn clear_targets(&mut self) -> &mut Self {
-        if let Some(targets) = self.targets_struct.as_mut() {
-            targets.clear_targets();
-        }
+        self.targets_struct.clear_targets();
         self
     }
 
@@ -364,22 +348,28 @@ impl RepositoryEditor {
     pub fn add_delegate(
         &mut self,
         from: &str,
-        name: String,
+        name: &str,
         key_source: Option<&[Box<dyn KeySource>]>,
         paths: PathSet,
+        threshold: Option<NonZeroU64>,
         expiration: DateTime<Utc>,
         version: NonZeroU64,
     ) -> Result<&mut Self> {
+        // Steps to create a role
+        // 1.Find the delegating role
+        // 2.Get the signing keys for the new role using the delegating role's keys or the ones provided in key_source
+        // 3.Create a Targets struct representing role
+        // 4.Create the delegations for the new targets
+        // 5.Add the public keys from key_source to the keys of the new role's delegations
+
         // If we are delegating from targets all paths are valid
         if from != "targets" {
-            let parent_delegated_role = self
-                .targets_struct
-                .as_ref()
-                .ok_or_else(|| error::Error::NoTargets)?
-                .delegated_role(from)
-                .context(error::DelegateMissing {
-                    name: from.to_string(),
-                })?;
+            let parent_delegated_role =
+                self.targets_struct
+                    .delegated_role(from)
+                    .context(error::DelegateMissing {
+                        name: from.to_string(),
+                    })?;
             // Verify that `from` has permission to delegate paths
             parent_delegated_role
                 .verify_paths(&paths)
@@ -389,15 +379,11 @@ impl RepositoryEditor {
                 })?;
         }
 
-        let targets = self
-            .targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?;
         // Find the parent targets for the role we are creating
         let mut parent = if from == "targets" {
-            targets
+            &mut self.targets_struct
         } else {
-            targets
+            self.targets_struct
                 .targets_by_name(from)
                 .context(error::DelegateMissing { name: from })?
         };
@@ -440,10 +426,12 @@ impl RepositoryEditor {
         new_delegations.keys.extend(key_pairs);
         // Create a new delegations for `role`
         new_targets.delegations = Some(new_delegations);
-        let threshold = NonZeroU64::new(keyids.len().try_into().context(error::InvalidInto {})?)
-            .context(error::InvalidThreshold {})?;
+        let threshold = threshold.unwrap_or(
+            NonZeroU64::new(keyids.len().try_into().context(error::InvalidInto {})?)
+                .context(error::InvalidThreshold {})?,
+        );
         delegations.roles.push(DelegatedRole {
-            name,
+            name: name.to_string(),
             keyids,
             threshold,
             paths,
@@ -498,19 +486,13 @@ impl RepositoryEditor {
 
     /// Set the `Targets` version
     pub fn targets_version(&mut self, targets_version: NonZeroU64) -> Result<&mut Self> {
-        self.targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?
-            .version = targets_version;
+        self.targets_struct.version = targets_version;
         Ok(self)
     }
 
     /// Set the `Targets` expiration
     pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> Result<&mut Self> {
-        self.targets_struct
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)?
-            .expires = targets_expires;
+        self.targets_struct.expires = targets_expires;
         Ok(self)
     }
 
@@ -527,15 +509,6 @@ impl RepositoryEditor {
     }
 
     // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
-
-    /// Build the `Targets` struct
-    fn build_targets(&self) -> Result<Targets> {
-        Ok(self
-            .targets_struct
-            .as_ref()
-            .ok_or_else(|| error::Error::NoDelegations)?
-            .clone())
-    }
 
     /// Build the `Snapshot` struct
     fn build_snapshot(
@@ -712,7 +685,7 @@ impl RepositoryEditor {
         link_targets(
             indir.as_ref(),
             outdir.as_ref(),
-            self.targets_struct.as_ref().context(error::NoTargets)?,
+            &self.targets_struct,
             consistent_snapshot,
         )
     }
@@ -740,7 +713,7 @@ impl RepositoryEditor {
         copy_targets(
             indir.as_ref(),
             outdir.as_ref(),
-            self.targets_struct.as_ref().context(error::NoTargets)?,
+            &self.targets_struct,
             consistent_snapshot,
         )
     }

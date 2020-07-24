@@ -93,9 +93,10 @@ impl CreateRoleArgs {
         editor
             .add_delegate(
                 &delegator,
-                self.role.clone(),
+                &self.role,
                 Some(&self.keys),
                 PathSet::Paths(Vec::new()),
+                self.threshold,
                 self.expires,
                 *self
                     .version

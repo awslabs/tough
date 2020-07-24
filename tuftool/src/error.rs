@@ -176,7 +176,10 @@ pub(crate) enum Error {
     },
 
     #[snafu(display("Unable to initialize logger: {}", source))]
-    Logger { source: simplelog::TermLogError },
+    Logger {
+        source: simplelog::TermLogError,
+        backtrace: Backtrace,
+    },
 
     #[snafu(display("Unable to load incoming metadata: {}", source))]
     LoadMetadata {
