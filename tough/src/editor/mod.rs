@@ -75,7 +75,7 @@ impl RepositoryEditor {
         let root = serde_json::from_slice::<Signed<Root>>(&root_buf)
             .context(error::FileParseJson { path: root_path })?;
 
-        // Sanity check of root
+        // Quick check that root is signed by enough key IDs
         for (roletype, rolekeys) in &root.signed.roles {
             if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
                 return Err(error::Error::UnstableRoot {
