@@ -9,10 +9,11 @@ keywords = ["tuf", "update", "repository"]
 edition = "2018"
 
 [features]
+integration-tests = []
 default = ["rusoto"]
 rusoto = ["rusoto-rustls"]
-rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/native-tls"]
-rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls"]
+rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/native-tls", "rusoto_kms/native-tls"]
+rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls", "rusoto_kms/rustls",]
 
 [dependencies]
 chrono = "0.4.11"
@@ -27,6 +28,7 @@ ring = { version = "0.16.13", features = ["std"] }
 rusoto_core = { version = "0.44", optional = true, default-features = false }
 rusoto_credential = { version = "0.44", optional = true }
 rusoto_ssm = { version = "0.44", optional = true, default-features = false }
+rusoto_kms = { version = "0.44", optional = true, default-features = false }
 serde = "1.0.110"
 serde_json = "1.0.53"
 simplelog = "0.8.0"
@@ -36,6 +38,7 @@ tempfile = "3.1.0"
 tokio = "0.2.21"
 tough = { version = "0.8.0", path = "../tough", features = ["http"] }
 tough-ssm = { version = "0.3.0", path = "../tough-ssm" }
+tough-kms = { version = "0.1.0", path = "../tough-kms" }
 url = "2.1.0"
 walkdir = "2.2.9"
 
