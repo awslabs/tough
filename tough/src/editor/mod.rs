@@ -391,7 +391,7 @@ impl RepositoryEditor {
 
     #[allow(clippy::too_many_arguments)]
     /// Delegate target with name. If `key_source` is given, new keys are given to the role if not parent keys are used
-    pub fn add_delegate(
+    pub fn delegate_role(
         &mut self,
         from: &str,
         name: &str,

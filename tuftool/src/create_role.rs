@@ -91,7 +91,7 @@ impl CreateRoleArgs {
         // create new delegated target as `role` from `from`
         let delegator = self.from.as_ref().unwrap_or(&targets_string);
         editor
-            .add_delegate(
+            .delegate_role(
                 &delegator,
                 &self.role,
                 Some(&self.keys),

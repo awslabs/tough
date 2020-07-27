@@ -144,7 +144,7 @@ fn create_sign_write_reload_repo() {
 
     //add delegations
     editor
-        .add_delegate(
+        .delegate_role(
             "targets",
             "role1",
             Some(&[Box::new(LocalKeySource {
@@ -164,7 +164,7 @@ fn create_sign_write_reload_repo() {
         .unwrap();
 
     editor
-        .add_delegate(
+        .delegate_role(
             "role1",
             "role2",
             Some(&[Box::new(LocalKeySource {
@@ -178,7 +178,7 @@ fn create_sign_write_reload_repo() {
         .unwrap();
 
     editor
-        .add_delegate(
+        .delegate_role(
             "role1",
             "role3",
             None,
@@ -189,7 +189,7 @@ fn create_sign_write_reload_repo() {
         )
         .unwrap();
     editor
-        .add_delegate(
+        .delegate_role(
             "targets",
             "role4",
             Some(&[Box::new(LocalKeySource {
@@ -268,7 +268,7 @@ fn partial_sign() {
 
     //add delegations
     editor
-        .add_delegate(
+        .delegate_role(
             "targets",
             "role1",
             Some(&[Box::new(LocalKeySource {
@@ -288,7 +288,7 @@ fn partial_sign() {
         .unwrap();
 
     editor
-        .add_delegate(
+        .delegate_role(
             "role1",
             "role2",
             Some(&[Box::new(LocalKeySource {
@@ -302,7 +302,7 @@ fn partial_sign() {
         .unwrap();
 
     editor
-        .add_delegate(
+        .delegate_role(
             "role1",
             "role3",
             None,
@@ -313,7 +313,7 @@ fn partial_sign() {
         )
         .unwrap();
     editor
-        .add_delegate(
+        .delegate_role(
             "role3",
             "role4",
             Some(&[Box::new(LocalKeySource {
@@ -438,7 +438,7 @@ fn partial_invalid_sign() {
 
     //add delegations
     editor
-        .add_delegate(
+        .delegate_role(
             "targets",
             "role1",
             Some(&[Box::new(LocalKeySource {
@@ -458,7 +458,7 @@ fn partial_invalid_sign() {
         .unwrap();
 
     editor
-        .add_delegate(
+        .delegate_role(
             "role1",
             "role2",
             Some(&[Box::new(LocalKeySource {
@@ -472,7 +472,7 @@ fn partial_invalid_sign() {
         .unwrap();
 
     editor
-        .add_delegate(
+        .delegate_role(
             "role1",
             "role3",
             None,
@@ -483,7 +483,7 @@ fn partial_invalid_sign() {
         )
         .unwrap();
     editor
-        .add_delegate(
+        .delegate_role(
             "targets",
             "role4",
             Some(&[Box::new(LocalKeySource {
@@ -720,7 +720,7 @@ fn create_role_flow() {
 
     // create new delegated target as "A"
     editor
-        .add_delegate(
+        .delegate_role(
             "targets",
             "A",
             Some(&[Box::new(LocalKeySource {
@@ -835,7 +835,7 @@ fn create_role_flow() {
 
     // create new delegated target as "B" from "A"
     editor
-        .add_delegate(
+        .delegate_role(
             "A",
             "B",
             Some(&[Box::new(LocalKeySource {
@@ -1028,7 +1028,7 @@ fn update_targets_flow() {
 
     // create new delegated target as "A"
     editor
-        .add_delegate(
+        .delegate_role(
             "targets",
             "A",
             Some(&[Box::new(LocalKeySource {
@@ -1143,7 +1143,7 @@ fn update_targets_flow() {
 
     // create new delegated target as "B" from "A"
     editor
-        .add_delegate(
+        .delegate_role(
             "A",
             "B",
             Some(&[Box::new(LocalKeySource {
