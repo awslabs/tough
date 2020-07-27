@@ -101,7 +101,7 @@ impl UpdateTargetsArgs {
 
         for (filename, target) in new_targets {
             editor
-                .add_target_to_delegatee(&filename, target, &self.role)
+                .add_target_to_role(&filename, target, &self.role)
                 .context(error::DelegateeNotFound {
                     role: self.role.clone(),
                 })?;

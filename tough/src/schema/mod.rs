@@ -571,8 +571,8 @@ impl Targets {
     pub fn clear_targets(&mut self) {
         self.targets = HashMap::new();
         if let Some(delegations) = &mut self.delegations {
-            for del_role in &mut delegations.roles {
-                if let Some(targets) = &mut del_role.targets {
+            for delegated_role in &mut delegations.roles {
+                if let Some(targets) = &mut delegated_role.targets {
                     targets.signed.clear_targets();
                 }
             }

@@ -122,7 +122,7 @@ mod tests {
             .snapshot_version(snapshot_version)
             .timestamp_expires(timestamp_expiration)
             .timestamp_version(timestamp_version)
-            .add_target_paths(target_list, "targets")
+            .add_target_paths(target_list)
             .unwrap();
 
         assert!(editor.sign(&[Box::new(key_source)]).is_ok());

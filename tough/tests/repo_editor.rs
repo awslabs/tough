@@ -98,7 +98,7 @@ fn test_repo_editor() -> RepositoryEditor {
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
         .timestamp_version(timestamp_version)
-        .add_target_paths(target_list, "targets")
+        .add_target_paths(target_list)
         .unwrap();
     editor
 }
@@ -139,7 +139,7 @@ fn create_sign_write_reload_repo() {
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
         .timestamp_version(timestamp_version)
-        .add_target_paths(target_list, "targets")
+        .add_target_paths(target_list)
         .unwrap();
 
     //add delegations
@@ -157,7 +157,7 @@ fn create_sign_write_reload_repo() {
         )
         .unwrap();
     editor
-        .add_target_paths(
+        .add_target_paths_to_role(
             [targets_path().join("file1.txt").to_str().unwrap()].to_vec(),
             "role1",
         )
@@ -263,7 +263,7 @@ fn partial_sign() {
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
         .timestamp_version(timestamp_version)
-        .add_target_paths(target_list, "targets")
+        .add_target_paths(target_list)
         .unwrap();
 
     //add delegations
@@ -281,7 +281,7 @@ fn partial_sign() {
         )
         .unwrap();
     editor
-        .add_target_paths(
+        .add_target_paths_to_role(
             [targets_path().join("file1.txt").to_str().unwrap()].to_vec(),
             "role1",
         )
@@ -375,7 +375,7 @@ fn partial_sign() {
 
     //edit role 4
     assert!(editor
-        .add_target_paths(
+        .add_target_paths_to_role(
             [targets_path().join("file2.txt").to_str().unwrap()].to_vec(),
             "role4"
         )
@@ -433,7 +433,7 @@ fn partial_invalid_sign() {
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
         .timestamp_version(timestamp_version)
-        .add_target_paths(target_list, "targets")
+        .add_target_paths(target_list)
         .unwrap();
 
     //add delegations
@@ -451,7 +451,7 @@ fn partial_invalid_sign() {
         )
         .unwrap();
     editor
-        .add_target_paths(
+        .add_target_paths_to_role(
             [targets_path().join("file1.txt").to_str().unwrap()].to_vec(),
             "role1",
         )
@@ -489,7 +489,7 @@ fn partial_invalid_sign() {
             Some(&[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })]),
-            PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            PathSet::Paths(["file?.txt".to_string()].to_vec()),
             None,
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -545,7 +545,7 @@ fn partial_invalid_sign() {
 
     //edit role 4
     assert!(editor
-        .add_target_paths(
+        .add_target_paths_to_role(
             [targets_path().join("file2.txt").to_str().unwrap()].to_vec(),
             "role4"
         )
@@ -1304,7 +1304,7 @@ fn update_targets_flow() {
     let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
     let file1 = targets_path().join("file1.txt");
     let targets = vec![file1];
-    editor.add_target_paths(targets, "A").unwrap();
+    editor.add_target_paths_to_role(targets, "A").unwrap();
 
     // Sign A metadata
     let role = editor
@@ -1412,7 +1412,7 @@ fn update_targets_flow() {
         .unwrap();
     let file1 = targets_destination_out.join("file1.txt");
     let targets = vec![file1];
-    editor.add_target_paths(targets, "A").unwrap();
+    editor.add_target_paths_to_role(targets, "A").unwrap();
 
     // Sign A metadata
     let role = editor

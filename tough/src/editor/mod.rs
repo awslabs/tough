@@ -262,41 +262,6 @@ impl RepositoryEditor {
         Ok(self)
     }
 
-    /// Add a `Target` to the delegatee `role`
-    pub fn add_target_to_delegatee(
-        &mut self,
-        name: &str,
-        target: Target,
-        role: &str,
-    ) -> Result<&mut Self> {
-        if role == "targets" {
-            return self.add_target(name, target);
-        }
-        self.targets_struct
-            .targets_by_name_verify_path(role, &name)
-            .context(error::TargetsNotFound {
-                name: name.to_string(),
-            })?
-            .add_target(&name, target);
-
-        Ok(self)
-    }
-
-    /// Remove a `Target` from the delegatee `role`
-    pub fn remove_target_from_delegatee(&mut self, name: &str, role: &str) -> Result<&mut Self> {
-        if role == "targets" {
-            return self.remove_target(name);
-        }
-        self.targets_struct
-            .targets_by_name(role)
-            .context(error::TargetsNotFound {
-                name: name.to_string(),
-            })?
-            .remove_target(&name);
-
-        Ok(self)
-    }
-
     /// Add a target to the repository using its path
     ///
     /// Note: This function builds a `Target` synchronously;
@@ -315,20 +280,82 @@ impl RepositoryEditor {
     /// Add a list of target paths to the repository
     ///
     /// See the note on `add_target_path()` regarding performance.
-    pub fn add_target_paths<P>(&mut self, targets: Vec<P>, role: &str) -> Result<&mut Self>
+    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
-        let cur_targets = match &role[..] {
-            "targets" => &mut self.targets_struct,
-            _ => self
-                .targets_struct
-                .targets_by_name(role)
-                .context(error::DelegateMissing { name: role })?,
-        };
         for target in targets {
             let (target_name, target) = RepositoryEditor::build_target(target)?;
-            cur_targets.add_target(&target_name, target);
+            self.add_target(&target_name, target)?;
+        }
+
+        Ok(self)
+    }
+
+    /// Add a `Target` to the delegatee `role`
+    /// To add a target to top level targets use `add_target()`
+    pub fn add_target_to_role(
+        &mut self,
+        name: &str,
+        target: Target,
+        role: &str,
+    ) -> Result<&mut Self> {
+        if role == "targets" {
+            return self.add_target(name, target);
+        }
+        self.targets_struct
+            .targets_by_name_verify_path(role, &name)
+            .context(error::TargetsNotFound {
+                name: name.to_string(),
+            })?
+            .add_target(&name, target);
+
+        Ok(self)
+    }
+
+    /// Remove a `Target` from the delegated `role`
+    /// To remove a target from top level targets use `remove_target()`
+    pub fn remove_target_from_role(&mut self, name: &str, role: &str) -> Result<&mut Self> {
+        if role == "targets" {
+            return self.remove_target(name);
+        }
+        self.targets_struct
+            .targets_by_name(role)
+            .context(error::TargetsNotFound {
+                name: name.to_string(),
+            })?
+            .remove_target(&name);
+
+        Ok(self)
+    }
+
+    /// Add a target to the repository using its path
+    ///
+    /// Note: This function builds a `Target` synchronously;
+    /// no multithreading or parallelism is used. If you have a large number
+    /// of targets to add, and require advanced performance, you may want to
+    /// construct `Target`s directly in parallel and use `add_target_to_role()`.
+    /// To add a target to top level targets use `add_target_path()`
+    pub fn add_target_path_to_role<P>(&mut self, target_path: P, role: &str) -> Result<&mut Self>
+    where
+        P: AsRef<Path>,
+    {
+        let (target_name, target) = RepositoryEditor::build_target(target_path)?;
+        self.add_target_to_role(&target_name, target, role)?;
+        Ok(self)
+    }
+
+    /// Add a list of target paths to the repository
+    ///
+    /// See the note on `add_target_path_to_role()` regarding performance.
+    /// To add a target to top level targets use `add_target_paths()`
+    pub fn add_target_paths_to_role<P>(&mut self, targets: Vec<P>, role: &str) -> Result<&mut Self>
+    where
+        P: AsRef<Path>,
+    {
+        for target in targets {
+            let (target_name, target) = RepositoryEditor::build_target(target)?;
+            self.add_target_to_role(&target_name, target, role)?;
         }
 
         Ok(self)
@@ -464,7 +491,7 @@ impl RepositoryEditor {
         Ok(self)
     }
 
-    /// Adds a key to the targets delegation role if not already present, and returns a result with the key id.
+    /// Adds a key to the targets' delegations if not already present, and returns a result with the key id.
     fn add_key(targets: &mut Targets, key: Key) -> Result<Decoded<Hex>> {
         let key_id = if let Some((key_id, _)) = targets
             .delegations
