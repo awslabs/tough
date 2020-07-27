@@ -92,7 +92,7 @@ where
     }
 
     /// Creates a `SignedRole<Role>` from a `Signed<Role>`.
-    /// This is used to create signed roles for metadata that was not changed.
+    /// This is used to create signed roles for any signed metadata
     pub fn from_signed(role: Signed<T>) -> Result<SignedRole<T>> {
         // Serialize the role, and calculate its length and
         // sha256.
@@ -117,7 +117,7 @@ where
         Ok(signed_role)
     }
 
-    /// creates a map of all signed targets roles excluding the toplevel Targets
+    /// Creates a map of all signed targets roles excluding the top level Targets
     /// if `include_all`, throw error if needed keys are not present if not just ignore
     pub fn signed_role_targets_map(
         role: &Targets,
@@ -150,7 +150,7 @@ where
                 .iter()
                 .find(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid))
             {
-                // Create the `Signed` struct for this role. This struct will be
+                // Create the `Signed<DelegatedTargets>` struct for this role. This struct will be
                 // mutated later to contain the signatures.
                 let mut role = Signed {
                     signed: DelegatedTargets {
@@ -176,25 +176,21 @@ where
                 });
 
                 role
-            } else if include_all {
-                // Make sure the signature of targets are valid
-                // any targets here were not signed by the provided keys
-                // delegations allow a key to sign some roles without having to sign them all
-                // so as long as the original signature is valid the Targets is ok
-                delegations
-                    .verify_role(targets, &name)
-                    .context(error::KeyNotFound { role: name.clone() })?;
-                Signed {
-                    signed: DelegatedTargets {
-                        name: name.clone(),
-                        targets: targets.signed.clone(),
-                    },
-                    signatures: targets.signatures.clone(),
-                }
             } else {
-                // Don't worry about a role having a valid signature
-                // If a role's metadata changed, but the user only cares about a sub role's metadata
-                // the program shouldn't break
+                // Roles that were not able to be signed by the provided keys still need to be included
+                // in the signed metadata
+                // If include_all is `false`, not all metadata will be used, so it's not
+                // necessary for all roles to be properly signed
+                if include_all {
+                    // Make sure the signature of targets are valid
+                    // any targets here were not signed by the provided keys
+                    // delegations allow a key to sign some roles without having to sign them all
+                    // so as long as the original signature is valid the Targets is ok
+                    delegations
+                        .verify_role(targets, &name)
+                        .context(error::KeyNotFound { role: name.clone() })?;
+                }
+                
                 Signed {
                     signed: DelegatedTargets {
                         name: name.clone(),
