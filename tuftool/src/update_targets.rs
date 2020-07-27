@@ -120,7 +120,7 @@ impl UpdateTargetsArgs {
         // if not, write updated role to outdir/metadata
         // sign the updated role and receive SignedRole for the new role
         let mut roles = editor
-            .sign_roles(&self.keys, [self.role.as_str()].to_vec())
+            .sign_delegated_roles(&self.keys, [self.role.as_str()].to_vec())
             .context(error::SignRoles {
                 roles: [self.role.clone()].to_vec(),
             })?;
@@ -132,7 +132,7 @@ impl UpdateTargetsArgs {
             .ok_or_else(|| error::Error::SignRolesRemove {
                 roles: [self.role.clone()].to_vec(),
             })?
-            .write_del_role(&metadata_destination_out, false, &self.role)
+            .write(&metadata_destination_out, false)
             .context(error::WriteRoles {
                 roles: [self.role.clone()].to_vec(),
             })?;
@@ -141,10 +141,20 @@ impl UpdateTargetsArgs {
 
         if self.link {
             // link targets to outdir/targets
-            editor.link_targets(&self.targets_indir, &targets_destination_out, PathExists::Skip, Some(false))
+            editor.link_targets(
+                &self.targets_indir,
+                &targets_destination_out,
+                PathExists::Skip,
+                Some(false),
+            )
         } else {
             // copy targets to outdir/targets
-            editor.copy_targets(&self.targets_indir, &targets_destination_out, PathExists::Skip, Some(false))
+            editor.copy_targets(
+                &self.targets_indir,
+                &targets_destination_out,
+                PathExists::Skip,
+                Some(false),
+            )
         }
         .context(error::LinkTargets {
             indir: &self.targets_indir,

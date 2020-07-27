@@ -10,7 +10,7 @@ use crate::error::{self, Result};
 use crate::io::DigestAdapter;
 use crate::key_source::KeySource;
 use crate::schema::{
-    Role, RoleType, Root, Signature, Signed, Snapshot, Target, Targets, Timestamp,
+    DelegatedTargets, Role, Root, Signature, Signed, Snapshot, Target, Targets, Timestamp,
 };
 use olpc_cjson::CanonicalFormatter;
 use ring::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
@@ -119,12 +119,12 @@ where
 
     /// creates a map of all signed targets roles excluding the toplevel Targets
     /// if `include_all`, throw error if needed keys are not present if not just ignore
-    pub fn new_targets(
+    pub fn signed_role_targets_map(
         role: &Targets,
         keys: &[Box<dyn KeySource>],
         rng: &dyn SecureRandom,
         include_all: bool,
-    ) -> Result<HashMap<String, SignedRole<Targets>>> {
+    ) -> Result<HashMap<String, SignedRole<DelegatedTargets>>> {
         let mut signed_roles = HashMap::new();
         let delegations = role
             .delegations
@@ -153,7 +153,10 @@ where
                 // Create the `Signed` struct for this role. This struct will be
                 // mutated later to contain the signatures.
                 let mut role = Signed {
-                    signed: targets.clone().signed,
+                    signed: DelegatedTargets {
+                        name: name.clone(),
+                        targets: targets.clone().signed,
+                    },
                     signatures: Vec::new(),
                 };
                 let mut data = Vec::new();
@@ -181,14 +184,28 @@ where
                 delegations
                     .verify_role(targets, &name)
                     .context(error::KeyNotFound { role: name.clone() })?;
-                targets.clone()
+                Signed {
+                    signed: DelegatedTargets {
+                        name: name.clone(),
+                        targets: targets.signed.clone(),
+                    },
+                    signatures: targets.signatures.clone(),
+                }
             } else {
-                // Don't worry about a valid signature
-                targets.clone()
+                // Don't worry about a role having a valid signature
+                // If a role's metadata changed, but the user only cares about a sub role's metadata
+                // the program shouldn't break
+                Signed {
+                    signed: DelegatedTargets {
+                        name: name.clone(),
+                        targets: targets.signed.clone(),
+                    },
+                    signatures: targets.signatures.clone(),
+                }
             };
 
             // Add all delegated targets roles from targets to our map of roles
-            signed_roles.extend(SignedRole::<Targets>::new_targets(
+            signed_roles.extend(SignedRole::<DelegatedTargets>::signed_role_targets_map(
                 &role.signed.clone(),
                 keys,
                 rng,
@@ -232,43 +249,9 @@ where
         let outdir = outdir.as_ref();
         std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
 
-        let filename = match T::TYPE {
-            RoleType::Targets => {
-                if consistent_snapshot {
-                    format!("{}.targets.json", self.signed.signed.version())
-                } else {
-                    "targets.json".to_string()
-                }
-            }
-            RoleType::Snapshot => {
-                if consistent_snapshot {
-                    format!("{}.snapshot.json", self.signed.signed.version())
-                } else {
-                    "snapshot.json".to_string()
-                }
-            }
-            RoleType::Timestamp => "timestamp.json".to_string(),
-            RoleType::Root => format!("{}.root.json", self.signed.signed.version()),
-        };
+        let filename = self.signed.signed.filename(consistent_snapshot);
 
         let path = outdir.join(filename);
-        std::fs::write(&path, &self.buffer).context(error::FileWrite { path })
-    }
-
-    /// Write the current delegated role's buffer to the given directory with the
-    /// appropriate file name.
-    pub fn write_del_role<P>(&self, outdir: P, consistent_snapshot: bool, name: &str) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
-        let outdir = outdir.as_ref();
-        std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
-
-        let path = outdir.join(if consistent_snapshot {
-            format!("{}.{}.json", self.signed.signed.version(), name)
-        } else {
-            format!("{}.json", name)
-        });
         std::fs::write(&path, &self.buffer).context(error::FileWrite { path })
     }
 }
@@ -289,7 +272,7 @@ pub struct SignedRepository {
     pub(crate) targets: SignedRole<Targets>,
     pub(crate) snapshot: SignedRole<Snapshot>,
     pub(crate) timestamp: SignedRole<Timestamp>,
-    pub(crate) delegations: HashMap<String, SignedRole<Targets>>,
+    pub(crate) delegations: Option<HashMap<String, SignedRole<DelegatedTargets>>>,
 }
 
 impl SignedRepository {
@@ -304,8 +287,11 @@ impl SignedRepository {
         self.targets.write(&outdir, consistent_snapshot)?;
         self.snapshot.write(&outdir, consistent_snapshot)?;
         self.timestamp.write(&outdir, consistent_snapshot)?;
-        for (key, targets) in &self.delegations {
-            targets.write_del_role(&outdir, consistent_snapshot, &key)?;
+
+        if let Some(delegated_roles) = self.delegations.as_ref() {
+            for targets in delegated_roles.values() {
+                targets.write(&outdir, consistent_snapshot)?;
+            }
         }
         Ok(())
     }

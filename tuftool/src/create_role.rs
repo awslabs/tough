@@ -109,7 +109,7 @@ impl CreateRoleArgs {
 
         // sign the role
         let role = editor
-            .sign_roles(&self.keys, [self.role.as_str()].to_vec())
+            .sign_delegated_roles(&self.keys, [self.role.as_str()].to_vec())
             .context(error::SignRoles {
                 roles: [self.role.clone()].to_vec(),
             })?
@@ -120,7 +120,7 @@ impl CreateRoleArgs {
 
         // write the role to outdir
         let metadata_destination_out = &self.outdir.join("metadata");
-        role.write_del_role(&metadata_destination_out, false, &self.role)
+        role.write(&metadata_destination_out, false)
             .context(error::WriteRoles {
                 roles: [self.role.clone()].to_vec(),
             })?;

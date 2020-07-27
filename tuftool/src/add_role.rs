@@ -152,7 +152,7 @@ impl AddRoleArgs {
         // if not, write new roles to outdir
         // sign the updated role and recieve SignedRole for the new role
         let mut roles = editor
-            .sign_roles(
+            .sign_delegated_roles(
                 &self.keys,
                 [self.role.as_str(), self.delegatee.as_str()].to_vec(),
             )
@@ -167,7 +167,7 @@ impl AddRoleArgs {
             .ok_or_else(|| error::Error::SignRolesRemove {
                 roles: [self.role.clone()].to_vec(),
             })?
-            .write_del_role(&metadata_destination_out, false, &self.role)
+            .write(&metadata_destination_out, false)
             .context(error::WriteRoles {
                 roles: [self.role.clone()].to_vec(),
             })?;
@@ -177,7 +177,7 @@ impl AddRoleArgs {
             .ok_or_else(|| error::Error::SignRolesRemove {
                 roles: [self.delegatee.clone()].to_vec(),
             })?
-            .write_del_role(&metadata_destination_out, false, &self.delegatee)
+            .write(&metadata_destination_out, false)
             .context(error::WriteRoles {
                 roles: [self.delegatee.clone()].to_vec(),
             })?;

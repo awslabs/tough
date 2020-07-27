@@ -131,8 +131,6 @@ fn create_sign_write_reload_repo() {
 
     let create_dir = TempDir::new().unwrap();
 
-    let update_dir = TempDir::new().unwrap();
-
     let mut editor = RepositoryEditor::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
@@ -226,7 +224,7 @@ fn create_sign_write_reload_repo() {
     // Load the repo we just created
     let metadata_base_url = dir_url(&metadata_destination);
     let targets_base_url = dir_url(&targets_destination);
-    let new_repo = Repository::load(
+    let _new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
@@ -238,54 +236,6 @@ fn create_sign_write_reload_repo() {
         },
     )
     .unwrap();
-
-    // Test updating of snapshot
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(31)).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(60)).unwrap();
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
-
-    let signed_refreshed_repo = RepositoryEditor::update_snapshot(
-        new_repo,
-        &[Box::new(key_source)],
-        timestamp_expiration,
-        snapshot_expiration,
-    )
-    .unwrap();
-
-    let metadata_destination = update_dir.path().join("metadata");
-    let targets_destination = update_dir.path().join("targets");
-    // Make sure the new timestamp writes properly
-    assert!(signed_refreshed_repo.write(&metadata_destination).is_ok());
-    assert!(signed_refreshed_repo
-        .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
-        .is_ok());
-    // Try reloading the repo to make sure all metadata is valid
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
-    let new_repo = Repository::load(
-        &FilesystemTransport,
-        Settings {
-            root: File::open(&root).unwrap(),
-            datastore: &update_dir.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
-    )
-    .unwrap();
-
-    assert_eq!(
-        new_repo.timestamp().signed.version,
-        NonZeroU64::new(1235).unwrap()
-    );
-    assert_eq!(new_repo.timestamp().signed.expires, timestamp_expiration);
-    assert_eq!(
-        new_repo.snapshot().signed.version,
-        NonZeroU64::new(5433).unwrap()
-    );
-    assert_eq!(new_repo.snapshot().signed.expires, snapshot_expiration);
 }
 
 //Test partial signing of newly created repo
@@ -785,7 +735,7 @@ fn create_role_flow() {
 
     // sign the role
     let role = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })],
@@ -798,8 +748,7 @@ fn create_role_flow() {
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write_del_role(&metadata_destination_out, false, "A")
-        .unwrap();
+    role.write(&metadata_destination_out, false).unwrap();
 
     // reload repo
     let root = root_path();
@@ -901,7 +850,7 @@ fn create_role_flow() {
 
     // sign the role
     let role = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })],
@@ -914,8 +863,7 @@ fn create_role_flow() {
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write_del_role(&metadata_destination_out, false, "B")
-        .unwrap();
+    role.write(&metadata_destination_out, false).unwrap();
 
     // reload repo
     let root = root_path();
@@ -955,7 +903,7 @@ fn create_role_flow() {
 
     // sign A and write A and B metadata to output directory
     let mut roles = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })],
@@ -969,12 +917,12 @@ fn create_role_flow() {
     roles
         .remove("A")
         .unwrap()
-        .write_del_role(&metadata_destination_out, false, "A")
+        .write(&metadata_destination_out, false)
         .unwrap();
     roles
         .remove("B")
         .unwrap()
-        .write_del_role(&metadata_destination_out, false, "B")
+        .write(&metadata_destination_out, false)
         .unwrap();
 
     // reload repo and add in A and B metadata and update snapshot
@@ -1004,18 +952,11 @@ fn create_role_flow() {
     assert!(new_repo.delegated_role("B").is_some());
 
     // update snapshot
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(31)).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(60)).unwrap();
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
 
-    let signed_refreshed_repo = RepositoryEditor::update_snapshot(
-        new_repo,
-        &[Box::new(key_source)],
-        timestamp_expiration,
-        snapshot_expiration,
-    )
-    .unwrap();
+    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let signed_refreshed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
 
     // write repo
     let end_repo = TempDir::new().unwrap();
@@ -1102,7 +1043,7 @@ fn update_targets_flow() {
 
     // sign the role
     let role = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })],
@@ -1115,8 +1056,7 @@ fn update_targets_flow() {
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write_del_role(&metadata_destination_out, false, "A")
-        .unwrap();
+    role.write(&metadata_destination_out, false).unwrap();
 
     // reload repo
     let root = root_path();
@@ -1218,7 +1158,7 @@ fn update_targets_flow() {
 
     // sign the role
     let role = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path1(),
             })],
@@ -1231,8 +1171,7 @@ fn update_targets_flow() {
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write_del_role(&metadata_destination_out, false, "B")
-        .unwrap();
+    role.write(&metadata_destination_out, false).unwrap();
 
     // reload repo
     let root = root_path();
@@ -1272,7 +1211,7 @@ fn update_targets_flow() {
 
     // sign A and write A and B metadata to output directory
     let mut roles = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })],
@@ -1286,12 +1225,12 @@ fn update_targets_flow() {
     roles
         .remove("A")
         .unwrap()
-        .write_del_role(&metadata_destination_out, false, "A")
+        .write(&metadata_destination_out, false)
         .unwrap();
     roles
         .remove("B")
         .unwrap()
-        .write_del_role(&metadata_destination_out, false, "B")
+        .write(&metadata_destination_out, false)
         .unwrap();
 
     // reload repo and add in A and B metadata and update snapshot
@@ -1321,18 +1260,11 @@ fn update_targets_flow() {
     assert!(new_repo.delegated_role("B").is_some());
 
     // update snapshot
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(31)).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(60)).unwrap();
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
 
-    let signed_refreshed_repo = RepositoryEditor::update_snapshot(
-        new_repo,
-        &[Box::new(key_source)],
-        timestamp_expiration,
-        snapshot_expiration,
-    )
-    .unwrap();
+    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let signed_refreshed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
 
     // write repo
     let end_repo = TempDir::new().unwrap();
@@ -1376,7 +1308,7 @@ fn update_targets_flow() {
 
     // Sign A metadata
     let role = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })],
@@ -1391,8 +1323,7 @@ fn update_targets_flow() {
     let targets_destination_out = outdir.as_ref().join("targets");
 
     // Write metadata to outdir/metata/A.json
-    role.write_del_role(&metadata_destination_out, false, "A")
-        .unwrap();
+    role.write(&metadata_destination_out, false).unwrap();
 
     // Copy targets to outdir/targets/...
     editor
@@ -1429,18 +1360,11 @@ fn update_targets_flow() {
         .unwrap();
 
     // update snapshot
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(31)).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(60)).unwrap();
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
 
-    let signed_repo = RepositoryEditor::update_snapshot(
-        new_repo,
-        &[Box::new(key_source)],
-        timestamp_expiration,
-        snapshot_expiration,
-    )
-    .unwrap();
+    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let signed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
 
     // write signed repo
     let end_repo = TempDir::new().unwrap();
@@ -1492,7 +1416,7 @@ fn update_targets_flow() {
 
     // Sign A metadata
     let role = editor
-        .sign_roles(
+        .sign_delegated_roles(
             &[Box::new(LocalKeySource {
                 path: targets_key_path(),
             })],
@@ -1507,8 +1431,7 @@ fn update_targets_flow() {
     let targets_destination_output = outdir.as_ref().join("targets");
 
     // Write metadata to outdir/metata/A.json
-    role.write_del_role(&metadata_destination_output, false, "A")
-        .unwrap();
+    role.write(&metadata_destination_output, false).unwrap();
 
     // Copy targets to outdir/targets/...
     editor
@@ -1546,18 +1469,11 @@ fn update_targets_flow() {
         .unwrap();
 
     // update snapshot
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(31)).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(60)).unwrap();
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
 
-    let signed_repo = RepositoryEditor::update_snapshot(
-        new_repo,
-        &[Box::new(key_source)],
-        timestamp_expiration,
-        snapshot_expiration,
-    )
-    .unwrap();
+    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let signed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
 
     // write signed repo
     let end_repo = TempDir::new().unwrap();

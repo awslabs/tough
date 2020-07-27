@@ -16,8 +16,8 @@ use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::decoded::{Decoded, Hex};
 use crate::schema::{
-    key::Key, DelegatedRole, Delegations, Hashes, PathSet, Role, Root, Signed, Snapshot,
-    SnapshotMeta, Target, Targets, Timestamp, TimestampMeta,
+    key::Key, DelegatedRole, DelegatedTargets, Delegations, Hashes, PathSet, Role, Root, Signed,
+    Snapshot, SnapshotMeta, Target, Targets, Timestamp, TimestampMeta,
 };
 use crate::transport::Transport;
 use crate::Repository;
@@ -130,8 +130,18 @@ impl RepositoryEditor {
         let root = &self.signed_root.signed.signed;
 
         let signed_targets = SignedRole::new(self.targets_struct.clone(), root, keys, &rng)?;
-        let signed_delegations =
-            SignedRole::<Targets>::new_targets(&self.targets_struct, keys, &rng, true)?;
+
+        let signed_delegations = if self.targets_struct.delegations.is_some() {
+            Some(SignedRole::<DelegatedTargets>::signed_role_targets_map(
+                &self.targets_struct,
+                keys,
+                &rng,
+                true,
+            )?)
+        } else {
+            None
+        };
+
         let signed_snapshot = self
             .build_snapshot(&signed_targets, &signed_delegations)
             .and_then(|snapshot| SignedRole::new(snapshot, root, keys, &rng))?;
@@ -149,17 +159,21 @@ impl RepositoryEditor {
     }
 
     /// Sign delegated roles described in `names`. If no keys are provided for a role the current `Signed<Targets>` for the role is considered up to date.
-    pub fn sign_roles(
+    pub fn sign_delegated_roles(
         &self,
         keys: &[Box<dyn KeySource>],
         names: Vec<&str>,
-    ) -> Result<HashMap<String, SignedRole<Targets>>> {
+    ) -> Result<HashMap<String, SignedRole<DelegatedTargets>>> {
         let rng = SystemRandom::new();
 
         // Create `SignedRole` for each target
         let mut signed_roles = HashMap::new();
-        let mut targets =
-            SignedRole::<Targets>::new_targets(&self.targets_struct, keys, &rng, false)?;
+        let mut targets = SignedRole::<Targets>::signed_role_targets_map(
+            &self.targets_struct,
+            keys,
+            &rng,
+            false,
+        )?;
 
         // Take the signed targets we want
         for name in names {
@@ -167,7 +181,10 @@ impl RepositoryEditor {
                 signed_roles.insert(
                     name.to_string(),
                     SignedRole::new(
-                        self.targets_struct.clone(),
+                        DelegatedTargets {
+                            targets: self.targets_struct.clone(),
+                            name: "targets".to_string(),
+                        },
                         &self.signed_root.signed.signed,
                         keys,
                         &rng,
@@ -345,6 +362,7 @@ impl RepositoryEditor {
         self
     }
 
+    #[allow(clippy::too_many_arguments)]
     /// Delegate target with name. If `key_source` is given, new keys are given to the role if not parent keys are used
     pub fn add_delegate(
         &mut self,
@@ -515,7 +533,7 @@ impl RepositoryEditor {
     fn build_snapshot(
         &self,
         signed_targets: &SignedRole<Targets>,
-        signed_delegated_targets: &HashMap<String, SignedRole<Targets>>,
+        signed_delegated_targets: &Option<HashMap<String, SignedRole<DelegatedTargets>>>,
     ) -> Result<Snapshot> {
         let version = self.snapshot_version.context(error::Missing {
             field: "snapshot version",
@@ -533,9 +551,11 @@ impl RepositoryEditor {
             .meta
             .insert("targets.json".to_owned(), targets_meta);
 
-        for (role, targets) in signed_delegated_targets {
-            let meta = Self::snapshot_meta(targets);
-            snapshot.meta.insert(format!("{}.json", role), meta);
+        if let Some(delegated_roles) = signed_delegated_targets {
+            for (role, targets) in delegated_roles {
+                let meta = Self::snapshot_meta(targets);
+                snapshot.meta.insert(format!("{}.json", role), meta);
+            }
         }
 
         Ok(snapshot)
@@ -596,103 +616,6 @@ impl RepositoryEditor {
         }
     }
 
-    /// Refreshes the timestamp and snapshot
-    /// Allows for expirations to be changed
-    pub fn update_snapshot<T>(
-        repo: Repository<'_, T>,
-        keys: &[Box<dyn KeySource>],
-        timestamp_expiration: DateTime<Utc>,
-        snapshot_expiration: DateTime<Utc>,
-    ) -> Result<SignedRepository>
-    where
-        T: Transport,
-    {
-        let rng = SystemRandom::new();
-        let signed_delegations =
-            SignedRole::<Targets>::new_targets(&repo.targets.signed, &[], &rng, true)?;
-        let signed_targets = SignedRole::from_signed(repo.targets)?;
-        let signed_root = SignedRole::from_signed(repo.root)?;
-
-        let mut snapshot = repo.snapshot.signed;
-        // Update snapshot version and expiration
-        snapshot.expires = snapshot_expiration;
-        snapshot.version = NonZeroU64::new(
-            u64::from(snapshot.version)
-                .checked_add(1)
-                .ok_or_else(|| error::Error::Overflow)?,
-        )
-        .ok_or_else(|| error::Error::Overflow)?;
-        // Snapshot stores metadata about targets and root
-        let targets_meta = Self::snapshot_meta(&signed_targets);
-        let root_meta = Self::snapshot_meta(&signed_root);
-        snapshot
-            .meta
-            .insert("targets.json".to_owned(), targets_meta);
-        snapshot.meta.insert("root.json".to_owned(), root_meta);
-
-        for (role, targets) in &signed_delegations {
-            let meta = Self::snapshot_meta(targets);
-            snapshot.meta.insert(format!("{}.json", role), meta);
-        }
-
-        let signed_snapshot = SignedRole::new(snapshot, &signed_root.signed.signed, keys, &rng)?;
-
-        // Update timestamp to reflect changes to snapshot
-        let mut timestamp = repo.timestamp.signed;
-        timestamp.expires = timestamp_expiration;
-        timestamp.version = NonZeroU64::new(
-            u64::from(timestamp.version)
-                .checked_add(1)
-                .ok_or_else(|| error::Error::Overflow)?,
-        )
-        .ok_or_else(|| error::Error::Overflow)?;
-        // Timestamp stores metadata about snapshot
-        let snapshot_meta = Self::timestamp_meta(&signed_snapshot);
-        timestamp
-            .meta
-            .insert("snapshot.json".to_owned(), snapshot_meta);
-
-        let signed_timestamp = SignedRole::new(timestamp, &signed_root.signed.signed, keys, &rng)?;
-
-        Ok(SignedRepository {
-            timestamp: signed_timestamp,
-            root: signed_root,
-            delegations: signed_delegations,
-            targets: signed_targets,
-            snapshot: signed_snapshot,
-        })
-    }
-
-    /// Crawls a given directory and symlinks any targets found to the given
-    /// "out" directory. If consistent snapshots are used, the target files
-    /// are prefixed with their `sha256`.
-    ///
-    /// For each file found in the `indir`, the method gets the filename and
-    /// if the filename exists in `Targets`, the file's sha256 is compared
-    /// against the data in `Targets`. If this data does not match, the
-    /// method will fail.
-    pub fn link_targets<P1, P2>(
-        &self,
-        indir: P1,
-        outdir: P2,
-        replace_behavior: PathExists,
-        consistent_snapshot: Option<bool>,
-    ) -> Result<()>
-    where
-        P1: AsRef<Path>,
-        P2: AsRef<Path>,
-    {
-        let consistent_snapshot = consistent_snapshot
-            .unwrap_or_else(|| self.signed_root.signed.signed.consistent_snapshot);
-        link_targets(
-            indir.as_ref(),
-            outdir.as_ref(),
-            replace_behavior,
-            &self.targets_struct,
-            consistent_snapshot,
-        )
-    }
-
     /// Crawls a given directory and copies any targets found to the given
     /// "out" directory. If consistent snapshots are used, the target files
     /// are prefixed with their `sha256`.
@@ -715,6 +638,36 @@ impl RepositoryEditor {
         let consistent_snapshot = consistent_snapshot
             .unwrap_or_else(|| self.signed_root.signed.signed.consistent_snapshot);
         copy_targets(
+            indir.as_ref(),
+            outdir.as_ref(),
+            replace_behavior,
+            &self.targets_struct,
+            consistent_snapshot,
+        )
+    }
+
+    /// Crawls a given directory and links any targets found to the given
+    /// "out" directory. If consistent snapshots are used, the target files
+    /// are prefixed with their `sha256`.
+    ///
+    /// For each file found in the `indir`, the method gets the filename and
+    /// if the filename exists in `Targets`, the file's sha256 is compared
+    /// against the data in `Targets`. If this data does not match, the
+    /// method will fail.
+    pub fn link_targets<P1, P2>(
+        &self,
+        indir: P1,
+        outdir: P2,
+        replace_behavior: PathExists,
+        consistent_snapshot: Option<bool>,
+    ) -> Result<()>
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
+    {
+        let consistent_snapshot = consistent_snapshot
+            .unwrap_or_else(|| self.signed_root.signed.signed.consistent_snapshot);
+        link_targets(
             indir.as_ref(),
             outdir.as_ref(),
             replace_behavior,

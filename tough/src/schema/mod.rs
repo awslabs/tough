@@ -29,6 +29,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::num::NonZeroU64;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 /// The type of metadata role.
@@ -47,6 +48,8 @@ pub enum RoleType {
     /// The timestamp role is used to prevent an adversary from replaying an out-of-date signed
     /// metadata file whose signature has not yet expired.
     Timestamp,
+    /// A targets role that is not the top level targets
+    DelegatedTargets,
 }
 
 forward_display_to_serde!(RoleType);
@@ -63,6 +66,9 @@ pub trait Role: Serialize {
     /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
     /// number less than the one currently trusted.
     fn version(&self) -> NonZeroU64;
+
+    /// The filename that the role metadata should be written to
+    fn filename(&self, consistent_snapshot: bool) -> String;
 
     /// A deterministic JSON serialization used when calculating the digest of a metadata object.
     /// [More info on canonical JSON](http://wiki.laptop.org/go/Canonical_JSON)
@@ -197,6 +203,10 @@ impl Role for Root {
     fn version(&self) -> NonZeroU64 {
         self.version
     }
+
+    fn filename(&self, _consistent_snapshot: bool) -> String {
+        format!("{}.root.json", self.version())
+    }
 }
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
@@ -319,6 +329,14 @@ impl Role for Snapshot {
 
     fn version(&self) -> NonZeroU64 {
         self.version
+    }
+
+    fn filename(&self, consistent_snapshot: bool) -> String {
+        if consistent_snapshot {
+            format!("{}.snapshot.json", self.version())
+        } else {
+            "snapshot.json".to_string()
+        }
     }
 }
 
@@ -691,6 +709,59 @@ impl Role for Targets {
 
     fn version(&self) -> NonZeroU64 {
         self.version
+    }
+
+    fn filename(&self, consistent_snapshot: bool) -> String {
+        if consistent_snapshot {
+            format!("{}.targets.json", self.version())
+        } else {
+            "targets.json".to_string()
+        }
+    }
+}
+
+/// Wrapper for `Targets` so that a `Targets` role can be given a name
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct DelegatedTargets {
+    /// The name of the role
+    #[serde(skip)]
+    pub name: String,
+    /// The targets representing the role metadata
+    #[serde(flatten)]
+    pub targets: Targets,
+}
+
+impl Deref for DelegatedTargets {
+    type Target = Targets;
+
+    fn deref(&self) -> &Targets {
+        &self.targets
+    }
+}
+
+impl DerefMut for DelegatedTargets {
+    fn deref_mut(&mut self) -> &mut Targets {
+        &mut self.targets
+    }
+}
+
+impl Role for DelegatedTargets {
+    const TYPE: RoleType = RoleType::DelegatedTargets;
+
+    fn expires(&self) -> DateTime<Utc> {
+        self.targets.expires
+    }
+
+    fn version(&self) -> NonZeroU64 {
+        self.targets.version
+    }
+
+    fn filename(&self, consistent_snapshot: bool) -> String {
+        if consistent_snapshot {
+            format!("{}.{}.json", self.version(), self.name)
+        } else {
+            format!("{}.json", self.name)
+        }
     }
 }
 
@@ -1081,5 +1152,9 @@ impl Role for Timestamp {
 
     fn version(&self) -> NonZeroU64 {
         self.version
+    }
+
+    fn filename(&self, _consistent_snapshot: bool) -> String {
+        "timestamp.json".to_string()
     }
 }
