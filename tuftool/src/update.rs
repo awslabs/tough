@@ -143,9 +143,7 @@ impl UpdateArgs {
 
         editor
             .targets_version(self.targets_version)
-            .context(error::DelegationStructure)?
             .targets_expires(self.targets_expires)
-            .context(error::DelegationStructure)?
             .snapshot_version(self.snapshot_version)
             .snapshot_expires(self.snapshot_expires)
             .timestamp_version(self.timestamp_version)

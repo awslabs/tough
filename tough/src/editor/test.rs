@@ -117,9 +117,7 @@ mod tests {
         let mut editor = RepositoryEditor::new(&root).unwrap();
         editor
             .targets_expires(targets_expiration)
-            .unwrap()
             .targets_version(targets_version)
-            .unwrap()
             .snapshot_expires(snapshot_expiration)
             .snapshot_version(snapshot_version)
             .timestamp_expires(timestamp_expiration)

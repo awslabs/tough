@@ -292,6 +292,79 @@ pub struct SignedRepository {
     pub(crate) delegations: HashMap<String, SignedRole<Targets>>,
 }
 
+impl SignedRepository {
+    /// Writes the metadata to the given directory. If consistent snapshots
+    /// are used, the appropriate files are prefixed with their version.
+    pub fn write<P>(&self, outdir: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let consistent_snapshot = self.root.signed.signed.consistent_snapshot;
+        self.root.write(&outdir, consistent_snapshot)?;
+        self.targets.write(&outdir, consistent_snapshot)?;
+        self.snapshot.write(&outdir, consistent_snapshot)?;
+        self.timestamp.write(&outdir, consistent_snapshot)?;
+        for (key, targets) in &self.delegations {
+            targets.write_del_role(&outdir, consistent_snapshot, &key)?;
+        }
+        Ok(())
+    }
+
+    /// Crawls a given directory and symlinks any targets found to the given
+    /// "out" directory. If consistent snapshots are used, the target files
+    /// are prefixed with their `sha256`.
+    ///
+    /// For each file found in the `indir`, the method gets the filename and
+    /// if the filename exists in `Targets`, the file's sha256 is compared
+    /// against the data in `Targets`. If this data does not match, the
+    /// method will fail.
+    pub fn link_targets<P1, P2>(
+        &self,
+        indir: P1,
+        outdir: P2,
+        replace_behavior: PathExists,
+    ) -> Result<()>
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
+    {
+        link_targets(
+            indir.as_ref(),
+            outdir.as_ref(),
+            replace_behavior,
+            &self.targets.signed.signed,
+            self.root.signed.signed.consistent_snapshot,
+        )
+    }
+
+    /// Crawls a given directory and copies any targets found to the given
+    /// "out" directory. If consistent snapshots are used, the target files
+    /// are prefixed with their `sha256`.
+    ///
+    /// For each file found in the `indir`, the method gets the filename and
+    /// if the filename exists in `Targets`, the file's sha256 is compared
+    /// against the data in `Targets`. If this data does not match, the
+    /// method will fail.
+    pub fn copy_targets<P1, P2>(
+        &self,
+        indir: P1,
+        outdir: P2,
+        replace_behavior: PathExists,
+    ) -> Result<()>
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
+    {
+        copy_targets(
+            indir.as_ref(),
+            outdir.as_ref(),
+            replace_behavior,
+            &self.targets.signed.signed,
+            self.root.signed.signed.consistent_snapshot,
+        )
+    }
+}
+
 /// `PathExists` allows the user of our copy/link functions to specify what happens when the target
 /// is being written to a shared targets directory and the file already exists from another repo.
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -319,298 +392,102 @@ enum TargetPath {
     Symlink { path: PathBuf },
 }
 
-impl SignedRepository {
-    /// Writes the metadata to the given directory. If consistent snapshots
-    /// are used, the appropriate files are prefixed with their version.
-    pub fn write<P>(&self, outdir: P) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
-        let consistent_snapshot = self.root.signed.signed.consistent_snapshot;
-        self.root.write(&outdir, consistent_snapshot)?;
-        self.targets.write(&outdir, consistent_snapshot)?;
-        self.snapshot.write(&outdir, consistent_snapshot)?;
-        self.timestamp.write(&outdir, consistent_snapshot)?;
-        for (key, targets) in &self.delegations {
-            targets.write_del_role(&outdir, consistent_snapshot, &key)?;
-        }
-    }
+/// Walks a given directory and calls the provided function with every file found.
+/// The function is given the file path, the output directory where the user expects
+/// it to go, and optionally a desired filename.
+fn walk_targets<F>(
+    indir: &Path,
+    outdir: &Path,
+    f: F,
+    replace_behavior: PathExists,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<()>
+where
+    F: Fn(&Path, &Path, PathExists, Option<&str>, &Targets, bool) -> Result<()>,
+{
+    std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
 
-    /// Walks a given directory and calls the provided function with every file found.
-    /// The function is given the file path, the output directory where the user expects
-    /// it to go, and optionally a desired filename.
-    fn walk_targets<F>(
-        &self,
-        indir: &Path,
-        outdir: &Path,
-        f: F,
-        replace_behavior: PathExists,
-    ) -> Result<()>
-    where
-        F: Fn(&Self, &Path, &Path, PathExists, Option<&str>) -> Result<()>,
-    {
-        std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
+    // Get the absolute path of the indir and outdir
+    let abs_indir = std::fs::canonicalize(indir).context(error::AbsolutePath { path: indir })?;
 
-        // Get the absolute path of the indir and outdir
-        let abs_indir =
-            std::fs::canonicalize(indir).context(error::AbsolutePath { path: indir })?;
+    // Walk the absolute path of the indir. Using the absolute path here
+    // means that `entry.path()` call will return its absolute path.
+    let walker = WalkDir::new(&abs_indir).follow_links(true);
+    for entry in walker {
+        let entry = entry.context(error::WalkDir {
+            directory: &abs_indir,
+        })?;
 
-        // Walk the absolute path of the indir. Using the absolute path here
-        // means that `entry.path()` call will return its absolute path.
-        let walker = WalkDir::new(&abs_indir).follow_links(true);
-        for entry in walker {
-            let entry = entry.context(error::WalkDir {
-                directory: &abs_indir,
-            })?;
-
-            // If the entry is not a file, move on
-            if !entry.file_type().is_file() {
-                continue;
-            };
-
-            // Call the requested function to manipulate the path we found
-            if let Err(e) = f(self, entry.path(), outdir, replace_behavior, None) {
-                match e {
-                    // If we found a path that isn't a known target in the repo, skip it.
-                    error::Error::PathIsNotTarget { .. } => continue,
-                    _ => return Err(e),
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Determines the output path of a target based on consistent snapshot rules. Returns Err if
-    /// the target already exists in the repo with a different hash, or if the target is not known
-    /// to the repo.  (We're dealing with a signed repo, so it's too late to add targets.)
-    fn target_path(
-        &self,
-        input: &Path,
-        outdir: &Path,
-        target_filename: Option<&str>,
-    ) -> Result<TargetPath> {
-        let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
-
-        // If the caller requested a specific target filename, use that, otherwise use the filename
-        // component of the input path.
-        let file_name = if let Some(target_filename) = target_filename {
-            target_filename
-        } else {
-            input
-                .file_name()
-                .context(error::NoFileName { path: input })?
-                .to_str()
-                .context(error::PathUtf8 { path: input })?
+        // If the entry is not a file, move on
+        if !entry.file_type().is_file() {
+            continue;
         };
 
-        // create a Target object using the input path.
-        let target_from_path =
-            Target::from_path(input).context(error::TargetFromPath { path: input })?;
-
-        // Use the file name to see if a target exists in the repo
-        // with that name. If so...
-        let repo_targets = &self.targets.signed.signed.targets;
-        let repo_target = repo_targets
-            .get(file_name)
-            .context(error::PathIsNotTarget { path: input })?;
-        // compare the hashes of the target from the repo and the target we just created.  They
-        // should match, or we alert the caller; if target replacement is intended, it should
-        // happen earlier, in RepositoryEditor.
-        ensure!(
-            target_from_path.hashes.sha256 == repo_target.hashes.sha256,
-            error::HashMismatch {
-                context: "target",
-                calculated: hex::encode(target_from_path.hashes.sha256),
-                expected: hex::encode(&repo_target.hashes.sha256),
+        // Call the requested function to manipulate the path we found
+        if let Err(e) = f(
+            entry.path(),
+            outdir,
+            replace_behavior,
+            None,
+            targets,
+            consistent_snapshot,
+        ) {
+            match e {
+                // If we found a path that isn't a known target in the repo, skip it.
+                error::Error::PathIsNotTarget { .. } => continue,
+                _ => return Err(e),
             }
-        );
-
-        let dest = if self.root.signed.signed.consistent_snapshot {
-            outdir.join(format!(
-                "{}.{}",
-                hex::encode(&target_from_path.hashes.sha256),
-                file_name
-            ))
-        } else {
-            outdir.join(&file_name)
-        };
-
-        // Return the target path, using the `TargetPath` enum that represents the type of file
-        // that already exists at that path (if any)
-        if !dest.exists() {
-            return Ok(TargetPath::New { path: dest });
-        }
-
-        // If we're using consistent snapshots, filenames include the checksum, so we know they're
-        // unique; if we're not, then there could be a target from another repo with the same name
-        // but different checksum.  We can't assume such conflicts are OK, so we fail.
-        if !self.root.signed.signed.consistent_snapshot {
-            // Use DigestAdapter to get a streaming checksum of the file without needing to hold
-            // its contents.
-            let f = fs::File::open(&dest).context(error::FileOpen { path: &dest })?;
-            let mut reader = DigestAdapter::sha256(
-                f,
-                &repo_target.hashes.sha256,
-                Url::from_file_path(&dest)
-                    .ok() // dump unhelpful `()` error
-                    .context(error::FileUrl { path: &dest })?,
-            );
-            let mut dev_null = std::io::sink();
-            // The act of reading with the DigestAdapter verifies the checksum, assuming the read
-            // succeeds.
-            std::io::copy(&mut reader, &mut dev_null).context(error::FileRead { path: &dest })?;
-        }
-
-        let metadata = fs::symlink_metadata(&dest).context(error::FileMetadata { path: &dest })?;
-        if metadata.file_type().is_file() {
-            Ok(TargetPath::File { path: dest })
-        } else if metadata.file_type().is_symlink() {
-            Ok(TargetPath::Symlink { path: dest })
-        } else {
-            error::InvalidFileType { path: dest }.fail()
         }
     }
-
-    /// Crawls a given directory and symlinks any targets found to the given
-    /// "out" directory. If consistent snapshots are used, the target files
-    /// are prefixed with their `sha256`.
-    ///
-    /// For each file found in the `indir`, the method gets the filename and
-    /// if the filename exists in `Targets`, the file's sha256 is compared
-    /// against the data in `Targets`. If this data does not match, the
-    /// method will fail.
-    pub fn link_targets<P1, P2>(
-        &self,
-        indir: P1,
-        outdir: P2,
-        replace_behavior: PathExists,
-    ) -> Result<()>
-    where
-        P1: AsRef<Path>,
-        P2: AsRef<Path>,
-    {
-        self.walk_targets(
-            indir.as_ref(),
-            outdir.as_ref(),
-            Self::link_target,
-            replace_behavior,
-        )
-    }
-
-    /// Crawls a given directory and copies any targets found to the given
-    /// "out" directory. If consistent snapshots are used, the target files
-    /// are prefixed with their `sha256`.
-    ///
-    /// For each file found in the `indir`, the method gets the filename and
-    /// if the filename exists in `Targets`, the file's sha256 is compared
-    /// against the data in `Targets`. If this data does not match, the
-    /// method will fail.
-    pub fn copy_targets<P1, P2>(
-        &self,
-        indir: P1,
-        outdir: P2,
-        replace_behavior: PathExists,
-    ) -> Result<()>
-    where
-        P1: AsRef<Path>,
-        P2: AsRef<Path>,
-    {
-        self.walk_targets(
-            indir.as_ref(),
-            outdir.as_ref(),
-            Self::copy_target,
-            replace_behavior,
-        )
-    }
+    Ok(())
 }
 
-    /// Symlinks a single target to the desired directory. If `target_filename` is given, it
-    /// becomes the filename suffix, otherwise the original filename is used. (A unique filename
-    /// prefix is used if consistent snapshots are enabled.)  Fails if the target already exists in
-    /// the repo with a different hash, or if it has the same hash but is not a symlink.  Using the
-    /// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
-    /// and file type - skip, fail, or replace.
-    pub fn link_target(
-        &self,
-        input_path: &Path,
-        outdir: &Path,
-        replace_behavior: PathExists,
-        target_filename: Option<&str>,
-    ) -> Result<()> {
-        ensure!(
-            input_path.is_file(),
-            error::PathIsNotFile { path: input_path }
-        );
-        match self.target_path(input_path, outdir, target_filename)? {
-            TargetPath::New { path } => {
-                symlink(input_path, &path).context(error::LinkCreate { path })?;
-            }
-            TargetPath::Symlink { path } => match replace_behavior {
-                PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFail { path }.fail()?,
-                PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
-                    symlink(input_path, &path).context(error::LinkCreate { path })?;
-                }
-            },
-            TargetPath::File { path } => {
-                error::TargetFileTypeMismatch {
-                    expected: "symlink",
-                    found: "regular file",
-                    path,
-                }
-                .fail()?;
-            }
+/// Determines the output path of a target based on consistent snapshot rules. Returns Err if
+/// the target already exists in the repo with a different hash, or if the target is not known
+/// to the repo.  (We're dealing with a signed repo, so it's too late to add targets.)
+fn target_path(
+    input: &Path,
+    outdir: &Path,
+    target_filename: Option<&str>,
+    targets: &Targets,
+    consistent_snapshot: bool,
+) -> Result<TargetPath> {
+    let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
+
+    // If the caller requested a specific target filename, use that, otherwise use the filename
+    // component of the input path.
+    let file_name = if let Some(target_filename) = target_filename {
+        target_filename
+    } else {
+        input
+            .file_name()
+            .context(error::NoFileName { path: input })?
+            .to_str()
+            .context(error::PathUtf8 { path: input })?
+    };
+
+    // create a Target object using the input path.
+    let target_from_path =
+        Target::from_path(input).context(error::TargetFromPath { path: input })?;
+
+    // Use the file name to see if a target exists in the repo
+    // with that name. If so...
+    let repo_targets = targets.targets_map();
+    let repo_target = repo_targets
+        .get(file_name)
+        .context(error::PathIsNotTarget { path: input })?;
+    // compare the hashes of the target from the repo and the target we just created.  They
+    // should match, or we alert the caller; if target replacement is intended, it should
+    // happen earlier, in RepositoryEditor.
+    ensure!(
+        target_from_path.hashes.sha256 == repo_target.hashes.sha256,
+        error::HashMismatch {
+            context: "target",
+            calculated: hex::encode(target_from_path.hashes.sha256),
+            expected: hex::encode(&repo_target.hashes.sha256),
         }
-
-        Ok(())
-    }
-
-    /// Copies a single target to the desired directory. If `target_filename` is given, it becomes
-    /// the filename suffix, otherwise the original filename is used. (A unique filename prefix is
-    /// used if consistent hashing is enabled.)  Fails if the target already exists in the repo
-    /// with a different hash, or if it has the same hash but is not a regular file.  Using the
-    /// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
-    /// and file type - skip, fail, or replace.
-    pub fn copy_target(
-        &self,
-        input_path: &Path,
-        outdir: &Path,
-        replace_behavior: PathExists,
-        target_filename: Option<&str>,
-    ) -> Result<()> {
-        ensure!(
-            target_from_path.hashes.sha256 == repo_target.hashes.sha256,
-            error::HashMismatch {
-                context: "target",
-                calculated: hex::encode(target_from_path.hashes.sha256),
-                expected: hex::encode(&repo_target.hashes.sha256),
-            }
-        );
-        match self.target_path(input_path, outdir, target_filename)? {
-            TargetPath::New { path } => {
-                fs::copy(input_path, &path).context(error::FileWrite { path })?;
-            }
-            TargetPath::File { path } => match replace_behavior {
-                PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFail { path }.fail()?,
-                PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
-                    fs::copy(input_path, &path).context(error::FileWrite { path })?;
-                }
-            },
-            TargetPath::Symlink { path } => {
-                error::TargetFileTypeMismatch {
-                    expected: "regular file",
-                    found: "symlink",
-                    path,
-                }
-                .fail()?;
-            }
-        }
-
-        Ok(())
-    }
+    );
 
     let dest = if consistent_snapshot {
         outdir.join(format!(
@@ -622,7 +499,40 @@ impl SignedRepository {
         outdir.join(&file_name)
     };
 
-    Ok(Some(dest))
+    // Return the target path, using the `TargetPath` enum that represents the type of file
+    // that already exists at that path (if any)
+    if !dest.exists() {
+        return Ok(TargetPath::New { path: dest });
+    }
+
+    // If we're using consistent snapshots, filenames include the checksum, so we know they're
+    // unique; if we're not, then there could be a target from another repo with the same name
+    // but different checksum.  We can't assume such conflicts are OK, so we fail.
+    if !consistent_snapshot {
+        // Use DigestAdapter to get a streaming checksum of the file without needing to hold
+        // its contents.
+        let f = fs::File::open(&dest).context(error::FileOpen { path: &dest })?;
+        let mut reader = DigestAdapter::sha256(
+            f,
+            &repo_target.hashes.sha256,
+            Url::from_file_path(&dest)
+                .ok() // dump unhelpful `()` error
+                .context(error::FileUrl { path: &dest })?,
+        );
+        let mut dev_null = std::io::sink();
+        // The act of reading with the DigestAdapter verifies the checksum, assuming the read
+        // succeeds.
+        std::io::copy(&mut reader, &mut dev_null).context(error::FileRead { path: &dest })?;
+    }
+
+    let metadata = fs::symlink_metadata(&dest).context(error::FileMetadata { path: &dest })?;
+    if metadata.file_type().is_file() {
+        Ok(TargetPath::File { path: dest })
+    } else if metadata.file_type().is_symlink() {
+        Ok(TargetPath::Symlink { path: dest })
+    } else {
+        error::InvalidFileType { path: dest }.fail()
+    }
 }
 
 /// Crawls a given directory and symlinks any targets found to the given
@@ -636,6 +546,7 @@ impl SignedRepository {
 pub fn link_targets<P1, P2>(
     indir: P1,
     outdir: P2,
+    replace_behavior: PathExists,
     targets: &Targets,
     consistent_snapshot: bool,
 ) -> Result<()>
@@ -647,6 +558,7 @@ where
         indir.as_ref(),
         outdir.as_ref(),
         link_target,
+        replace_behavior,
         targets,
         consistent_snapshot,
     )
@@ -663,6 +575,7 @@ where
 pub fn copy_targets<P1, P2>(
     indir: P1,
     outdir: P2,
+    replace_behavior: PathExists,
     targets: &Targets,
     consistent_snapshot: bool,
 ) -> Result<()>
@@ -674,6 +587,7 @@ where
         indir.as_ref(),
         outdir.as_ref(),
         copy_target,
+        replace_behavior,
         targets,
         consistent_snapshot,
     )
@@ -682,10 +596,13 @@ where
 /// Symlinks a single target to the desired directory. If `target_filename` is given, it
 /// becomes the filename suffix, otherwise the original filename is used. (A unique filename
 /// prefix is used if consistent snapshots are enabled.)  Fails if the target already exists in
-/// the repo with a different hash.
+/// the repo with a different hash, or if it has the same hash but is not a symlink.  Using the
+/// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
+/// and file type - skip, fail, or replace.
 pub fn link_target(
     input_path: &Path,
     outdir: &Path,
+    replace_behavior: PathExists,
     target_filename: Option<&str>,
     targets: &Targets,
     consistent_snapshot: bool,
@@ -694,25 +611,47 @@ pub fn link_target(
         input_path.is_file(),
         error::PathIsNotFile { path: input_path }
     );
-    let output_path = target_path(
+    match target_path(
         input_path,
         outdir,
         target_filename,
         targets,
         consistent_snapshot,
-    )?
-    .context(error::PathIsNotTarget { path: input_path })?;
-    symlink(input_path, &output_path).context(error::LinkCreate { path: &output_path })?;
+    )? {
+        TargetPath::New { path } => {
+            symlink(input_path, &path).context(error::LinkCreate { path })?;
+        }
+        TargetPath::Symlink { path } => match replace_behavior {
+            PathExists::Skip => {}
+            PathExists::Fail => error::PathExistsFail { path }.fail()?,
+            PathExists::Replace => {
+                fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
+                symlink(input_path, &path).context(error::LinkCreate { path })?;
+            }
+        },
+        TargetPath::File { path } => {
+            error::TargetFileTypeMismatch {
+                expected: "symlink",
+                found: "regular file",
+                path,
+            }
+            .fail()?;
+        }
+    }
+
     Ok(())
 }
 
 /// Copies a single target to the desired directory. If `target_filename` is given, it becomes
 /// the filename suffix, otherwise the original filename is used. (A unique filename prefix is
 /// used if consistent hashing is enabled.)  Fails if the target already exists in the repo
-/// with a different hash.
+/// with a different hash, or if it has the same hash but is not a regular file.  Using the
+/// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
+/// and file type - skip, fail, or replace.
 pub fn copy_target(
     input_path: &Path,
     outdir: &Path,
+    replace_behavior: PathExists,
     target_filename: Option<&str>,
     targets: &Targets,
     consistent_snapshot: bool,
@@ -721,15 +660,33 @@ pub fn copy_target(
         input_path.is_file(),
         error::PathIsNotFile { path: input_path }
     );
-    let output_path = target_path(
+    match target_path(
         input_path,
         outdir,
         target_filename,
         targets,
         consistent_snapshot,
-    )?
-    .context(error::PathIsNotTarget { path: input_path })?;
+    )? {
+        TargetPath::New { path } => {
+            fs::copy(input_path, &path).context(error::FileWrite { path })?;
+        }
+        TargetPath::File { path } => match replace_behavior {
+            PathExists::Skip => {}
+            PathExists::Fail => error::PathExistsFail { path }.fail()?,
+            PathExists::Replace => {
+                fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
+                fs::copy(input_path, &path).context(error::FileWrite { path })?;
+            }
+        },
+        TargetPath::Symlink { path } => {
+            error::TargetFileTypeMismatch {
+                expected: "regular file",
+                found: "symlink",
+                path,
+            }
+            .fail()?;
+        }
+    }
 
-    fs::copy(input_path, &output_path).context(error::FileWrite { path: output_path })?;
     Ok(())
 }

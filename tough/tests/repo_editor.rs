@@ -11,7 +11,6 @@ use std::io::Read;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use test_utils::{dir_url, test_data};
 use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::key_source::LocalKeySource;
@@ -94,9 +93,7 @@ fn test_repo_editor() -> RepositoryEditor {
     let mut editor = RepositoryEditor::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -139,9 +136,7 @@ fn create_sign_write_reload_repo() {
     let mut editor = RepositoryEditor::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -226,7 +221,7 @@ fn create_sign_write_reload_repo() {
 
     assert!(signed_repo.write(&metadata_destination).is_ok());
     assert!(signed_repo
-        .link_targets(&targets_path(), &targets_destination)
+        .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
         .is_ok());
     // Load the repo we just created
     let metadata_base_url = dir_url(&metadata_destination);
@@ -263,7 +258,7 @@ fn create_sign_write_reload_repo() {
     // Make sure the new timestamp writes properly
     assert!(signed_refreshed_repo.write(&metadata_destination).is_ok());
     assert!(signed_refreshed_repo
-        .link_targets(&targets_path(), &targets_destination)
+        .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
         .is_ok());
     // Try reloading the repo to make sure all metadata is valid
     let metadata_base_url = dir_url(&metadata_destination);
@@ -313,9 +308,7 @@ fn partial_sign() {
     let mut editor = RepositoryEditor::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -401,7 +394,7 @@ fn partial_sign() {
 
     signed_repo.write(&metadata_destination).unwrap();
     signed_repo
-        .link_targets(&targets_path(), &targets_destination)
+        .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
         .unwrap();
     // Load the repo we just created
     let metadata_base_url = dir_url(&metadata_destination);
@@ -424,9 +417,7 @@ fn partial_sign() {
 
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -487,9 +478,7 @@ fn partial_invalid_sign() {
     let mut editor = RepositoryEditor::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -575,7 +564,7 @@ fn partial_invalid_sign() {
 
     signed_repo.write(&metadata_destination).unwrap();
     signed_repo
-        .link_targets(&targets_path(), &targets_destination)
+        .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
         .unwrap();
     // Load the repo we just created
     let metadata_base_url = dir_url(&metadata_destination);
@@ -598,9 +587,7 @@ fn partial_invalid_sign() {
 
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -646,8 +633,10 @@ fn repo_load_edit_write_load() {
     let snapshot_version = NonZeroU64::new(5432).unwrap();
     let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
     let targets_version = NonZeroU64::new(789).unwrap();
-    let targets_location = test_data().join("tuf-reference-impl").join("targets");
-    let target3 = targets_location.join("file3.txt");
+    let reference_targets_location = test_data().join("tuf-reference-impl").join("targets");
+    let target3 = reference_targets_location.join("file3.txt");
+    let targets_location = test_data().join("targets");
+    let target4 = targets_location.join("file4.txt");
 
     // Load the reference_impl repo
     let mut editor = RepositoryEditor::from_repo(&root, repo).unwrap();
@@ -661,15 +650,15 @@ fn repo_load_edit_write_load() {
     // implementation of `SignedRepository.link_targets()`.
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
         .timestamp_version(timestamp_version)
         .clear_targets()
         .add_target_path(target3)
+        .unwrap()
+        .add_target_path(target4)
         .unwrap();
 
     // Sign the newly updated repo
@@ -709,22 +698,25 @@ fn repo_load_edit_write_load() {
     .unwrap();
 
     // Ensure the new repo only has the single target
-    assert_eq!(new_repo.targets().signed.targets.len(), 1);
+    assert_eq!(new_repo.targets().signed.targets.len(), 2);
 
     // The repo shouldn't contain file1 or file2
     // `read_target()` returns a Result(Option<>) which is why we unwrap
     assert!(new_repo.read_target("file1.txt").unwrap().is_none());
     assert!(new_repo.read_target("file2.txt").unwrap().is_none());
 
-    // Read file3.txt
-    let mut file_data = Vec::new();
-    let file_size = new_repo
-        .read_target("file3.txt")
-        .unwrap()
-        .unwrap()
-        .read_to_end(&mut file_data)
-        .unwrap();
-    assert_eq!(28, file_size);
+    // Read both new targets and ensure they're the right size
+    let files_to_check = &[(28, "file3.txt"), (31, "file4.txt")];
+    for (expected_file_size, filename) in files_to_check {
+        let mut file_data = Vec::new();
+        let actual_file_size = new_repo
+            .read_target(filename)
+            .unwrap()
+            .unwrap()
+            .read_to_end(&mut file_data)
+            .unwrap();
+        assert_eq!(*expected_file_size, actual_file_size);
+    }
 }
 
 #[test]
@@ -855,9 +847,7 @@ fn create_role_flow() {
     let targets_version = NonZeroU64::new(789).unwrap();
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -1174,9 +1164,7 @@ fn update_targets_flow() {
     let targets_version = NonZeroU64::new(789).unwrap();
     editor
         .targets_expires(targets_expiration)
-        .unwrap()
         .targets_version(targets_version)
-        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -1408,7 +1396,12 @@ fn update_targets_flow() {
 
     // Copy targets to outdir/targets/...
     editor
-        .copy_targets(targets_path(), &targets_destination_out, Some(false))
+        .copy_targets(
+            targets_path(),
+            &targets_destination_out,
+            PathExists::Skip,
+            Some(false),
+        )
         .unwrap();
 
     // Add in edited A targets and update snapshot (update-repo)
@@ -1457,7 +1450,11 @@ fn update_targets_flow() {
 
     signed_repo.write(&metadata_destination).unwrap();
     signed_repo
-        .copy_targets(&targets_destination_out, &targets_destination)
+        .copy_targets(
+            &targets_destination_out,
+            &targets_destination,
+            PathExists::Skip,
+        )
         .unwrap();
 
     //load the updated repo
@@ -1518,6 +1515,7 @@ fn update_targets_flow() {
         .link_targets(
             &targets_destination_out,
             &targets_destination_output,
+            PathExists::Skip,
             Some(false),
         )
         .unwrap();
@@ -1569,7 +1567,11 @@ fn update_targets_flow() {
 
     signed_repo.write(&metadata_destination).unwrap();
     signed_repo
-        .link_targets(&targets_destination_out, &targets_destination)
+        .link_targets(
+            &targets_destination_out,
+            &targets_destination,
+            PathExists::Skip,
+        )
         .unwrap();
 
     //load the updated repo

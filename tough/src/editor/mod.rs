@@ -10,6 +10,7 @@ mod test;
 
 use crate::editor::signed::copy_targets;
 use crate::editor::signed::link_targets;
+use crate::editor::signed::PathExists;
 use crate::editor::signed::{SignedRepository, SignedRole};
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
@@ -485,15 +486,15 @@ impl RepositoryEditor {
     }
 
     /// Set the `Targets` version
-    pub fn targets_version(&mut self, targets_version: NonZeroU64) -> Result<&mut Self> {
+    pub fn targets_version(&mut self, targets_version: NonZeroU64) -> &mut Self {
         self.targets_struct.version = targets_version;
-        Ok(self)
+        self
     }
 
     /// Set the `Targets` expiration
-    pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> Result<&mut Self> {
+    pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> &mut Self {
         self.targets_struct.expires = targets_expires;
-        Ok(self)
+        self
     }
 
     /// Set the `Timestamp` version
@@ -674,6 +675,7 @@ impl RepositoryEditor {
         &self,
         indir: P1,
         outdir: P2,
+        replace_behavior: PathExists,
         consistent_snapshot: Option<bool>,
     ) -> Result<()>
     where
@@ -685,6 +687,7 @@ impl RepositoryEditor {
         link_targets(
             indir.as_ref(),
             outdir.as_ref(),
+            replace_behavior,
             &self.targets_struct,
             consistent_snapshot,
         )
@@ -702,6 +705,7 @@ impl RepositoryEditor {
         &self,
         indir: P1,
         outdir: P2,
+        replace_behavior: PathExists,
         consistent_snapshot: Option<bool>,
     ) -> Result<()>
     where
@@ -713,6 +717,7 @@ impl RepositoryEditor {
         copy_targets(
             indir.as_ref(),
             outdir.as_ref(),
+            replace_behavior,
             &self.targets_struct,
             consistent_snapshot,
         )

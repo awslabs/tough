@@ -12,6 +12,7 @@ use std::num::NonZeroU64;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tempfile::tempdir;
+use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
@@ -140,10 +141,10 @@ impl UpdateTargetsArgs {
 
         if self.link {
             // link targets to outdir/targets
-            editor.link_targets(&self.targets_indir, &targets_destination_out, Some(false))
+            editor.link_targets(&self.targets_indir, &targets_destination_out, PathExists::Skip, Some(false))
         } else {
             // copy targets to outdir/targets
-            editor.copy_targets(&self.targets_indir, &targets_destination_out, Some(false))
+            editor.copy_targets(&self.targets_indir, &targets_destination_out, PathExists::Skip, Some(false))
         }
         .context(error::LinkTargets {
             indir: &self.targets_indir,
