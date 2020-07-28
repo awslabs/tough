@@ -703,3 +703,225 @@ impl RepositoryEditor {
         )
     }
 }
+
+/// `TargetsEditor` contains the various bits of data needed to construct
+/// or edit a `Targets` role.
+///
+/// A new Targets may be created using the `new()` method.
+///
+/// An existing `Targets` may be loaded and edited using the
+/// `targets_editor()` method. When a repo is loaded in this way, versions and
+/// expirations are discarded. It is good practice to update these whenever
+/// a repo is changed.
+///
+/// Targets, versions, and expirations may be added to their respective roles
+/// via the provided "setter" methods. The final step in the process is the
+/// `sign()` method, which takes a given set of signing keys, builds each of
+/// the roles using the data provided, and signs the roles. This results in a
+/// `SignedDelegatedTargets` which can be used to write the updated metadata to disk.
+#[derive(Debug)]
+pub struct TargetsEditor {
+    /// The name of the targets role
+    name: String,
+    /// The metadata containing keyids for the role
+    key_holder: Option<KeyHolder>,
+    /// The delegations field of the Targets metadata
+    delegations: Delegations,
+    /// New targets that were added to `name`
+    new_targets: Option<HashMap<String, Target>>,
+    /// Targets that were previously in `name`
+    existing_targets: Option<HashMap<String, Target>>,
+    /// Version of the `Targets`
+    version: Option<NonZeroU64>,
+    /// Expiration of the `Targets`
+    expires: Option<DateTime<Utc>>,
+    /// New roles that were createed with the editor
+    new_roles: Option<Vec<DelegatedRole>>,
+
+    _extra: Option<HashMap<String, Value>>,
+}
+
+/// A `KeyHolder` is metadata that is responsible for verifying the signatures of a role.
+/// `KeyHolder` contains
+#[derive(Debug)]
+pub enum KeyHolder {
+    /// Delegations verify delegated targets
+    Delegations(Delegations),
+    /// Root verifies the top level targets
+    Root(Root),
+}
+
+impl TargetsEditor {
+    /// Creates a `TargetsEditor` for a newly created role
+    pub fn new(name: &str) -> Self {
+        TargetsEditor {
+            key_holder: None,
+            delegations: Delegations::new(),
+            new_targets: None,
+            existing_targets: None,
+            version: None,
+            expires: None,
+            name: name.to_string(),
+            new_roles: None,
+            _extra: None,
+        }
+    }
+
+    /// Creates a `TargetsEditor` with the provided targets and keyholder
+    /// `version` and `expires` are thrown out to encourage updating the version and expiration
+    pub fn from_targets(name: &str, targets: Targets, key_holder: KeyHolder) -> Result<Self> {
+        Ok(TargetsEditor {
+            key_holder: Some(key_holder),
+            delegations: targets
+                .delegations
+                .ok_or_else(|| error::Error::NoDelegations)?,
+            new_targets: None,
+            existing_targets: Some(targets.targets),
+            version: None,
+            expires: None,
+            name: name.to_string(),
+            new_roles: None,
+            _extra: Some(targets._extra),
+        })
+    }
+
+    /// Add a `Target` to the `Targets` role
+    pub fn add_target(&mut self, name: &str, target: Target) -> &mut Self {
+        self.new_targets
+            .get_or_insert_with(HashMap::new)
+            .insert(name.to_string(), target);
+        self
+    }
+
+    /// Add a target to the repository using its path
+    ///
+    /// Note: This function builds a `Target` synchronously;
+    /// no multithreading or parallelism is used. If you have a large number
+    /// of targets to add, and require advanced performance, you may want to
+    /// construct `Target`s directly in parallel and use `add_target()`.
+    pub fn add_target_path<P>(&mut self, target_path: P) -> Result<&mut Self>
+    where
+        P: AsRef<Path>,
+    {
+        let target_path = target_path.as_ref();
+
+        // Build a Target from the path given. If it is not a file, this will fail
+        let target =
+            Target::from_path(target_path).context(error::TargetFromPath { path: target_path })?;
+
+        // Get the file name as a string
+        let target_name = target_path
+            .file_name()
+            .context(error::NoFileName { path: target_path })?
+            .to_str()
+            .context(error::PathUtf8 { path: target_path })?
+            .to_owned();
+
+        self.add_target(&target_name, target);
+        Ok(self)
+    }
+
+    /// Add a list of target paths to the repository
+    ///
+    /// See the note on `add_target_path()` regarding performance.
+    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
+    where
+        P: AsRef<Path>,
+    {
+        for target in targets {
+            self.add_target_path(target)?;
+        }
+        Ok(self)
+    }
+
+    /// Remove all targets from this repo
+    pub fn clear_targets(&mut self) -> &mut Self {
+        self.existing_targets
+            .get_or_insert_with(HashMap::new)
+            .clear();
+        self.new_targets.get_or_insert_with(HashMap::new).clear();
+        self
+    }
+
+    /// Set the version
+    pub fn version(&mut self, version: NonZeroU64) -> &mut Self {
+        self.version = Some(version);
+        self
+    }
+
+    /// Set the expiration
+    pub fn expires(&mut self, expires: DateTime<Utc>) -> &mut Self {
+        self.expires = Some(expires);
+        self
+    }
+
+    /// Adds a key to delegations keyids
+    pub fn add_key(&mut self, keys: &[Box<dyn KeySource>]) -> &mut Self {
+        //TODO
+        self
+    }
+
+    /// Removes a key from delegations keyids, if a role is specified only removes it from the role
+    pub fn remove_key(&mut self, keyid: Decoded<Hex>, role: Option<&str>) -> &mut Self {
+        //TODO
+        self
+    }
+
+    /// Delegates `paths` to `targets` adding a `DelegatedRole` to new_roles
+    pub fn delegate_role(
+        &mut self,
+        targets: DelegatedTargets,
+        paths: PathSet,
+        keyids: HashMap<Decoded<Hex>, Key>,
+        threshold: Option<NonZeroU64>,
+        expiration: DateTime<Utc>,
+        version: NonZeroU64,
+    ) -> Result<&mut Self> {
+        //TODO
+        Ok(self)
+    }
+
+    /// Removes a role from delegations if `recursive` is `false`
+    /// requires the role to be an immediate delegated role
+    /// if `true` removes whichever role eventually delegated 'role'
+    pub fn remove_role(&mut self, role: &str, recursive: bool) -> &mut Self {
+        //TODO
+        self
+    }
+
+    /// Build the `Targets` struct
+    /// Adds in the new roles and new targets
+    pub fn build_targets(&self) -> Result<DelegatedTargets> {
+        let version = self.version.context(error::Missing {
+            field: "targets version",
+        })?;
+        let expires = self.expires.context(error::Missing {
+            field: "targets expiration",
+        })?;
+
+        // BEWARE!!! We are allowing targets to be empty! While this isn't
+        // the most common use case, it's possible this is what a user wants.
+        // If it's important to have a non-empty targets, the object can be
+        // inspected by the calling code.
+        let mut targets: HashMap<String, Target> = HashMap::new();
+        if let Some(ref existing_targets) = self.existing_targets {
+            targets.extend(existing_targets.clone());
+        }
+        if let Some(ref new_targets) = self.new_targets {
+            targets.extend(new_targets.clone());
+        }
+
+        let _extra = self._extra.clone().unwrap_or_else(HashMap::new);
+        Ok(DelegatedTargets {
+            name: self.name.clone(),
+            targets: Targets {
+                spec_version: SPEC_VERSION.to_string(),
+                version,
+                expires,
+                targets,
+                _extra,
+                delegations: Some(self.delegations.clone()),
+            },
+        })
+    }
+}

@@ -190,7 +190,7 @@ where
                         .verify_role(targets, &name)
                         .context(error::KeyNotFound { role: name.clone() })?;
                 }
-                
+
                 Signed {
                     signed: DelegatedTargets {
                         name: name.clone(),
