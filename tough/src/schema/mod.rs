@@ -10,9 +10,8 @@ pub mod key;
 mod spki;
 mod verify;
 
-pub use crate::schema::error::{Error, Result};
-
 use crate::schema::decoded::{Decoded, Hex};
+pub use crate::schema::error::{Error, Result};
 use crate::schema::iter::KeysIter;
 use crate::schema::key::Key;
 use crate::sign::Sign;
@@ -55,6 +54,15 @@ pub enum RoleType {
 forward_display_to_serde!(RoleType);
 forward_from_str_to_serde!(RoleType);
 
+/// A role identifier
+#[derive(Debug, Clone)]
+pub enum RoleId {
+    /// Top level roles are identified by a RoleType
+    TopLevel(RoleType),
+    /// A delegated role is identified by a String
+    DelegatedRole(String),
+}
+
 /// Common trait implemented by all roles.
 pub trait Role: Serialize {
     /// The type of role this object represents.
@@ -69,6 +77,11 @@ pub trait Role: Serialize {
 
     /// The filename that the role metadata should be written to
     fn filename(&self, consistent_snapshot: bool) -> String;
+
+    /// The `RoleId` corresponding to the role
+    fn role_id(&self) -> RoleId {
+        RoleId::TopLevel(Self::TYPE)
+    }
 
     /// A deterministic JSON serialization used when calculating the digest of a metadata object.
     /// [More info on canonical JSON](http://wiki.laptop.org/go/Canonical_JSON)
@@ -97,6 +110,16 @@ pub struct Signature {
     pub keyid: Decoded<Hex>,
     /// A hex-encoded signature of the canonical JSON form of a role.
     pub sig: Decoded<Hex>,
+}
+
+/// A `KeyHolder` is metadata that is responsible for verifying the signatures of a role.
+/// `KeyHolder` contains
+#[derive(Debug, Clone)]
+pub enum KeyHolder {
+    /// Delegations verify delegated targets
+    Delegations(Delegations),
+    /// Root verifies the top level targets, snapshot, timestamp, and root
+    Root(Root),
 }
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
@@ -698,6 +721,38 @@ impl Targets {
             name: name.to_string(),
         })
     }
+
+    /// returns a vec of all targets roles delegated by this role
+    pub fn signed_delegated_targets(&self) -> Vec<Signed<DelegatedTargets>> {
+        let mut delegated_targets = Vec::new();
+        if let Some(delegations) = &self.delegations {
+            for role in &delegations.roles {
+                if let Some(targets) = &role.targets {
+                    delegated_targets.push(targets.clone().to_delegated_targets(&role.name));
+                    delegated_targets.extend(targets.signed.signed_delegated_targets());
+                }
+            }
+        }
+        delegated_targets
+    }
+
+    /// link all current targets to `new_targets` metadata, returns a list of `new_targets` not included in the original targets
+    pub fn update_targets(&self, new_targets: &mut Signed<Targets>) -> Vec<String> {
+        let mut needed_roles = Vec::new();
+        // Copy existing targets into proper places of new_targets
+        if let Some(delegations) = &mut new_targets.signed.delegations {
+            for mut role in &mut delegations.roles {
+                // find the corresponding targets for role
+                if let Ok(targets) = self.signed_targets_by_name(&role.name) {
+                    role.targets = Some(targets.clone());
+                } else {
+                    needed_roles.push(role.name.clone());
+                }
+            }
+        }
+
+        needed_roles
+    }
 }
 
 impl Role for Targets {
@@ -761,6 +816,40 @@ impl Role for DelegatedTargets {
             format!("{}.{}.json", self.version(), self.name)
         } else {
             format!("{}.json", self.name)
+        }
+    }
+
+    fn role_id(&self) -> RoleId {
+        if self.name == "targets" {
+            RoleId::TopLevel(RoleType::Targets)
+        } else {
+            RoleId::DelegatedRole(self.name.clone())
+        }
+    }
+}
+
+impl Signed<DelegatedTargets> {
+    /// Convert a `Signed<DelegatedTargets>` to the string representing the role and its `Signed<Targets>`
+    pub fn to_targets(self) -> (String, Signed<Targets>) {
+        (
+            self.signed.name,
+            Signed {
+                signed: self.signed.targets,
+                signatures: self.signatures,
+            },
+        )
+    }
+}
+
+impl Signed<Targets> {
+    /// Use a string and a `Signed<Targets>` to create a `Signed<DelegatedTargets>`
+    pub fn to_delegated_targets(self, name: &str) -> Signed<DelegatedTargets> {
+        Signed {
+            signed: DelegatedTargets {
+                name: name.to_string(),
+                targets: self.signed,
+            },
+            signatures: self.signatures,
         }
     }
 }
@@ -1032,30 +1121,6 @@ impl DelegatedRole {
         }
     }
 
-    /// link all current targets to `new_targets` metadata, returns a list of `new_targets` not included in the original targets
-    pub fn update_targets(&mut self, mut new_targets: Signed<Targets>) -> Vec<String> {
-        let mut needed_roles = Vec::new();
-        // Copy existing targets into proper places of new_targets
-        if let Some(targets) = &self.targets {
-            if let Some(delegations) = &mut new_targets.signed.delegations {
-                for mut role in &mut delegations.roles {
-                    // find the corresponding targets for role
-                    if let Ok(targets) = targets.signed.signed_targets_by_name(&role.name) {
-                        role.targets = Some(targets.clone());
-                    } else {
-                        needed_roles.push(role.name.clone());
-                    }
-                }
-            }
-        }
-
-        // Copy new targets to existing targets
-        self.targets = Some(new_targets);
-
-        // Return the roles that did not have existing targets loaded
-        needed_roles
-    }
-
     /// Verify that paths can be delegated by this role
     pub fn verify_paths(&self, paths: &PathSet) -> Result<()> {
         let paths = match paths {
@@ -1069,6 +1134,21 @@ impl DelegatedRole {
             }
         }
         Ok(())
+    }
+
+    /// Creates a `Signed<DelegatedTargets>` for the `DelegatedRole`
+    pub fn to_signed_delegated_targets(self) -> Option<Signed<DelegatedTargets>> {
+        if let Some(targets) = self.targets {
+            Some(Signed {
+                signed: DelegatedTargets {
+                    name: self.name,
+                    targets: targets.signed,
+                },
+                signatures: targets.signatures,
+            })
+        } else {
+            None
+        }
     }
 }
 

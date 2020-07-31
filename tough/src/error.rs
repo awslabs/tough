@@ -534,6 +534,24 @@ pub enum Error {
     /// Overflow error with checked add
     #[snafu(display("Overflow of checked add"))]
     Overflow,
+
+    /// SignedDelegatedTargets has more than 1 signed targets
+    #[snafu(display("Not exactly 1 role was created: {}", count))]
+    InvalidRoleCount { count: usize },
+
+    /// Could not create a targets map
+    #[snafu(display("Could not create a targets map: {}", source))]
+    TargetsMap { source: schema::Error },
+
+    /// A key_holder wasn't set
+    #[snafu(display("A key holder must be set"))]
+    NoKeyHolder,
+
+    #[snafu(display("No limits in editor"))]
+    MissingLimits,
+
+    #[snafu(display("The transport is not in editor"))]
+    MissingTransport,
 }
 
 // used in `std::io::Read` implementations

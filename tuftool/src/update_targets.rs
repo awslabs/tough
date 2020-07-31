@@ -9,13 +9,15 @@ use chrono::{DateTime, Utc};
 use snafu::ResultExt;
 use std::fs::File;
 use std::num::NonZeroU64;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tempfile::tempdir;
 use tough::editor::signed::PathExists;
-use tough::editor::RepositoryEditor;
+use tough::editor::TargetsEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
+use tough::Transport;
 use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
@@ -32,11 +34,11 @@ pub(crate) struct UpdateTargetsArgs {
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[structopt(short = "e", long = "expires", parse(try_from_str = parse_datetime))]
-    expires: Option<DateTime<Utc>>,
+    expires: DateTime<Utc>,
 
     /// Version of targets.json file
     #[structopt(short = "v", long = "version")]
-    version: Option<NonZeroU64>,
+    version: NonZeroU64,
 
     /// Path to root.json file for the repository
     #[structopt(short = "r", long = "root")]
@@ -48,7 +50,7 @@ pub(crate) struct UpdateTargetsArgs {
 
     /// Directory of targets
     #[structopt(short = "t", long = "add-targets")]
-    targets_indir: PathBuf,
+    targets_indir: Option<PathBuf>,
 
     /// The directory where the repository will be written
     #[structopt(short = "o", long = "outdir")]
@@ -58,13 +60,19 @@ pub(crate) struct UpdateTargetsArgs {
     #[structopt(short = "f", long = "follow")]
     follow: bool,
 
-    /// Determines if entire repo should be signed
-    #[structopt(long = "sign-all")]
-    sign_all: bool,
+    /// Number of target hashing threads to run when adding targets
+    /// (default: number of cores)
+    // No default is specified in structopt here. This is because rayon
+    // automatically spawns the same number of threads as cores when any
+    // of its parallel methods are called.
+    #[structopt(short = "j", long = "jobs")]
+    jobs: Option<NonZeroUsize>,
 
-    // Use symlink instead of copying targets
-    #[structopt(short = "l", long = "link")]
-    link: bool,
+    /// Behavior when a target exists with the same name and hash in the desired repository
+    /// directory, for example from another repository when you're sharing target directories.
+    /// Options are "replace", "fail", and "skip"
+    #[structopt(long = "target-path-exists", default_value = "skip")]
+    target_path_exists: PathExists,
 }
 
 impl UpdateTargetsArgs {
@@ -85,81 +93,70 @@ impl UpdateTargetsArgs {
         // Loading a `Repository` with different `Transport`s results in
         // different types. This is why we can't assign the `Repository`
         // to a variable with the if statement.
-        let mut editor = if self.metadata_base_url.scheme() == "file" {
+        if self.metadata_base_url.scheme() == "file" {
             let repository =
                 Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
-            RepositoryEditor::from_repo(&self.root, repository)
+            self.with_targets_editor(
+                TargetsEditor::from_repo(&repository, &self.role)
+                    .context(error::EditorFromRepo { path: &self.root })?,
+            )?;
         } else {
             let transport = HttpTransport::new();
             let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
-            RepositoryEditor::from_repo(&self.root, repository)
+            self.with_targets_editor(
+                TargetsEditor::from_repo(&repository, &self.role)
+                    .context(error::EditorFromRepo { path: &self.root })?,
+            )?;
         }
-        .context(error::EditorFromRepo { path: &self.root })?;
 
-        // add targets
-        let new_targets = build_targets(&self.targets_indir, self.follow)?;
+        Ok(())
+    }
 
-        for (filename, target) in new_targets {
-            editor
-                .add_target_to_role(&filename, target, &self.role)
-                .context(error::DelegateeNotFound {
-                    role: self.role.clone(),
+    fn with_targets_editor<T>(&self, mut editor: TargetsEditor<'_, T>) -> Result<()>
+    where
+        T: Transport,
+    {
+        editor.version(self.version).expires(self.expires);
+
+        // If the "add-targets" argument was passed, build a list of targets
+        // and add them to the repository. If a user specifies job count we
+        // override the default, which is the number of cores.
+        if let Some(ref targets_indir) = self.targets_indir {
+            if let Some(jobs) = self.jobs {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(usize::from(jobs))
+                    .build_global()
+                    .context(error::InitializeThreadPool)?;
+            }
+
+            let new_targets = build_targets(&targets_indir, self.follow)?;
+
+            for (filename, target) in new_targets {
+                editor.add_target(&filename, target);
+            }
+        };
+
+        // Sign the role
+        let signed_role = editor.sign(&self.keys).context(error::SignRepo)?;
+
+        // Copy any targets that were added
+        if let Some(ref targets_indir) = self.targets_indir {
+            let targets_outdir = &self.outdir.join("targets");
+            signed_role
+                .copy_targets(&targets_indir, &targets_outdir, self.target_path_exists)
+                .context(error::LinkTargets {
+                    indir: &targets_indir,
+                    outdir: targets_outdir,
                 })?;
-        }
+        };
 
-        // if sign_all is requested, sign and write entire repo
-        if self.sign_all {
-            let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
-            let metadata_dir = &self.outdir.join("metadata");
-            signed_repo.write(metadata_dir).context(error::WriteRepo {
+        // Write the metadata to the outdir
+        let metadata_dir = &self.outdir.join("metadata");
+        signed_role
+            .write(metadata_dir, false)
+            .context(error::WriteRepo {
                 directory: metadata_dir,
             })?;
-
-            return Ok(());
-        }
-        // if not, write updated role to outdir/metadata
-        // sign the updated role and receive SignedRole for the new role
-        let mut roles = editor
-            .sign_delegated_roles(&self.keys, [self.role.as_str()].to_vec())
-            .context(error::SignRoles {
-                roles: [self.role.clone()].to_vec(),
-            })?;
-
-        let metadata_destination_out = &self.outdir.join("metadata");
-        // write the delegator role to outdir
-        roles
-            .remove(&self.role)
-            .ok_or_else(|| error::Error::SignRolesRemove {
-                roles: [self.role.clone()].to_vec(),
-            })?
-            .write(&metadata_destination_out, false)
-            .context(error::WriteRoles {
-                roles: [self.role.clone()].to_vec(),
-            })?;
-
-        let targets_destination_out = &self.outdir.join("targets");
-
-        if self.link {
-            // link targets to outdir/targets
-            editor.link_targets(
-                &self.targets_indir,
-                &targets_destination_out,
-                PathExists::Skip,
-                Some(false),
-            )
-        } else {
-            // copy targets to outdir/targets
-            editor.copy_targets(
-                &self.targets_indir,
-                &targets_destination_out,
-                PathExists::Skip,
-                Some(false),
-            )
-        }
-        .context(error::LinkTargets {
-            indir: &self.targets_indir,
-            outdir: targets_destination_out,
-        })?;
 
         Ok(())
     }

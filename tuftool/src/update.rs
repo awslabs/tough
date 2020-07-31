@@ -16,6 +16,7 @@ use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
+use tough::Transport;
 use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
@@ -107,43 +108,51 @@ impl UpdateArgs {
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         };
-        let update = self.role.is_some() && self.indir.is_some();
+
         // Load the `Repository` into the `RepositoryEditor`
         // Loading a `Repository` with different `Transport`s results in
         // different types. This is why we can't assign the `Repository`
         // to a variable with the if statement.
-        let mut editor = if self.metadata_base_url.scheme() == "file" {
-            let mut repository =
+        if self.metadata_base_url.scheme() == "file" {
+            let repository =
                 Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
-            // If we were given incoming metadata we need to update it
-            if update {
-                repository
-                    .load_update_delegated_role(
-                        self.role.as_ref().unwrap(),
-                        self.indir.as_ref().unwrap().as_str(),
-                    )
-                    .context(error::LoadMetadata)?;
-            }
-            RepositoryEditor::from_repo(&self.root, repository)
+            self.with_editor(
+                RepositoryEditor::from_repo(&self.root, repository)
+                    .context(error::EditorFromRepo { path: &self.root })?,
+            )?;
         } else {
             let transport = HttpTransport::new();
-            let mut repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
-            // If we were given incoming metadata we need to update it
-            if update {
-                repository
-                    .load_update_delegated_role(
-                        self.role.as_ref().unwrap(),
-                        self.indir.as_ref().unwrap().as_str(),
-                    )
-                    .context(error::LoadMetadata)?;
-            }
-            RepositoryEditor::from_repo(&self.root, repository)
+            let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+            self.with_editor(
+                RepositoryEditor::from_repo(&self.root, repository)
+                    .context(error::EditorFromRepo { path: &self.root })?,
+            )?;
         }
-        .context(error::EditorFromRepo { path: &self.root })?;
+
+        Ok(())
+    }
+
+    fn with_editor<T>(&self, mut editor: RepositoryEditor<'_, T>) -> Result<()>
+    where
+        T: Transport,
+    {
+        if self.role.is_some() && self.indir.is_some() {
+            editor
+                .update_delegated_targets(
+                    self.role.as_ref().unwrap(),
+                    self.indir.as_ref().unwrap().as_str(),
+                )
+                .context(error::LoadMetadata)?;
+            editor
+                .change_targets("targets", None)
+                .context(error::DelegationStructure)?;
+        }
 
         editor
             .targets_version(self.targets_version)
+            .context(error::DelegationStructure)?
             .targets_expires(self.targets_expires)
+            .context(error::DelegationStructure)?
             .snapshot_version(self.snapshot_version)
             .snapshot_expires(self.snapshot_expires)
             .timestamp_version(self.timestamp_version)

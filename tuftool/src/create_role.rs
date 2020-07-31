@@ -6,27 +6,22 @@ use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
 use snafu::ResultExt;
-use std::fs::File;
+use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use tempfile::tempdir;
-use tough::editor::RepositoryEditor;
-use tough::http::HttpTransport;
+use tough::editor::TargetsEditor;
 use tough::key_source::KeySource;
-use tough::schema::PathSet;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
-use url::Url;
+use tough::schema::decoded::Decoded;
+use tough::schema::decoded::Hex;
+use tough::schema::key::Key;
+use tough::FilesystemTransport;
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct CreateRoleArgs {
     /// Delegatee role
     #[structopt(long = "role", required = true)]
     role: String,
-
-    /// Delegating role
-    #[structopt(long = "from")]
-    from: Option<String>,
 
     /// Key files to sign with
     #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
@@ -39,19 +34,7 @@ pub(crate) struct CreateRoleArgs {
 
     /// Version of targets.json file
     #[structopt(short = "v", long = "version")]
-    version: Option<NonZeroU64>,
-
-    /// Path to root.json file for the repository
-    #[structopt(short = "r", long = "root")]
-    root: PathBuf,
-
-    /// TUF repository metadata base URL
-    #[structopt(short = "m", long = "metadata-url")]
-    metadata_base_url: Url,
-
-    /// Threshold of signatures to sign role
-    #[structopt(short = "t", long = "threshold")]
-    threshold: Option<NonZeroU64>,
+    version: NonZeroU64,
 
     /// The directory where the repository will be written
     #[structopt(short = "o", long = "outdir")]
@@ -60,71 +43,30 @@ pub(crate) struct CreateRoleArgs {
 
 impl CreateRoleArgs {
     pub(crate) fn run(&self) -> Result<()> {
-        // load the repo
-        let datastore = tempdir().context(error::TempDir)?;
-        // We don't do anything with targets so we will use metadata url
-        let settings = tough::Settings {
-            root: File::open(&self.root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: self.metadata_base_url.as_str(),
-            targets_base_url: self.metadata_base_url.as_str(),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        };
-
-        // Load the `Repository` into the `RepositoryEditor`
-        // Loading a `Repository` with different `Transport`s results in
-        // different types. This is why we can't assign the `Repository`
-        // to a variable with the if statement.
-        let mut editor = if self.metadata_base_url.scheme() == "file" {
-            let repository =
-                Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
-            RepositoryEditor::from_repo(&self.root, repository)
-        } else {
-            let transport = HttpTransport::new();
-            let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
-            RepositoryEditor::from_repo(&self.root, repository)
-        }
-        .context(error::EditorFromRepo { path: &self.root })?;
-
-        let targets_string = "targets".to_string();
-        // create new delegated target as `role` from `from`
-        let delegator = self.from.as_ref().unwrap_or(&targets_string);
-        editor
-            .delegate_role(
-                &delegator,
-                &self.role,
-                Some(&self.keys),
-                PathSet::Paths(Vec::new()),
-                self.threshold,
-                self.expires,
-                *self
-                    .version
-                    .as_ref()
-                    .unwrap_or(&NonZeroU64::new(1).unwrap()),
-            )
-            .context(error::DelegateeNotFound {
-                role: self.role.clone(),
-            })?;
-
-        // sign the role
-        let role = editor
-            .sign_delegated_roles(&self.keys, [self.role.as_str()].to_vec())
-            .context(error::SignRoles {
-                roles: [self.role.clone()].to_vec(),
-            })?
-            .remove(&self.role)
-            .ok_or_else(|| error::Error::SignRolesRemove {
-                roles: [self.role.clone()].to_vec(),
-            })?;
-
-        // write the role to outdir
+        // create the new role
+        let new_role = TargetsEditor::<FilesystemTransport>::new(&self.role)
+            .version(self.version)
+            .expires(self.expires)
+            .add_key(key_hash_map(&self.keys), None)
+            .context(error::DelegationStructure)?
+            .sign(&self.keys)
+            .context(error::SignRepo)?;
+        // write the new role
         let metadata_destination_out = &self.outdir.join("metadata");
-        role.write(&metadata_destination_out, false)
+        new_role
+            .write(&metadata_destination_out, false)
             .context(error::WriteRoles {
                 roles: [self.role.clone()].to_vec(),
             })?;
-
         Ok(())
     }
+}
+
+fn key_hash_map(keys: &[Box<dyn KeySource>]) -> HashMap<Decoded<Hex>, Key> {
+    let mut key_pairs = HashMap::new();
+    for source in keys {
+        let key_pair = source.as_sign().unwrap().tuf_key();
+        key_pairs.insert(key_pair.key_id().unwrap().clone(), key_pair.clone());
+    }
+    key_pairs
 }

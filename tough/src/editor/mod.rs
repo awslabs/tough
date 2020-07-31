@@ -8,28 +8,29 @@ mod keys;
 pub mod signed;
 mod test;
 
-use crate::editor::signed::copy_targets;
-use crate::editor::signed::link_targets;
-use crate::editor::signed::PathExists;
-use crate::editor::signed::{SignedRepository, SignedRole};
+use crate::editor::signed::{SignedDelegatedTargets, SignedRepository, SignedRole};
 use crate::error::{self, Result};
+use crate::fetch::fetch_max_size;
 use crate::key_source::KeySource;
 use crate::schema::decoded::{Decoded, Hex};
+use crate::schema::key::Key;
 use crate::schema::{
-    key::Key, DelegatedRole, DelegatedTargets, Delegations, Hashes, PathSet, Role, Root, Signed,
-    Snapshot, SnapshotMeta, Target, Targets, Timestamp, TimestampMeta,
+    DelegatedRole, DelegatedTargets, Delegations, Hashes, KeyHolder, PathSet, Role, RoleType, Root,
+    Signed, Snapshot, SnapshotMeta, Target, Targets, Timestamp, TimestampMeta,
 };
 use crate::transport::Transport;
+use crate::Limits;
 use crate::Repository;
 use chrono::{DateTime, Utc};
 use ring::digest::{SHA256, SHA256_OUTPUT_LEN};
 use ring::rand::SystemRandom;
 use serde_json::Value;
 use snafu::{ensure, OptionExt, ResultExt};
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::num::NonZeroU64;
 use std::path::Path;
+use url::Url;
 
 const SPEC_VERSION: &str = "1.0.0";
 
@@ -49,10 +50,8 @@ const SPEC_VERSION: &str = "1.0.0";
 /// the roles using the data provided, and signs the roles. This results in a
 /// `SignedRepository` which can be used to write the repo to disk.
 #[derive(Debug)]
-pub struct RepositoryEditor {
+pub struct RepositoryEditor<'a, T: Transport> {
     signed_root: SignedRole<Root>,
-
-    targets_struct: Targets,
 
     snapshot_version: Option<NonZeroU64>,
     snapshot_expires: Option<DateTime<Utc>>,
@@ -61,11 +60,19 @@ pub struct RepositoryEditor {
     timestamp_version: Option<NonZeroU64>,
     timestamp_expires: Option<DateTime<Utc>>,
     timestamp_extra: Option<HashMap<String, Value>>,
+
+    targets_editor: Option<TargetsEditor<'a, T>>,
+
+    /// The signed top level targets, will be None if no top level targets have been signed
+    signed_targets: Option<Signed<Targets>>,
+
+    transport: Option<&'a T>,
+    limits: Option<Limits>,
 }
 
-impl RepositoryEditor {
+impl<'a, T: Transport> RepositoryEditor<'a, T> {
     /// Create a new, bare `RepositoryEditor`
-    pub fn new<P>(root_path: P) -> Result<RepositoryEditor>
+    pub fn new<P>(root_path: P) -> Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -86,19 +93,21 @@ impl RepositoryEditor {
             length: root_buf_len,
         };
 
+        let mut editor = TargetsEditor::new("targets");
+        editor.key_holder = Some(KeyHolder::Root(signed_root.signed.signed.clone()));
+
         Ok(RepositoryEditor {
             signed_root,
-            targets_struct: Targets::new(
-                SPEC_VERSION.to_string(),
-                NonZeroU64::new(1).unwrap(),
-                Utc::now(),
-            ),
+            targets_editor: Some(editor),
             snapshot_version: None,
             snapshot_expires: None,
             snapshot_extra: None,
             timestamp_version: None,
             timestamp_expires: None,
             timestamp_extra: None,
+            signed_targets: None,
+            transport: None,
+            limits: None,
         })
     }
 
@@ -106,16 +115,16 @@ impl RepositoryEditor {
     /// `RepositoryEditor`. This `RepositoryEditor` will include all of the targets
     /// and bits of _extra metadata from the roles included. It will not, however,
     /// include the versions or expirations and the user is expected to set them.
-    pub fn from_repo<T, P>(root_path: P, repo: Repository<'_, T>) -> Result<RepositoryEditor>
+    pub fn from_repo<P>(root_path: P, repo: Repository<'a, T>) -> Result<RepositoryEditor<'a, T>>
     where
         P: AsRef<Path>,
-        T: Transport,
     {
         let mut editor = RepositoryEditor::new(root_path)?;
-        editor.targets(repo.targets.signed)?;
+        editor.targets(repo.targets)?;
         editor.snapshot(repo.snapshot.signed)?;
         editor.timestamp(repo.timestamp.signed)?;
-
+        editor.transport = Some(repo.transport);
+        editor.limits = Some(repo.limits);
         Ok(editor)
     }
 
@@ -125,94 +134,58 @@ impl RepositoryEditor {
     /// While `RepositoryEditor`s fields are all `Option`s, this step requires,
     /// at the very least, that the "version" and "expiration" field is set for
     /// each role; e.g. `targets_version`, `targets_expires`, etc.
-    pub fn sign(self, keys: &[Box<dyn KeySource>]) -> Result<SignedRepository> {
+    pub fn sign(mut self, keys: &[Box<dyn KeySource>]) -> Result<SignedRepository> {
         let rng = SystemRandom::new();
-        let root = &self.signed_root.signed.signed;
+        let root = KeyHolder::Root(self.signed_root.signed.signed.clone());
+        // Sign the targets editor if able to with the provided keys
+        self.sign_targets_editor(keys)?;
+        let targets = self.signed_targets.clone().context(error::NoTargets)?;
+        let delegated_targets = targets.signed.signed_delegated_targets();
+        let signed_targets = SignedRole::from_signed(targets)?;
 
-        let signed_targets = SignedRole::new(self.targets_struct.clone(), root, keys, &rng)?;
-
-        let signed_delegations = if self.targets_struct.delegations.is_some() {
-            Some(SignedRole::<DelegatedTargets>::signed_role_targets_map(
-                &self.targets_struct,
-                keys,
-                &rng,
-                true,
-            )?)
-        } else {
+        let signed_delegated_targets = if delegated_targets.is_empty() {
             None
+        } else {
+            let mut roles = Vec::new();
+            for role in delegated_targets {
+                roles.push(SignedRole::from_signed(role)?)
+            }
+            Some(SignedDelegatedTargets { roles })
         };
 
         let signed_snapshot = self
-            .build_snapshot(&signed_targets, &signed_delegations)
-            .and_then(|snapshot| SignedRole::new(snapshot, root, keys, &rng))?;
+            .build_snapshot(&signed_targets, &signed_delegated_targets)
+            .and_then(|snapshot| SignedRole::new(snapshot, &root, keys, &rng))?;
         let signed_timestamp = self
             .build_timestamp(&signed_snapshot)
-            .and_then(|timestamp| SignedRole::new(timestamp, root, keys, &rng))?;
+            .and_then(|timestamp| SignedRole::new(timestamp, &root, keys, &rng))?;
 
         Ok(SignedRepository {
             root: self.signed_root,
             targets: signed_targets,
             snapshot: signed_snapshot,
             timestamp: signed_timestamp,
-            delegations: signed_delegations,
+            delegated_targets: signed_delegated_targets,
         })
     }
 
-    /// Sign delegated roles described in `names`. If no keys are provided for a role the current `Signed<Targets>` for the role is considered up to date.
-    pub fn sign_delegated_roles(
-        &self,
-        keys: &[Box<dyn KeySource>],
-        names: Vec<&str>,
-    ) -> Result<HashMap<String, SignedRole<DelegatedTargets>>> {
-        let rng = SystemRandom::new();
-
-        // Create `SignedRole` for each target
-        let mut signed_roles = HashMap::new();
-        let mut targets = SignedRole::<Targets>::signed_role_targets_map(
-            &self.targets_struct,
-            keys,
-            &rng,
-            false,
-        )?;
-
-        // Take the signed targets we want
-        for name in names {
-            if name == "targets" {
-                signed_roles.insert(
-                    name.to_string(),
-                    SignedRole::new(
-                        DelegatedTargets {
-                            targets: self.targets_struct.clone(),
-                            name: "targets".to_string(),
-                        },
-                        &self.signed_root.signed.signed,
-                        keys,
-                        &rng,
-                    )?,
-                );
-                continue;
-            }
-            signed_roles.insert(
-                name.to_string(),
-                targets.remove(name).context(error::DelegateNotFound {
-                    name: name.to_string(),
-                })?,
-            );
-        }
-        Ok(signed_roles)
-    }
-
     /// Add an existing `Targets` struct to the repository.
-    pub fn targets(&mut self, targets: Targets) -> Result<&mut Self> {
+    pub fn targets(&mut self, targets: Signed<Targets>) -> Result<&mut Self> {
         ensure!(
-            targets.spec_version == SPEC_VERSION,
+            targets.signed.spec_version == SPEC_VERSION,
             error::SpecVersion {
-                given: targets.spec_version,
+                given: targets.signed.spec_version,
                 supported: SPEC_VERSION
             }
         );
-        // Hold on to the existing targets
-        self.targets_struct = targets;
+        // Save the existing targets
+        self.signed_targets = Some(targets.clone());
+        // Create a targets editor so that targets can be updated
+        self.targets_editor = Some(TargetsEditor::from_targets(
+            "targets",
+            targets.signed,
+            KeyHolder::Root(self.signed_root.signed.signed.clone()),
+        ));
         Ok(self)
     }
 
@@ -226,8 +199,6 @@ impl RepositoryEditor {
                 supported: SPEC_VERSION
             }
         );
-        self.snapshot_version(snapshot.version);
-        self.snapshot_expires(snapshot.expires);
         self.snapshot_extra = Some(snapshot._extra);
         Ok(self)
     }
@@ -242,22 +213,26 @@ impl RepositoryEditor {
                 supported: SPEC_VERSION
             }
         );
-        self.timestamp_expires(timestamp.expires());
-        self.timestamp_version(timestamp.version);
         self.timestamp_extra = Some(timestamp._extra);
         Ok(self)
     }
 
+    /// Returns a mutable reference to the targets editor if it exists, or an error if it doesn't
+    fn targets_editor_mut(&mut self) -> Result<&mut TargetsEditor<'a, T>> {
+        self.targets_editor
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)
+    }
+
     /// Add a `Target` to the repository
     pub fn add_target(&mut self, name: &str, target: Target) -> Result<&mut Self> {
-        self.targets_struct.add_target(&name, target);
-
+        self.targets_editor_mut()?.add_target(&name, target);
         Ok(self)
     }
 
     /// Remove a `Target` from the repository
     pub fn remove_target(&mut self, name: &str) -> Result<&mut Self> {
-        self.targets_struct.remove_target(name);
+        self.targets_editor_mut()?.remove_target(name);
 
         Ok(self)
     }
@@ -272,7 +247,7 @@ impl RepositoryEditor {
     where
         P: AsRef<Path>,
     {
-        let (target_name, target) = RepositoryEditor::build_target(target_path)?;
+        let (target_name, target) = RepositoryEditor::<T>::build_target(target_path)?;
         self.add_target(&target_name, target)?;
         Ok(self)
     }
@@ -285,77 +260,8 @@ impl RepositoryEditor {
         P: AsRef<Path>,
     {
         for target in targets {
-            let (target_name, target) = RepositoryEditor::build_target(target)?;
+            let (target_name, target) = RepositoryEditor::<T>::build_target(target)?;
             self.add_target(&target_name, target)?;
-        }
-
-        Ok(self)
-    }
-
-    /// Add a `Target` to the delegatee `role`
-    /// To add a target to top level targets use `add_target()`
-    pub fn add_target_to_role(
-        &mut self,
-        name: &str,
-        target: Target,
-        role: &str,
-    ) -> Result<&mut Self> {
-        if role == "targets" {
-            return self.add_target(name, target);
-        }
-        self.targets_struct
-            .targets_by_name_verify_path(role, &name)
-            .context(error::TargetsNotFound {
-                name: name.to_string(),
-            })?
-            .add_target(&name, target);
-
-        Ok(self)
-    }
-
-    /// Remove a `Target` from the delegated `role`
-    /// To remove a target from top level targets use `remove_target()`
-    pub fn remove_target_from_role(&mut self, name: &str, role: &str) -> Result<&mut Self> {
-        if role == "targets" {
-            return self.remove_target(name);
-        }
-        self.targets_struct
-            .targets_by_name(role)
-            .context(error::TargetsNotFound {
-                name: name.to_string(),
-            })?
-            .remove_target(&name);
-
-        Ok(self)
-    }
-
-    /// Add a target to the repository using its path
-    ///
-    /// Note: This function builds a `Target` synchronously;
-    /// no multithreading or parallelism is used. If you have a large number
-    /// of targets to add, and require advanced performance, you may want to
-    /// construct `Target`s directly in parallel and use `add_target_to_role()`.
-    /// To add a target to top level targets use `add_target_path()`
-    pub fn add_target_path_to_role<P>(&mut self, target_path: P, role: &str) -> Result<&mut Self>
-    where
-        P: AsRef<Path>,
-    {
-        let (target_name, target) = RepositoryEditor::build_target(target_path)?;
-        self.add_target_to_role(&target_name, target, role)?;
-        Ok(self)
-    }
-
-    /// Add a list of target paths to the repository
-    ///
-    /// See the note on `add_target_path_to_role()` regarding performance.
-    /// To add a target to top level targets use `add_target_paths()`
-    pub fn add_target_paths_to_role<P>(&mut self, targets: Vec<P>, role: &str) -> Result<&mut Self>
-    where
-        P: AsRef<Path>,
-    {
-        for target in targets {
-            let (target_name, target) = RepositoryEditor::build_target(target)?;
-            self.add_target_to_role(&target_name, target, role)?;
         }
 
         Ok(self)
@@ -384,138 +290,54 @@ impl RepositoryEditor {
     }
 
     /// Remove all targets from this repo
-    pub fn clear_targets(&mut self) -> &mut Self {
-        self.targets_struct.clear_targets();
-        self
+    pub fn clear_targets(&mut self) -> Result<&mut Self> {
+        self.targets_editor_mut()?.clear_targets();
+        Ok(self)
     }
 
     #[allow(clippy::too_many_arguments)]
     /// Delegate target with name. If `key_source` is given, new keys are given to the role if not parent keys are used
     pub fn delegate_role(
         &mut self,
-        from: &str,
         name: &str,
-        key_source: Option<&[Box<dyn KeySource>]>,
+        key_source: &[Box<dyn KeySource>],
         paths: PathSet,
-        threshold: Option<NonZeroU64>,
+        threshold: NonZeroU64,
         expiration: DateTime<Utc>,
         version: NonZeroU64,
     ) -> Result<&mut Self> {
-        // Steps to create a role
-        // 1.Find the delegating role
-        // 2.Get the signing keys for the new role using the delegating role's keys or the ones provided in key_source
-        // 3.Create a Targets struct representing role
-        // 4.Create the delegations for the new targets
-        // 5.Add the public keys from key_source to the keys of the new role's delegations
-
-        // If we are delegating from targets all paths are valid
-        if from != "targets" {
-            let parent_delegated_role =
-                self.targets_struct
-                    .delegated_role(from)
-                    .context(error::DelegateMissing {
-                        name: from.to_string(),
-                    })?;
-            // Verify that `from` has permission to delegate paths
-            parent_delegated_role
-                .verify_paths(&paths)
-                .context(error::InvalidPathPermission {
-                    name: from.to_string(),
-                    paths: paths.vec().to_vec(),
-                })?;
+        // Create the new targets using targets editor
+        let mut new_targets_editor = TargetsEditor::<'a, T>::new(name);
+        // Set the version and expiration
+        new_targets_editor.version(version).expires(expiration);
+        // Sign the new targets
+        let signed_delegated_targets = new_targets_editor.sign(key_source)?;
+        // Extract the new targets
+        let new_targets = signed_delegated_targets.role()?;
+        // Find the keyids for key_source
+        let mut keyids = Vec::new();
+        let mut key_pairs = HashMap::new();
+        for source in key_source {
+            let key_pair = source
+                .as_sign()
+                .context(error::KeyPairFromKeySource)?
+                .tuf_key();
+            keyids.push(key_pair.key_id().context(error::JsonSerialization {})?);
+            key_pairs.insert(
+                key_pair.key_id().context(error::JsonSerialization {})?,
+                key_pair,
+            );
         }
-
-        // Find the parent targets for the role we are creating
-        let mut parent = if from == "targets" {
-            &mut self.targets_struct
-        } else {
-            self.targets_struct
-                .targets_by_name(from)
-                .context(error::DelegateMissing { name: from })?
-        };
-        // Get the keys used to sign the new role
-        let (keyids, key_pairs) = if let Some(key) = key_source {
-            let mut keyids = Vec::new();
-            let mut key_pairs = HashMap::new();
-            for source in key {
-                let key_pair = source
-                    .as_sign()
-                    .context(error::KeyPairFromKeySource)?
-                    .tuf_key();
-                let key_id = RepositoryEditor::add_key(&mut parent, key_pair.clone())?;
-                key_pairs.insert(key_id.clone(), key_pair);
-                keyids.push(key_id);
-            }
-            (keyids, key_pairs)
-        } else {
-            // If we weren't given a new key source create a role using parent keys
-            let mut keys = Vec::new();
-            for key in parent
-                .delegations
-                .as_ref()
-                .ok_or_else(|| error::Error::NoDelegations)?
-                .keys
-                .keys()
-            {
-                keys.push(key.clone());
-            }
-
-            (keys, HashMap::new())
-        };
-        let delegations = parent
-            .delegations
-            .as_mut()
-            .ok_or_else(|| error::Error::NoDelegations)?;
-        // Create new targets for `role`
-        let mut new_targets = Targets::new(SPEC_VERSION.to_string(), version, expiration);
-        let mut new_delegations = Delegations::new();
-        new_delegations.keys.extend(key_pairs);
-        // Create a new delegations for `role`
-        new_targets.delegations = Some(new_delegations);
-        let threshold = threshold.unwrap_or(
-            NonZeroU64::new(keyids.len().try_into().context(error::InvalidInto {})?)
-                .context(error::InvalidThreshold {})?,
-        );
-        delegations.roles.push(DelegatedRole {
-            name: name.to_string(),
+        // Add the new role to targets_editor
+        self.targets_editor_mut()?.delegate_role(
+            new_targets.signed,
+            paths,
+            key_pairs,
             keyids,
             threshold,
-            paths,
-            terminating: false,
-            targets: Some(Signed {
-                signed: new_targets,
-                signatures: Vec::new(),
-            }),
-        });
+        )?;
 
         Ok(self)
-    }
-
-    /// Adds a key to the targets' delegations if not already present, and returns a result with the key id.
-    fn add_key(targets: &mut Targets, key: Key) -> Result<Decoded<Hex>> {
-        let key_id = if let Some((key_id, _)) = targets
-            .delegations
-            .as_ref()
-            .ok_or_else(|| error::Error::NoDelegations)?
-            .keys
-            .iter()
-            .find(|(_, candidate_key)| key.eq(candidate_key))
-        {
-            key_id.clone()
-        } else {
-            // Key isn't present yet, so we need to add it
-            let key_id = key.key_id().context(error::JsonSerialization {})?;
-
-            targets
-                .delegations
-                .as_mut()
-                .ok_or_else(|| error::Error::NoDelegations)?
-                .keys
-                .insert(key_id.clone(), key);
-            key_id
-        };
-
-        Ok(key_id)
     }
 
     /// Set the `Snapshot` version
@@ -531,15 +353,15 @@ impl RepositoryEditor {
     }
 
     /// Set the `Targets` version
-    pub fn targets_version(&mut self, targets_version: NonZeroU64) -> &mut Self {
-        self.targets_struct.version = targets_version;
-        self
+    pub fn targets_version(&mut self, targets_version: NonZeroU64) -> Result<&mut Self> {
+        self.targets_editor_mut()?.version(targets_version);
+        Ok(self)
     }
 
     /// Set the `Targets` expiration
-    pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> &mut Self {
-        self.targets_struct.expires = targets_expires;
-        self
+    pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> Result<&mut Self> {
+        self.targets_editor_mut()?.expires(targets_expires);
+        Ok(self)
     }
 
     /// Set the `Timestamp` version
@@ -554,13 +376,218 @@ impl RepositoryEditor {
         self
     }
 
+    /// Takes the current Targets from `targets_editor` and moves inserts the role to its proper place in `signed_targets`
+    /// Sets `targets_editor` to None
+    pub fn sign_targets_editor(&mut self, keys: &[Box<dyn KeySource>]) -> Result<&mut Self> {
+        if let Some(targets_editor) = self.targets_editor.as_mut() {
+            let (name, targets) = targets_editor.create_signed(keys)?.to_targets();
+            if name == "targets" {
+                self.signed_targets = Some(targets);
+            } else {
+                self.signed_targets
+                    .as_mut()
+                    .context(error::NoTargets)?
+                    .signed
+                    .get_delegated_role_by_name(&name)
+                    .context(error::DelegateMissing { name })?
+                    .targets = Some(targets);
+            }
+        }
+        self.targets_editor = None;
+        Ok(self)
+    }
+
+    /// Changes the targets refered to in `targets_editor` to role
+    /// If keys are supplied, the contents of the `targets_editor` are signed and stored
+    pub fn change_targets(
+        &mut self,
+        role: &str,
+        keys: Option<&[Box<dyn KeySource>]>,
+    ) -> Result<&mut Self> {
+        if let Some(keys) = keys {
+            self.sign_targets_editor(keys)?;
+        } // get rid of and error out if not already done
+        let targets = &mut self
+            .signed_targets
+            .as_mut()
+            .context(error::NoTargets)?
+            .signed;
+        let (key_holder, targets) = if role == "targets" {
+            (
+                KeyHolder::Root(self.signed_root.signed.signed.clone()),
+                targets.clone(),
+            )
+        } else {
+            let parent = targets
+                .parent_of(role)
+                .context(error::DelegateMissing {
+                    name: role.to_string(),
+                })?
+                .clone();
+            let targets = targets
+                .targets_by_name(role)
+                .context(error::DelegateMissing {
+                    name: role.to_string(),
+                })?
+                .clone();
+            (KeyHolder::Delegations(parent), targets)
+        };
+        self.targets_editor = Some(TargetsEditor::from_targets(role, targets, key_holder));
+
+        Ok(self)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    /// Updates the metadata for `name`
+    /// Clears the current `targets_editor`
+    pub fn update_delegated_targets(
+        &mut self,
+        name: &str,
+        metadata_url: &str,
+    ) -> Result<&mut Self> {
+        let limits = self.limits.context(error::MissingLimits)?;
+        let transport = self.transport.context(error::MissingTransport)?;
+        let targets = &mut self
+            .signed_targets
+            .as_mut()
+            .context(error::NoTargets)?
+            .signed;
+        let metadata_base_url = parse_url(metadata_url)?;
+        // path to updated metadata
+        let role_url =
+            metadata_base_url
+                .join(&format!("{}.json", name))
+                .context(error::JoinUrl {
+                    path: name.to_string(),
+                    url: metadata_base_url.to_owned(),
+                })?;
+        let reader = Box::new(fetch_max_size(
+            transport,
+            role_url,
+            limits.max_targets_size,
+            "max targets limit",
+        )?);
+        // Load incoming role metadata as Signed<Targets>
+        let mut role: Signed<crate::schema::Targets> =
+            serde_json::from_reader(reader).context(error::ParseMetadata {
+                role: RoleType::Targets,
+            })?;
+        //verify role with the parent delegation
+        let (parent, current_targets) = if name == "targets" {
+            (
+                KeyHolder::Root(self.signed_root.signed.signed.clone()),
+                targets,
+            )
+        } else {
+            let parent = targets
+                .parent_of(name)
+                .context(error::DelegateMissing {
+                    name: name.to_string(),
+                })?
+                .clone();
+            let targets = targets
+                .targets_by_name(name)
+                .context(error::DelegateMissing {
+                    name: name.to_string(),
+                })?;
+            (KeyHolder::Delegations(parent), targets)
+        };
+        parent.verify_role(&role, name)?;
+        // Make sure the version isn't downgraded
+        ensure!(
+            role.signed.version >= current_targets.version,
+            error::VersionMismatch {
+                role: RoleType::Targets,
+                fetched: role.signed.version,
+                expected: current_targets.version
+            }
+        );
+        // get a list of roles that we don't have metadata for yet
+        // and copy current_targets delegated targets to role
+        let new_roles = current_targets.update_targets(&mut role);
+        let delegations = role
+            .signed
+            .delegations
+            .as_mut()
+            .context(error::NoDelegations)?;
+        // the new targets will be the keyholder for any of its newly delegated roles, so create a keyholder
+        let key_holder = KeyHolder::Delegations(delegations.clone());
+        // load the new roles
+        for name in new_roles {
+            // path to new metadata
+            let role_url =
+                metadata_base_url
+                    .join(&format!("{}.json", name))
+                    .context(error::JoinUrl {
+                        path: name.to_string(),
+                        url: metadata_base_url.to_owned(),
+                    })?;
+            let reader = Box::new(fetch_max_size(
+                transport,
+                role_url,
+                limits.max_targets_size,
+                "max targets limit",
+            )?);
+            // Load new role metadata as Signed<Targets>
+            let new_role: Signed<crate::schema::Targets> = serde_json::from_reader(reader)
+                .context(error::ParseMetadata {
+                    role: RoleType::Targets,
+                })?;
+            // verify the role
+            key_holder.verify_role(&new_role, &name)?;
+            // add the new role
+            delegations
+                .roles
+                .iter_mut()
+                .find(|delegated_role| delegated_role.name == name)
+                .context(error::DelegateNotFound { name: name.clone() })?
+                .targets = Some(new_role.clone());
+        }
+        // Add our new role in place of the old one
+        if name == "targets" {
+            self.signed_targets = Some(role)
+        } else {
+            self.signed_targets
+                .as_mut()
+                .context(error::NoTargets)?
+                .signed
+                .get_delegated_role_by_name(name)
+                .context(error::DelegateMissing {
+                    name: name.to_string(),
+                })?
+                .targets = Some(role);
+        }
+        self.targets_editor = None;
+        Ok(self)
+    }
+
+    /// Adds a role to the targets currently in `targets_editor`
+    pub fn add_role(
+        &mut self,
+        name: &str,
+        metadata_url: &str,
+        paths: PathSet,
+        threshold: NonZeroU64,
+        keys: Option<HashMap<Decoded<Hex>, Key>>,
+    ) -> Result<&mut Self> {
+        let limits = self.limits.context(error::MissingLimits)?;
+        let transport = self.transport.context(error::MissingTransport)?;
+
+        self.targets_editor_mut()?.limits(limits);
+        self.targets_editor_mut()?.transport(transport);
+        self.targets_editor_mut()?
+            .add_role(name, metadata_url, paths, threshold, keys)?;
+
+        Ok(self)
+    }
+
     // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
     /// Build the `Snapshot` struct
     fn build_snapshot(
         &self,
         signed_targets: &SignedRole<Targets>,
-        signed_delegated_targets: &Option<HashMap<String, SignedRole<DelegatedTargets>>>,
+        signed_delegated_targets: &Option<SignedDelegatedTargets>,
     ) -> Result<Snapshot> {
         let version = self.snapshot_version.context(error::Missing {
             field: "snapshot version",
@@ -578,21 +605,24 @@ impl RepositoryEditor {
             .meta
             .insert("targets.json".to_owned(), targets_meta);
 
-        if let Some(delegated_roles) = signed_delegated_targets {
-            for (role, targets) in delegated_roles {
-                let meta = Self::snapshot_meta(targets);
-                snapshot.meta.insert(format!("{}.json", role), meta);
+        if let Some(signed_delegated_targets) = signed_delegated_targets.as_ref() {
+            for delegated_targets in &signed_delegated_targets.roles {
+                let meta = Self::snapshot_meta(delegated_targets);
+                snapshot.meta.insert(
+                    format!("{}.json", delegated_targets.signed.signed.name),
+                    meta,
+                );
             }
         }
 
         Ok(snapshot)
     }
 
-    /// Build a `SnapshotMeta` struct from a given `SignedRole<T>`. This metadata
+    /// Build a `SnapshotMeta` struct from a given `SignedRole<R>`. This metadata
     /// includes the sha256 and length of the signed role.
-    fn snapshot_meta<T>(role: &SignedRole<T>) -> SnapshotMeta
+    fn snapshot_meta<R>(role: &SignedRole<R>) -> SnapshotMeta
     where
-        T: Role,
+        R: Role,
     {
         SnapshotMeta {
             hashes: Some(Hashes {
@@ -626,11 +656,11 @@ impl RepositoryEditor {
         Ok(timestamp)
     }
 
-    /// Build a `TimestampMeta` struct from a given `SignedRole<T>`. This metadata
+    /// Build a `TimestampMeta` struct from a given `SignedRole<R>`. This metadata
     /// includes the sha256 and length of the signed role.
-    fn timestamp_meta<T>(role: &SignedRole<T>) -> TimestampMeta
+    fn timestamp_meta<R>(role: &SignedRole<R>) -> TimestampMeta
     where
-        T: Role,
+        R: Role,
     {
         TimestampMeta {
             hashes: Hashes {
@@ -642,66 +672,14 @@ impl RepositoryEditor {
             _extra: HashMap::new(),
         }
     }
+}
 
-    /// Crawls a given directory and copies any targets found to the given
-    /// "out" directory. If consistent snapshots are used, the target files
-    /// are prefixed with their `sha256`.
-    ///
-    /// For each file found in the `indir`, the method gets the filename and
-    /// if the filename exists in `Targets`, the file's sha256 is compared
-    /// against the data in `Targets`. If this data does not match, the
-    /// method will fail.
-    pub fn copy_targets<P1, P2>(
-        &self,
-        indir: P1,
-        outdir: P2,
-        replace_behavior: PathExists,
-        consistent_snapshot: Option<bool>,
-    ) -> Result<()>
-    where
-        P1: AsRef<Path>,
-        P2: AsRef<Path>,
-    {
-        let consistent_snapshot = consistent_snapshot
-            .unwrap_or_else(|| self.signed_root.signed.signed.consistent_snapshot);
-        copy_targets(
-            indir.as_ref(),
-            outdir.as_ref(),
-            replace_behavior,
-            &self.targets_struct,
-            consistent_snapshot,
-        )
+fn parse_url(url: &str) -> Result<Url> {
+    let mut url = Cow::from(url);
+    if !url.ends_with('/') {
+        url.to_mut().push('/');
     }
-
-    /// Crawls a given directory and links any targets found to the given
-    /// "out" directory. If consistent snapshots are used, the target files
-    /// are prefixed with their `sha256`.
-    ///
-    /// For each file found in the `indir`, the method gets the filename and
-    /// if the filename exists in `Targets`, the file's sha256 is compared
-    /// against the data in `Targets`. If this data does not match, the
-    /// method will fail.
-    pub fn link_targets<P1, P2>(
-        &self,
-        indir: P1,
-        outdir: P2,
-        replace_behavior: PathExists,
-        consistent_snapshot: Option<bool>,
-    ) -> Result<()>
-    where
-        P1: AsRef<Path>,
-        P2: AsRef<Path>,
-    {
-        let consistent_snapshot = consistent_snapshot
-            .unwrap_or_else(|| self.signed_root.signed.signed.consistent_snapshot);
-        link_targets(
-            indir.as_ref(),
-            outdir.as_ref(),
-            replace_behavior,
-            &self.targets_struct,
-            consistent_snapshot,
-        )
-    }
+    Url::parse(&url).context(error::ParseUrl { url })
 }
 
 /// `TargetsEditor` contains the various bits of data needed to construct
@@ -719,14 +697,16 @@ impl RepositoryEditor {
 /// `sign()` method, which takes a given set of signing keys, builds each of
 /// the roles using the data provided, and signs the roles. This results in a
 /// `SignedDelegatedTargets` which can be used to write the updated metadata to disk.
-#[derive(Debug)]
-pub struct TargetsEditor {
+#[derive(Debug, Clone)]
+pub struct TargetsEditor<'a, T: Transport> {
     /// The name of the targets role
     name: String,
     /// The metadata containing keyids for the role
     key_holder: Option<KeyHolder>,
     /// The delegations field of the Targets metadata
-    delegations: Delegations,
+    /// delegations should only be None if the editor is
+    /// for "targets" on a repository that doesn't use delegated targets
+    delegations: Option<Delegations>,
     /// New targets that were added to `name`
     new_targets: Option<HashMap<String, Target>>,
     /// Targets that were previously in `name`
@@ -735,28 +715,22 @@ pub struct TargetsEditor {
     version: Option<NonZeroU64>,
     /// Expiration of the `Targets`
     expires: Option<DateTime<Utc>>,
-    /// New roles that were createed with the editor
+    /// New roles that were created with the editor
     new_roles: Option<Vec<DelegatedRole>>,
 
     _extra: Option<HashMap<String, Value>>,
+
+    limits: Option<Limits>,
+
+    transport: Option<&'a T>,
 }
 
-/// A `KeyHolder` is metadata that is responsible for verifying the signatures of a role.
-/// `KeyHolder` contains
-#[derive(Debug)]
-pub enum KeyHolder {
-    /// Delegations verify delegated targets
-    Delegations(Delegations),
-    /// Root verifies the top level targets
-    Root(Root),
-}
-
-impl TargetsEditor {
+impl<'a, T: Transport> TargetsEditor<'a, T> {
     /// Creates a `TargetsEditor` for a newly created role
     pub fn new(name: &str) -> Self {
         TargetsEditor {
             key_holder: None,
-            delegations: Delegations::new(),
+            delegations: Some(Delegations::new()),
             new_targets: None,
             existing_targets: None,
             version: None,
@@ -764,17 +738,17 @@ impl TargetsEditor {
             name: name.to_string(),
             new_roles: None,
             _extra: None,
+            limits: None,
+            transport: None,
         }
     }
 
     /// Creates a `TargetsEditor` with the provided targets and keyholder
     /// `version` and `expires` are thrown out to encourage updating the version and expiration
-    pub fn from_targets(name: &str, targets: Targets, key_holder: KeyHolder) -> Result<Self> {
-        Ok(TargetsEditor {
+    pub fn from_targets(name: &str, targets: Targets, key_holder: KeyHolder) -> Self {
+        TargetsEditor {
             key_holder: Some(key_holder),
-            delegations: targets
-                .delegations
-                .ok_or_else(|| error::Error::NoDelegations)?,
+            delegations: targets.delegations,
             new_targets: None,
             existing_targets: Some(targets.targets),
             version: None,
@@ -782,7 +756,59 @@ impl TargetsEditor {
             name: name.to_string(),
             new_roles: None,
             _extra: Some(targets._extra),
+            limits: None,
+            transport: None,
+        }
+    }
+
+    /// Creates a `TargetsEditor` with the provided targets from an already loaded repo
+    /// `version` and `expires` are thrown out to encourage updating the version and expiration
+    pub fn from_repo(repo: &Repository<'a, T>, name: &str) -> Result<Self>
+    where
+        T: Transport,
+    {
+        let targets = repo
+            .delegated_role(name)
+            .context(error::DelegateNotFound {
+                name: name.to_string(),
+            })?
+            .targets
+            .as_ref()
+            .context(error::NoTargets)?
+            .signed
+            .clone();
+        let key_holder = KeyHolder::Delegations(
+            repo.targets
+                .signed
+                .parent_of(name)
+                .context(error::DelegateMissing {
+                    name: name.to_string(),
+                })?
+                .clone(),
+        );
+        Ok(TargetsEditor::<'a, T> {
+            key_holder: Some(key_holder),
+            delegations: targets.delegations,
+            new_targets: None,
+            existing_targets: Some(targets.targets),
+            version: None,
+            expires: None,
+            name: name.to_string(),
+            new_roles: None,
+            _extra: Some(targets._extra),
+            limits: Some(repo.limits),
+            transport: Some(repo.transport),
         })
+    }
+
+    /// Adds limits to the `TargetsEditor`
+    pub fn limits(&mut self, limits: Limits) {
+        self.limits = Some(limits);
+    }
+
+    /// Add a transport to the `TargetsEditor`
+    pub fn transport(&mut self, transport: &'a T) {
+        self.transport = Some(transport);
     }
 
     /// Add a `Target` to the `Targets` role
@@ -834,6 +860,18 @@ impl TargetsEditor {
         Ok(self)
     }
 
+    /// Remove a `Target` from the repository if it exists
+    pub fn remove_target(&mut self, name: &str) -> &mut Self {
+        if let Some(targets) = self.existing_targets.as_mut() {
+            targets.remove(name);
+        }
+        if let Some(targets) = self.new_targets.as_mut() {
+            targets.remove(name);
+        }
+
+        self
+    }
+
     /// Remove all targets from this repo
     pub fn clear_targets(&mut self) -> &mut Self {
         self.existing_targets
@@ -855,38 +893,162 @@ impl TargetsEditor {
         self
     }
 
-    /// Adds a key to delegations keyids
-    pub fn add_key(&mut self, keys: &[Box<dyn KeySource>]) -> &mut Self {
-        //TODO
-        self
+    /// Adds a key to delegations keyids, adds the key to `role` if it is provided
+    pub fn add_key(
+        &mut self,
+        keys: HashMap<Decoded<Hex>, Key>,
+        role: Option<&str>,
+    ) -> Result<&mut Self> {
+        let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
+        let mut keyids = Vec::new();
+        for (keyid, key) in keys {
+            // Check to see if the key is present
+            if delegations
+                .keys
+                .iter()
+                .find(|(_, candidate_key)| key.clone().eq(candidate_key))
+                .is_none()
+            {
+                // Key isn't present yet, so we need to add it
+                delegations.keys.insert(keyid.clone(), key);
+            };
+            keyids.push(keyid.clone());
+        }
+
+        // If a role was provided add keyids to the delegated role
+        if let Some(role) = role {
+            for delegated_role in &mut delegations.roles {
+                if delegated_role.name == role {
+                    delegated_role.keyids.extend(keyids.clone());
+                }
+            }
+            for delegated_role in self.new_roles.get_or_insert(Vec::new()).iter_mut() {
+                if delegated_role.name == role {
+                    delegated_role.keyids.extend(keyids.clone());
+                }
+            }
+        }
+        Ok(self)
     }
 
     /// Removes a key from delegations keyids, if a role is specified only removes it from the role
-    pub fn remove_key(&mut self, keyid: Decoded<Hex>, role: Option<&str>) -> &mut Self {
-        //TODO
-        self
+    pub fn remove_key(&mut self, keyid: &Decoded<Hex>, role: Option<&str>) -> Result<&mut Self> {
+        let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
+        delegations.keys.remove(keyid);
+        // If a role was provided remove keyid from the delegated role
+        if let Some(role) = role {
+            for delegated_role in &mut delegations.roles {
+                if delegated_role.name == role {
+                    delegated_role.keyids.retain(|key| keyid != key);
+                }
+            }
+        }
+        Ok(self)
     }
 
-    /// Delegates `paths` to `targets` adding a `DelegatedRole` to new_roles
+    /// Delegates `paths` to `targets` adding a `DelegatedRole` to `new_roles`
     pub fn delegate_role(
         &mut self,
-        targets: DelegatedTargets,
+        targets: Signed<DelegatedTargets>,
         paths: PathSet,
-        keyids: HashMap<Decoded<Hex>, Key>,
-        threshold: Option<NonZeroU64>,
-        expiration: DateTime<Utc>,
-        version: NonZeroU64,
+        key_pairs: HashMap<Decoded<Hex>, Key>,
+        keyids: Vec<Decoded<Hex>>,
+        threshold: NonZeroU64,
     ) -> Result<&mut Self> {
-        //TODO
+        self.add_key(key_pairs, None)?;
+        self.new_roles
+            .get_or_insert(Vec::new())
+            .push(DelegatedRole {
+                name: targets.signed.name,
+                paths,
+                keyids,
+                threshold,
+                terminating: false,
+                targets: Some(Signed {
+                    signed: targets.signed.targets,
+                    signatures: targets.signatures,
+                }),
+            });
         Ok(self)
     }
 
     /// Removes a role from delegations if `recursive` is `false`
     /// requires the role to be an immediate delegated role
     /// if `true` removes whichever role eventually delegated 'role'
-    pub fn remove_role(&mut self, role: &str, recursive: bool) -> &mut Self {
-        //TODO
-        self
+    pub fn remove_role(&mut self, role: &str, recursive: bool) -> Result<&mut Self> {
+        let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
+        // Keep all of the roles that are not `role`
+        delegations
+            .roles
+            .retain(|delegated_role| delegated_role.name != role);
+        if recursive {
+            // Keep all roles that do not delegate `role` down the chain of delegations
+            delegations.roles.retain(|delegated_role| {
+                if let Some(targets) = delegated_role.targets.as_ref() {
+                    targets.signed.delegated_role(role).is_err()
+                } else {
+                    true
+                }
+            });
+        }
+        Ok(self)
+    }
+
+    /// Adds a role to `new_roles`
+    pub fn add_role(
+        &mut self,
+        name: &str,
+        metadata_url: &str,
+        paths: PathSet,
+        threshold: NonZeroU64,
+        keys: Option<HashMap<Decoded<Hex>, Key>>,
+    ) -> Result<&mut Self> {
+        let limits = self.limits.context(error::MissingLimits)?;
+        let transport = self.transport.context(error::MissingTransport)?;
+
+        let metadata_base_url = parse_url(metadata_url)?;
+        // path to updated metadata
+        let role_url =
+            metadata_base_url
+                .join(&format!("{}.json", name))
+                .context(error::JoinUrl {
+                    path: name.to_string(),
+                    url: metadata_base_url,
+                })?;
+        let reader = Box::new(fetch_max_size(
+            transport,
+            role_url,
+            limits.max_targets_size,
+            "max targets limit",
+        )?);
+        // Load incoming role metadata as Signed<Targets>
+        let role: Signed<crate::schema::Targets> =
+            serde_json::from_reader(reader).context(error::ParseMetadata {
+                role: RoleType::Targets,
+            })?;
+
+        // Create `Signed<DelegatedTargets>` for the role
+        let delegated_targets = Signed {
+            signed: DelegatedTargets {
+                name: name.to_string(),
+                targets: role.signed.clone(),
+            },
+            signatures: role.signatures.clone(),
+        };
+        let (keyids, key_pairs) = if let Some(keys) = keys {
+            (keys.keys().cloned().collect(), keys)
+        } else {
+            let key_pairs = role
+                .signed
+                .delegations
+                .context(error::NoDelegations)?
+                .keys;
+            (key_pairs.keys().cloned().collect(), key_pairs)
+        };
+
+        self.delegate_role(delegated_targets, paths, key_pairs, keyids, threshold)?;
+
+        Ok(self)
     }
 
     /// Build the `Targets` struct
@@ -911,6 +1073,13 @@ impl TargetsEditor {
             targets.extend(new_targets.clone());
         }
 
+        let mut delegations = self.delegations.clone();
+        if let Some(delegations) = delegations.as_mut() {
+            if let Some(new_roles) = self.new_roles.as_ref() {
+                delegations.roles.extend(new_roles.clone());
+            }
+        }
+
         let _extra = self._extra.clone().unwrap_or_else(HashMap::new);
         Ok(DelegatedTargets {
             name: self.name.clone(),
@@ -920,8 +1089,89 @@ impl TargetsEditor {
                 expires,
                 targets,
                 _extra,
-                delegations: Some(self.delegations.clone()),
+                delegations,
             },
         })
+    }
+
+    /// Creates a `Signed<Targets>` for this role using the provided keys
+    pub fn create_signed(&self, keys: &[Box<dyn KeySource>]) -> Result<Signed<DelegatedTargets>> {
+        let rng = SystemRandom::new();
+        // create a signed role for the targets being edited
+        let targets = self.build_targets().and_then(|targets| {
+            SignedRole::new(
+                targets,
+                self.key_holder.as_ref().context(error::NoKeyHolder)?,
+                keys,
+                &rng,
+            )
+        })?;
+        Ok(targets.signed)
+    }
+
+    /// Creates a `SignedDelegatedTargets` for the Targets role being edited and all added roles
+    /// If `key_holder` was not assigned then this is a newly created role and needs to signed with a
+    /// custom delegations as its `key_holder`
+    pub fn sign(&self, keys: &[Box<dyn KeySource>]) -> Result<SignedDelegatedTargets> {
+        let rng = SystemRandom::new();
+        let mut roles = Vec::new();
+        let key_holder = if let Some(key_holder) = self.key_holder.as_ref() {
+            key_holder.clone()
+        } else {
+            // There isn't a KeyHolder, so create one based on the provided keys
+            let mut temp_delegations = Delegations::new();
+            // First create the tuf key pairs and keyids
+            let mut keyids = Vec::new();
+            let mut key_pairs = HashMap::new();
+            for source in keys {
+                let key_pair = source
+                    .as_sign()
+                    .context(error::KeyPairFromKeySource)?
+                    .tuf_key();
+                key_pairs.insert(
+                    key_pair
+                        .key_id()
+                        .context(error::JsonSerialization {})?
+                        .clone(),
+                    key_pair.clone(),
+                );
+                keyids.push(
+                    key_pair
+                        .key_id()
+                        .context(error::JsonSerialization {})?
+                        .clone(),
+                );
+            }
+            // Then add the keys to the new delegations keys
+            temp_delegations.keys = key_pairs;
+            // Now create a DelegatedRole for the new role
+            temp_delegations.roles.push(DelegatedRole {
+                name: self.name.clone(),
+                threshold: NonZeroU64::new(1).unwrap(),
+                paths: PathSet::Paths([].to_vec()),
+                terminating: false,
+                keyids,
+                targets: None,
+            });
+            KeyHolder::Delegations(temp_delegations)
+        };
+
+        // create a signed role for the targets we are editing
+        let signed_targets = self
+            .build_targets()
+            .and_then(|targets| SignedRole::new(targets, &key_holder, keys, &rng))?;
+        roles.push(signed_targets);
+        // create signed roles for any role metadata we added to this targets
+        if let Some(new_roles) = &self.new_roles {
+            for role in new_roles {
+                roles.push(SignedRole::from_signed(
+                    role.clone()
+                        .to_signed_delegated_targets()
+                        .ok_or_else(|| error::Error::NoTargets)?,
+                )?)
+            }
+        }
+
+        Ok(SignedDelegatedTargets { roles })
     }
 }

@@ -5,16 +5,17 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tempfile::tempdir;
-use tough::editor::RepositoryEditor;
+use tough::editor::{RepositoryEditor, TargetsEditor};
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
 use tough::schema::PathSet;
+use tough::Transport;
 use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
@@ -35,11 +36,11 @@ pub(crate) struct AddRoleArgs {
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[structopt(short = "e", long = "expires", parse(try_from_str = parse_datetime))]
-    expires: Option<DateTime<Utc>>,
+    expires: DateTime<Utc>,
 
     /// Version of targets.json file
     #[structopt(short = "v", long = "version")]
-    version: Option<NonZeroU64>,
+    version: NonZeroU64,
 
     /// Path to root.json file for the repository
     #[structopt(short = "r", long = "root")]
@@ -55,7 +56,7 @@ pub(crate) struct AddRoleArgs {
 
     /// threshold of signatures to sign delegatee
     #[structopt(short = "t", long = "threshold")]
-    threshold: Option<NonZeroU64>,
+    threshold: NonZeroU64,
 
     /// The directory where the repository will be written
     #[structopt(short = "o", long = "outdir")]
@@ -72,6 +73,22 @@ pub(crate) struct AddRoleArgs {
     /// Determins if entire repo should be signed
     #[structopt(long = "sign-all")]
     sign_all: bool,
+
+    /// Version of snapshot.json file
+    #[structopt(long = "snapshot-version")]
+    snapshot_version: Option<NonZeroU64>,
+    /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[structopt(long = "snapshot-expires", parse(try_from_str = parse_datetime))]
+    snapshot_expires: Option<DateTime<Utc>>,
+
+    /// Version of timestamp.json file
+    #[structopt(long = "timestamp-version")]
+    timestamp_version: Option<NonZeroU64>,
+    /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[structopt(long = "timestamp-expires", parse(try_from_str = parse_datetime))]
+    timestamp_expires: Option<DateTime<Utc>>,
 }
 
 impl AddRoleArgs {
@@ -87,7 +104,57 @@ impl AddRoleArgs {
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         };
+        // if sign_all use Repository Editor to sign the entire repo if not use targets editor
+        if self.sign_all {
+            // Load the `Repository` into the `RepositoryEditor`
+            // Loading a `Repository` with different `Transport`s results in
+            // different types. This is why we can't assign the `Repository`
+            // to a variable with the if statement.
+            if self.metadata_base_url.scheme() == "file" {
+                let repository =
+                    Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+                self.with_repo_editor(
+                    RepositoryEditor::from_repo(&self.root, repository)
+                        .context(error::EditorFromRepo { path: &self.root })?,
+                )?;
+            } else {
+                let transport = HttpTransport::new();
+                let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+                self.with_repo_editor(
+                    RepositoryEditor::from_repo(&self.root, repository)
+                        .context(error::EditorFromRepo { path: &self.root })?,
+                )?;
+            }
+        } else {
+            // Load the `Repository` into the `TargetsEditor`
+            // Loading a `Repository` with different `Transport`s results in
+            // different types. This is why we can't assign the `Repository`
+            // to a variable with the if statement.
+            if self.metadata_base_url.scheme() == "file" {
+                let repository =
+                    Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+                self.with_targets_editor(
+                    TargetsEditor::from_repo(&repository, &self.role)
+                        .context(error::EditorFromRepo { path: &self.root })?,
+                )?;
+            } else {
+                let transport = HttpTransport::new();
+                let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+                self.with_targets_editor(
+                    TargetsEditor::from_repo(&repository, &self.role)
+                        .context(error::EditorFromRepo { path: &self.root })?,
+                )?;
+            }
+        }
 
+        Ok(())
+    }
+
+    /// Adds a role to metadata using targets Editor
+    fn with_targets_editor<T>(&self, mut editor: TargetsEditor<'_, T>) -> Result<()>
+    where
+        T: Transport,
+    {
         let paths = if let Some(paths) = &self.paths {
             PathSet::Paths(paths.clone())
         } else if let Some(path_hash_prefixes) = &self.path_hash_prefixes {
@@ -96,90 +163,86 @@ impl AddRoleArgs {
             // Should warn that no paths are being delegated
             PathSet::Paths(Vec::new())
         };
-        // Load the `Repository` into the `RepositoryEditor`
-        // Loading a `Repository` with different `Transport`s results in
-        // different types. This is why we can't assign the `Repository`
-        // to a variable with the if statement.
-        let editor = if self.metadata_base_url.scheme() == "file" {
-            let mut repository =
-                Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
-            // Add incoming role metadata
-            repository
-                .load_add_delegated_role(
-                    &self.delegatee,
-                    &self.role,
-                    paths,
-                    *self
-                        .threshold
-                        .as_ref()
-                        .unwrap_or(&NonZeroU64::new(1).unwrap()),
-                    self.indir.as_str(),
-                    self.version,
-                )
-                .context(error::LoadMetadata)?;
-            RepositoryEditor::from_repo(&self.root, repository)
-        } else {
-            let transport = HttpTransport::new();
-            let mut repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
-            // Add incoming role metadata
-            repository
-                .load_add_delegated_role(
-                    &self.delegatee,
-                    &self.role,
-                    paths,
-                    *self
-                        .threshold
-                        .as_ref()
-                        .unwrap_or(&NonZeroU64::new(1).unwrap()),
-                    self.indir.as_str(),
-                    self.version,
-                )
-                .context(error::LoadMetadata)?;
-            RepositoryEditor::from_repo(&self.root, repository)
-        }
-        .context(error::EditorFromRepo { path: &self.root })?;
-
-        // if sign-all is included sign and write entire repo
-        if self.sign_all {
-            let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
-            let metadata_dir = &self.outdir.join("metadata");
-            signed_repo.write(metadata_dir).context(error::WriteRepo {
-                directory: metadata_dir,
-            })?;
-
-            return Ok(());
-        }
-        // if not, write new roles to outdir
-        // sign the updated role and recieve SignedRole for the new role
-        let mut roles = editor
-            .sign_delegated_roles(
-                &self.keys,
-                [self.role.as_str(), self.delegatee.as_str()].to_vec(),
+        let updated_role = editor
+            .add_role(
+                &self.delegatee,
+                self.indir.as_str(),
+                paths,
+                self.threshold,
+                None,
             )
-            .context(error::SignRoles {
-                roles: [self.role.clone()].to_vec(),
+            .context(error::LoadMetadata)?
+            .version(self.version)
+            .expires(self.expires)
+            .sign(&self.keys)
+            .context(error::SignRepo)?;
+        let metadata_destination_out = &self.outdir.join("metadata");
+        updated_role
+            .write(metadata_destination_out, false)
+            .context(error::WriteRoles {
+                roles: [self.delegatee.clone(), self.role.clone()].to_vec(),
             })?;
 
-        let metadata_destination_out = &self.outdir.join("metadata");
-        // write the delegator role to outdir
-        roles
-            .remove(&self.role)
-            .ok_or_else(|| error::Error::SignRolesRemove {
-                roles: [self.role.clone()].to_vec(),
-            })?
-            .write(&metadata_destination_out, false)
-            .context(error::WriteRoles {
-                roles: [self.role.clone()].to_vec(),
+        Ok(())
+    }
+
+    /// Adds a role to metadata using repo Editor
+    fn with_repo_editor<T>(&self, mut editor: RepositoryEditor<'_, T>) -> Result<()>
+    where
+        T: Transport,
+    {
+        // Since we are using repo editor we will sign snapshot and timestamp
+        // Check to make sure all versions and expirations are present
+        let snapshot_version = self.snapshot_version.context(error::Missing {
+            what: "snapshot version".to_string(),
+        })?;
+        let snapshot_expires = self.snapshot_expires.context(error::Missing {
+            what: "snapshot expires".to_string(),
+        })?;
+        let timestamp_version = self.timestamp_version.context(error::Missing {
+            what: "timestamp version".to_string(),
+        })?;
+        let timestamp_expires = self.timestamp_expires.context(error::Missing {
+            what: "timestamp expires".to_string(),
+        })?;
+        let paths = if let Some(paths) = &self.paths {
+            PathSet::Paths(paths.clone())
+        } else if let Some(path_hash_prefixes) = &self.path_hash_prefixes {
+            PathSet::PathHashPrefixes(path_hash_prefixes.clone())
+        } else {
+            // Should warn that no paths are being delegated
+            PathSet::Paths(Vec::new())
+        };
+        // change editor's targets to role
+        editor
+            .change_targets(&self.role, None)
+            .context(error::DelegateeNotFound {
+                role: self.role.clone(),
             })?;
-        // write delegatee metadata to outdir
-        roles
-            .remove(&self.delegatee)
-            .ok_or_else(|| error::Error::SignRolesRemove {
-                roles: [self.delegatee.clone()].to_vec(),
-            })?
-            .write(&metadata_destination_out, false)
+        editor
+            .add_role(
+                &self.delegatee,
+                self.indir.as_str(),
+                paths,
+                self.threshold,
+                None,
+            )
+            .context(error::LoadMetadata)?
+            .targets_version(self.version)
+            .context(error::DelegationStructure)?
+            .targets_expires(self.expires)
+            .context(error::DelegationStructure)?
+            .snapshot_version(snapshot_version)
+            .snapshot_expires(snapshot_expires)
+            .timestamp_version(timestamp_version)
+            .timestamp_expires(timestamp_expires);
+
+        let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
+        let metadata_destination_out = &self.outdir.join("metadata");
+        signed_repo
+            .write(metadata_destination_out)
             .context(error::WriteRoles {
-                roles: [self.delegatee.clone()].to_vec(),
+                roles: [self.delegatee.clone(), self.role.clone()].to_vec(),
             })?;
 
         Ok(())

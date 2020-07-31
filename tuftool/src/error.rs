@@ -193,6 +193,9 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Missing: {}", what))]
+    Missing { what: String, backtrace: Backtrace },
+
     #[snafu(display("Unable to determine file name from path: '{}'", path.display()))]
     NoFileName { path: PathBuf, backtrace: Backtrace },
 

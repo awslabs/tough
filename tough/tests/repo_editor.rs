@@ -5,6 +5,7 @@ use crate::test_utils::{dir_url, read_to_end, test_data};
 use chrono::{Duration, Utc};
 use ring::rand::SystemRandom;
 use ring::signature;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::Write;
 use std::io::Read;
@@ -12,8 +13,12 @@ use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use tough::editor::signed::PathExists;
-use tough::editor::RepositoryEditor;
+use tough::editor::{RepositoryEditor, TargetsEditor};
+use tough::key_source::KeySource;
 use tough::key_source::LocalKeySource;
+use tough::schema::decoded::Decoded;
+use tough::schema::decoded::Hex;
+use tough::schema::key::Key;
 use tough::schema::PathSet;
 use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings};
 
@@ -79,7 +84,7 @@ fn load_tuf_reference_impl<'a>(paths: &'a mut RepoPaths) -> Repository<'a, Files
     .unwrap()
 }
 
-fn test_repo_editor() -> RepositoryEditor {
+fn test_repo_editor() -> RepositoryEditor<'static, FilesystemTransport> {
     let root = root_path();
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
@@ -93,7 +98,9 @@ fn test_repo_editor() -> RepositoryEditor {
     let mut editor = RepositoryEditor::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
+        .unwrap()
         .targets_version(targets_version)
+        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -101,6 +108,15 @@ fn test_repo_editor() -> RepositoryEditor {
         .add_target_paths(target_list)
         .unwrap();
     editor
+}
+
+fn key_hash_map(keys: &[Box<dyn KeySource>]) -> HashMap<Decoded<Hex>, Key> {
+    let mut key_pairs = HashMap::new();
+    for source in keys {
+        let key_pair = source.as_sign().unwrap().tuf_key();
+        key_pairs.insert(key_pair.key_id().unwrap().clone(), key_pair.clone());
+    }
+    key_pairs
 }
 
 // Test a RepositoryEditor can be created from an existing Repo
@@ -118,8 +134,6 @@ fn repository_editor_from_repository() {
 #[test]
 fn create_sign_write_reload_repo() {
     let root = root_path();
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
     let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
@@ -131,10 +145,12 @@ fn create_sign_write_reload_repo() {
 
     let create_dir = TempDir::new().unwrap();
 
-    let mut editor = RepositoryEditor::new(&root).unwrap();
+    let mut editor = RepositoryEditor::<FilesystemTransport>::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
+        .unwrap()
         .targets_version(targets_version)
+        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -142,77 +158,70 @@ fn create_sign_write_reload_repo() {
         .add_target_paths(target_list)
         .unwrap();
 
-    //add delegations
+    let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource { path: key_path() })];
+    let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path(),
+        })];
+    let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path1(),
+        })];
+
+    // add role1 to targets
     editor
         .delegate_role(
-            "targets",
             "role1",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
+            role1_key,
             PathSet::Paths(["file?.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .unwrap();
+    // switch repo owner to role1
     editor
-        .add_target_paths_to_role(
-            [targets_path().join("file1.txt").to_str().unwrap()].to_vec(),
-            "role1",
-        )
-        .unwrap();
-
-    editor
+        .change_targets("role1", Some(targets_key))
+        .unwrap()
+        .add_target_paths([targets_path().join("file1.txt").to_str().unwrap()].to_vec())
+        .unwrap()
         .delegate_role(
-            "role1",
             "role2",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
+            role2_key,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
-        .unwrap();
-
-    editor
+        .unwrap()
         .delegate_role(
-            "role1",
             "role3",
-            None,
+            role1_key,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .unwrap();
     editor
+        .targets_version(targets_version)
+        .unwrap()
+        .targets_expires(targets_expiration)
+        .unwrap()
+        .change_targets("targets", Some(role1_key))
+        .unwrap()
         .delegate_role(
-            "targets",
             "role4",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            })]),
+            role2_key,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .unwrap();
 
-    let signed_repo = editor
-        .sign(&[
-            Box::new(key_source),
-            Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            }),
-            Box::new(LocalKeySource {
-                path: targets_key_path(),
-            }),
-        ])
-        .unwrap();
+    let signed_repo = editor.sign(targets_key).unwrap();
 
     let metadata_destination = create_dir.path().join("metadata");
     let targets_destination = create_dir.path().join("targets");
@@ -242,8 +251,6 @@ fn create_sign_write_reload_repo() {
 #[test]
 fn partial_sign() {
     let root = root_path();
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
     let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
@@ -253,12 +260,25 @@ fn partial_sign() {
     let target3 = targets_path().join("file3.txt");
     let target_list = vec![target3];
 
+    let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource { path: key_path() })];
+    let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path(),
+        })];
+    let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path1(),
+        })];
+
     let create_dir = TempDir::new().unwrap();
 
-    let mut editor = RepositoryEditor::new(&root).unwrap();
+    let mut editor = RepositoryEditor::<FilesystemTransport>::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
+        .unwrap()
         .targets_version(targets_version)
+        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -269,75 +289,62 @@ fn partial_sign() {
     //add delegations
     editor
         .delegate_role(
-            "targets",
             "role1",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
+            role1_key,
             PathSet::Paths(["file?.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .unwrap();
     editor
-        .add_target_paths_to_role(
-            [targets_path().join("file1.txt").to_str().unwrap()].to_vec(),
-            "role1",
-        )
-        .unwrap();
-
-    editor
+        .change_targets("role1", Some(targets_key))
+        .unwrap()
+        .add_target_paths([targets_path().join("file1.txt").to_str().unwrap()].to_vec())
+        .unwrap()
         .delegate_role(
-            "role1",
             "role2",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
+            role2_key,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
-        .unwrap();
-
-    editor
+        .unwrap()
         .delegate_role(
-            "role1",
             "role3",
-            None,
+            role1_key,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .unwrap();
     editor
+        .targets_version(targets_version)
+        .unwrap()
+        .targets_expires(targets_expiration)
+        .unwrap()
+        .change_targets("role3", Some(role1_key))
+        .unwrap()
         .delegate_role(
-            "role3",
             "role4",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            })]),
+            role2_key,
             PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
+            NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
+        .unwrap()
+        .targets_version(targets_version)
+        .unwrap()
+        .targets_expires(targets_expiration)
+        .unwrap()
+        .sign_targets_editor(role1_key)
         .unwrap();
 
     //sign the new repo
-    let signed_repo = editor
-        .sign(&[
-            Box::new(key_source),
-            Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            }),
-            Box::new(LocalKeySource {
-                path: targets_key_path(),
-            }),
-        ])
-        .unwrap();
+    let signed_repo = editor.sign(targets_key).unwrap();
 
     let metadata_destination = create_dir.path().join("metadata");
     let targets_destination = create_dir.path().join("targets");
@@ -367,7 +374,9 @@ fn partial_sign() {
 
     editor
         .targets_expires(targets_expiration)
+        .unwrap()
         .targets_version(targets_version)
+        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -375,10 +384,9 @@ fn partial_sign() {
 
     //edit role 4
     assert!(editor
-        .add_target_paths_to_role(
-            [targets_path().join("file2.txt").to_str().unwrap()].to_vec(),
-            "role4"
-        )
+        .change_targets("role4", Some(targets_key))
+        .unwrap()
+        .add_target_path(targets_path().join("file2.txt").to_str().unwrap())
         .is_ok());
 
     //re-sign repo without key for roles 1,2,3
@@ -406,163 +414,6 @@ fn partial_sign() {
         },
     )
     .is_ok());
-}
-
-//Make sure not including a key for a changed role breaks
-#[test]
-fn partial_invalid_sign() {
-    let root = root_path();
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
-    let timestamp_version = NonZeroU64::new(1234).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
-    let snapshot_version = NonZeroU64::new(5432).unwrap();
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
-    let targets_version = NonZeroU64::new(789).unwrap();
-    let target3 = targets_path().join("file3.txt");
-    let target_list = vec![target3];
-
-    let create_dir = TempDir::new().unwrap();
-
-    let mut editor = RepositoryEditor::new(&root).unwrap();
-    editor
-        .targets_expires(targets_expiration)
-        .targets_version(targets_version)
-        .snapshot_expires(snapshot_expiration)
-        .snapshot_version(snapshot_version)
-        .timestamp_expires(timestamp_expiration)
-        .timestamp_version(timestamp_version)
-        .add_target_paths(target_list)
-        .unwrap();
-
-    //add delegations
-    editor
-        .delegate_role(
-            "targets",
-            "role1",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
-            PathSet::Paths(["file?.txt".to_string()].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
-        .unwrap();
-    editor
-        .add_target_paths_to_role(
-            [targets_path().join("file1.txt").to_str().unwrap()].to_vec(),
-            "role1",
-        )
-        .unwrap();
-
-    editor
-        .delegate_role(
-            "role1",
-            "role2",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
-            PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
-        .unwrap();
-
-    editor
-        .delegate_role(
-            "role1",
-            "role3",
-            None,
-            PathSet::Paths(["file1.txt".to_string()].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
-        .unwrap();
-    editor
-        .delegate_role(
-            "targets",
-            "role4",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            })]),
-            PathSet::Paths(["file?.txt".to_string()].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
-        .unwrap();
-
-    //sign the new repo
-    let signed_repo = editor
-        .sign(&[
-            Box::new(key_source),
-            Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            }),
-            Box::new(LocalKeySource {
-                path: targets_key_path(),
-            }),
-        ])
-        .unwrap();
-
-    let metadata_destination = create_dir.path().join("metadata");
-    let targets_destination = create_dir.path().join("targets");
-
-    signed_repo.write(&metadata_destination).unwrap();
-    signed_repo
-        .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
-        .unwrap();
-    // Load the repo we just created
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
-    let new_repo = Repository::load(
-        &FilesystemTransport,
-        Settings {
-            root: File::open(&root).unwrap(),
-            datastore: &create_dir.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
-    )
-    .unwrap();
-
-    //create a new editor with the repo
-    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
-
-    editor
-        .targets_expires(targets_expiration)
-        .targets_version(targets_version)
-        .snapshot_expires(snapshot_expiration)
-        .snapshot_version(snapshot_version)
-        .timestamp_expires(timestamp_expiration)
-        .timestamp_version(timestamp_version);
-
-    //edit role 4
-    assert!(editor
-        .add_target_paths_to_role(
-            [targets_path().join("file2.txt").to_str().unwrap()].to_vec(),
-            "role4"
-        )
-        .is_ok());
-
-    //re-sign repo with only key for roles 1,2,3 role4 was altered, so the repo should not be signed
-    if editor
-        .sign(&[
-            Box::new(LocalKeySource {
-                path: targets_key_path(),
-            }),
-            Box::new(LocalKeySource { path: key_path() }),
-        ])
-        .is_ok()
-    {
-        assert!(false);
-    }
 }
 
 // Load a repository, edit it, and write it to disk. Ensure it loads correctly
@@ -600,12 +451,15 @@ fn repo_load_edit_write_load() {
     // implementation of `SignedRepository.link_targets()`.
     editor
         .targets_expires(targets_expiration)
+        .unwrap()
         .targets_version(targets_version)
+        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
         .timestamp_version(timestamp_version)
         .clear_targets()
+        .unwrap()
         .add_target_path(target3)
         .unwrap()
         .add_target_path(target4)
@@ -684,20 +538,41 @@ fn gen_and_store_ed25519_keys() {
 }
 
 #[test]
-/// Delegtes role from Targets to A and then A to B
+/// Delegates role from Targets to A and then A to B
 fn create_role_flow() {
     let editor = test_repo_editor();
+
+    let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource { path: key_path() })];
+    let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path(),
+        })];
+    let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path1(),
+        })];
 
     // write the repo to temp location
     let repodir = TempDir::new().unwrap();
     let metadata_destination = repodir.as_ref().join("metadata");
     let targets_destination = repodir.as_ref().join("targets");
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
-    let signed = editor.sign(&[Box::new(key_source)]).unwrap();
+    let signed = editor.sign(targets_key).unwrap();
     signed.write(&metadata_destination).unwrap();
 
-    //reload the repo
+    // create new delegated target as "A" and sign with role1_key
+    let new_role = TargetsEditor::<FilesystemTransport>::new("A")
+        .version(NonZeroU64::new(1).unwrap())
+        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .sign(role1_key)
+        .unwrap();
+
+    // write the role to outdir
+    let outdir = TempDir::new().unwrap();
+    let metadata_destination_out = outdir.as_ref().join("metadata");
+    new_role.write(&metadata_destination_out, false).unwrap();
+
+    // reload repo
     let root = root_path();
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
@@ -715,75 +590,19 @@ fn create_role_flow() {
     )
     .unwrap();
 
-    //create a new editor with the repo
-    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
-
-    // create new delegated target as "A"
-    editor
-        .delegate_role(
-            "targets",
-            "A",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
-            PathSet::Paths(["main/*".to_string()].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
-        .unwrap();
-
-    // sign the role
-    let role = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })],
-            ["A"].to_vec(),
-        )
-        .unwrap()
-        .remove("A")
-        .unwrap();
-
-    // write the role to outdir
-    let outdir = TempDir::new().unwrap();
-    let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write(&metadata_destination_out, false).unwrap();
-
-    // reload repo
-    let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
-        &FilesystemTransport,
-        Settings {
-            root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
-    )
-    .unwrap();
-
     let metadata_base_url_out = dir_url(&metadata_destination_out);
     // add outdir to repo
-    new_repo
-        .load_add_delegated_role(
-            "A",
-            "targets",
-            PathSet::Paths(["main/*".to_string()].to_vec()),
-            NonZeroU64::new(1).unwrap(),
-            metadata_base_url_out.as_str(),
-            None,
-        )
-        .unwrap();
-    assert!(new_repo.delegated_role("A").is_some());
-
     //create a new editor with the repo
     let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    editor
+        .add_role(
+            "A",
+            metadata_base_url_out.as_str(),
+            PathSet::Paths(["*.txt".to_string()].to_vec()),
+            NonZeroU64::new(1).unwrap(),
+            Some(key_hash_map(role1_key)),
+        )
+        .unwrap();
 
     //sign everything since targets key is the same as snapshot and timestamp
     let root_key = key_path();
@@ -796,7 +615,9 @@ fn create_role_flow() {
     let targets_version = NonZeroU64::new(789).unwrap();
     editor
         .targets_expires(targets_expiration)
+        .unwrap()
         .targets_version(targets_version)
+        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -830,47 +651,24 @@ fn create_role_flow() {
     new_repo.delegated_role("A").unwrap();
 
     // Delegate from A to B
-    //create a new editor with the repo
-    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
 
-    // create new delegated target as "B" from "A"
-    editor
-        .delegate_role(
-            "A",
-            "B",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            })]),
-            PathSet::Paths([].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
+    // create new delegated target as "B" and sign with role2_key
+    let new_role = TargetsEditor::<FilesystemTransport>::new("B")
+        .version(NonZeroU64::new(1).unwrap())
+        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .sign(role2_key)
         .unwrap();
-
-    // sign the role
-    let role = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            })],
-            ["B"].to_vec(),
-        )
-        .unwrap()
-        .remove("B")
-        .unwrap();
-
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write(&metadata_destination_out, false).unwrap();
+    new_role.write(&metadata_destination_out, false).unwrap();
 
     // reload repo
     let root = root_path();
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
     let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
+    let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
@@ -884,44 +682,30 @@ fn create_role_flow() {
     .unwrap();
 
     let metadata_base_url_out = dir_url(&metadata_destination_out);
-    // add outdir to repo
-    new_repo
-        .load_add_delegated_role(
-            "B",
-            "A",
-            PathSet::Paths(["main/file?.txt".to_string()].to_vec()),
-            NonZeroU64::new(1).unwrap(),
-            metadata_base_url_out.as_str(),
-            None,
-        )
-        .unwrap();
-    assert!(new_repo.delegated_role("B").is_some());
-    assert!(new_repo.delegated_role("A").is_some());
 
     // create a new editor with the repo
-    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
+
+    // add B metadata to role A (without resigning targets)
+    editor
+        .add_role(
+            "B",
+            metadata_base_url_out.as_str(),
+            PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            NonZeroU64::new(1).unwrap(),
+            Some(key_hash_map(role2_key)),
+        )
+        .unwrap()
+        .version(NonZeroU64::new(1).unwrap())
+        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
 
     // sign A and write A and B metadata to output directory
-    let mut roles = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })],
-            ["A", "B"].to_vec(),
-        )
-        .unwrap();
+    let signed_roles = editor.sign(role1_key).unwrap();
 
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    roles
-        .remove("A")
-        .unwrap()
-        .write(&metadata_destination_out, false)
-        .unwrap();
-    roles
-        .remove("B")
-        .unwrap()
+    signed_roles
         .write(&metadata_destination_out, false)
         .unwrap();
 
@@ -931,7 +715,7 @@ fn create_role_flow() {
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
     let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
+    let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
@@ -946,16 +730,19 @@ fn create_role_flow() {
 
     let metadata_base_url_out = dir_url(&metadata_destination_out);
     // add outdir to repo
-    new_repo
-        .load_update_delegated_role("A", metadata_base_url_out.as_str())
-        .unwrap();
-    assert!(new_repo.delegated_role("B").is_some());
-
-    // update snapshot
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
 
-    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    editor
+        .update_delegated_targets("A", metadata_base_url_out.as_str())
+        .unwrap();
+    editor
+        .snapshot_version(NonZeroU64::new(1).unwrap())
+        .snapshot_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .timestamp_version(NonZeroU64::new(1).unwrap())
+        .timestamp_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
+
     let signed_refreshed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
 
     // write repo
@@ -993,19 +780,39 @@ fn create_role_flow() {
 /// Delegtes role from Targets to A and then A to B
 fn update_targets_flow() {
     // The beginning of this creates a repo with Target -> A ('*.txt') -> B ('file?.txt')
-
     let editor = test_repo_editor();
+
+    let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource { path: key_path() })];
+    let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path(),
+        })];
+    let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+        &[Box::new(LocalKeySource {
+            path: targets_key_path1(),
+        })];
 
     // write the repo to temp location
     let repodir = TempDir::new().unwrap();
     let metadata_destination = repodir.as_ref().join("metadata");
     let targets_destination = repodir.as_ref().join("targets");
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
-    let signed = editor.sign(&[Box::new(key_source)]).unwrap();
+    let signed = editor.sign(targets_key).unwrap();
     signed.write(&metadata_destination).unwrap();
 
-    //reload the repo
+    // create new delegated target as "A" and sign with role1_key
+    let new_role = TargetsEditor::<FilesystemTransport>::new("A")
+        .version(NonZeroU64::new(1).unwrap())
+        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .sign(role1_key)
+        .unwrap();
+
+    // write the role to outdir
+    let outdir = TempDir::new().unwrap();
+    let metadata_destination_out = outdir.as_ref().join("metadata");
+    new_role.write(&metadata_destination_out, false).unwrap();
+
+    // reload repo
     let root = root_path();
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
@@ -1023,75 +830,19 @@ fn update_targets_flow() {
     )
     .unwrap();
 
-    //create a new editor with the repo
-    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
-
-    // create new delegated target as "A"
-    editor
-        .delegate_role(
-            "targets",
-            "A",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })]),
-            PathSet::Paths(["main/*".to_string()].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
-        .unwrap();
-
-    // sign the role
-    let role = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })],
-            ["A"].to_vec(),
-        )
-        .unwrap()
-        .remove("A")
-        .unwrap();
-
-    // write the role to outdir
-    let outdir = TempDir::new().unwrap();
-    let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write(&metadata_destination_out, false).unwrap();
-
-    // reload repo
-    let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
-        &FilesystemTransport,
-        Settings {
-            root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
-    )
-    .unwrap();
-
     let metadata_base_url_out = dir_url(&metadata_destination_out);
     // add outdir to repo
-    new_repo
-        .load_add_delegated_role(
-            "A",
-            "targets",
-            PathSet::Paths(["*.txt".to_string()].to_vec()),
-            NonZeroU64::new(1).unwrap(),
-            metadata_base_url_out.as_str(),
-            None,
-        )
-        .unwrap();
-    assert!(new_repo.delegated_role("A").is_some());
-
     //create a new editor with the repo
     let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    editor
+        .add_role(
+            "A",
+            metadata_base_url_out.as_str(),
+            PathSet::Paths(["*.txt".to_string()].to_vec()),
+            NonZeroU64::new(1).unwrap(),
+            Some(key_hash_map(role1_key)),
+        )
+        .unwrap();
 
     //sign everything since targets key is the same as snapshot and timestamp
     let root_key = key_path();
@@ -1104,7 +855,9 @@ fn update_targets_flow() {
     let targets_version = NonZeroU64::new(789).unwrap();
     editor
         .targets_expires(targets_expiration)
+        .unwrap()
         .targets_version(targets_version)
+        .unwrap()
         .snapshot_expires(snapshot_expiration)
         .snapshot_version(snapshot_version)
         .timestamp_expires(timestamp_expiration)
@@ -1138,47 +891,24 @@ fn update_targets_flow() {
     new_repo.delegated_role("A").unwrap();
 
     // Delegate from A to B
-    //create a new editor with the repo
-    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
 
-    // create new delegated target as "B" from "A"
-    editor
-        .delegate_role(
-            "A",
-            "B",
-            Some(&[Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            })]),
-            PathSet::Paths([].to_vec()),
-            None,
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
-            NonZeroU64::new(1).unwrap(),
-        )
+    // create new delegated target as "B" and sign with role2_key
+    let new_role = TargetsEditor::<FilesystemTransport>::new("B")
+        .version(NonZeroU64::new(1).unwrap())
+        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .sign(role2_key)
         .unwrap();
-
-    // sign the role
-    let role = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path1(),
-            })],
-            ["B"].to_vec(),
-        )
-        .unwrap()
-        .remove("B")
-        .unwrap();
-
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    role.write(&metadata_destination_out, false).unwrap();
+    new_role.write(&metadata_destination_out, false).unwrap();
 
     // reload repo
     let root = root_path();
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
     let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
+    let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
@@ -1192,44 +922,30 @@ fn update_targets_flow() {
     .unwrap();
 
     let metadata_base_url_out = dir_url(&metadata_destination_out);
-    // add outdir to repo
-    new_repo
-        .load_add_delegated_role(
-            "B",
-            "A",
-            PathSet::Paths(["file?.txt".to_string()].to_vec()),
-            NonZeroU64::new(1).unwrap(),
-            metadata_base_url_out.as_str(),
-            None,
-        )
-        .unwrap();
-    assert!(new_repo.delegated_role("B").is_some());
-    assert!(new_repo.delegated_role("A").is_some());
 
     // create a new editor with the repo
-    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
+
+    // add B metadata to role A (without resigning targets)
+    editor
+        .add_role(
+            "B",
+            metadata_base_url_out.as_str(),
+            PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            NonZeroU64::new(1).unwrap(),
+            Some(key_hash_map(role2_key)),
+        )
+        .unwrap()
+        .version(NonZeroU64::new(1).unwrap())
+        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
 
     // sign A and write A and B metadata to output directory
-    let mut roles = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })],
-            ["A", "B"].to_vec(),
-        )
-        .unwrap();
+    let signed_roles = editor.sign(role1_key).unwrap();
 
     // write the role to outdir
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
-    roles
-        .remove("A")
-        .unwrap()
-        .write(&metadata_destination_out, false)
-        .unwrap();
-    roles
-        .remove("B")
-        .unwrap()
+    signed_roles
         .write(&metadata_destination_out, false)
         .unwrap();
 
@@ -1239,7 +955,7 @@ fn update_targets_flow() {
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
     let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
+    let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
@@ -1254,16 +970,19 @@ fn update_targets_flow() {
 
     let metadata_base_url_out = dir_url(&metadata_destination_out);
     // add outdir to repo
-    new_repo
-        .load_update_delegated_role("A", metadata_base_url_out.as_str())
-        .unwrap();
-    assert!(new_repo.delegated_role("B").is_some());
-
-    // update snapshot
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
 
-    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    editor
+        .update_delegated_targets("A", metadata_base_url_out.as_str())
+        .unwrap();
+    editor
+        .snapshot_version(NonZeroU64::new(1).unwrap())
+        .snapshot_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .timestamp_version(NonZeroU64::new(1).unwrap())
+        .timestamp_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
+
     let signed_refreshed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
 
     // write repo
@@ -1301,22 +1020,17 @@ fn update_targets_flow() {
     // -------------------------------------------------------
 
     // Add target file1.txt to A
-    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
     let file1 = targets_path().join("file1.txt");
     let targets = vec![file1];
-    editor.add_target_paths_to_role(targets, "A").unwrap();
+    editor
+        .add_target_paths(targets)
+        .unwrap()
+        .version(targets_version)
+        .expires(targets_expiration);
 
     // Sign A metadata
-    let role = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })],
-            ["A"].to_vec(),
-        )
-        .unwrap()
-        .remove("A")
-        .unwrap();
+    let role = editor.sign(role1_key).unwrap();
 
     let outdir = TempDir::new().unwrap();
     let metadata_destination_out = outdir.as_ref().join("metadata");
@@ -1326,13 +1040,7 @@ fn update_targets_flow() {
     role.write(&metadata_destination_out, false).unwrap();
 
     // Copy targets to outdir/targets/...
-    editor
-        .copy_targets(
-            targets_path(),
-            &targets_destination_out,
-            PathExists::Skip,
-            Some(false),
-        )
+    role.copy_targets(targets_path(), &targets_destination_out, PathExists::Skip)
         .unwrap();
 
     // Add in edited A targets and update snapshot (update-repo)
@@ -1341,7 +1049,7 @@ fn update_targets_flow() {
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
     let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
+    let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
@@ -1355,16 +1063,16 @@ fn update_targets_flow() {
     .unwrap();
 
     let metadata_base_url_out = dir_url(&metadata_destination_out);
-    new_repo
-        .load_update_delegated_role("A", &metadata_base_url_out)
-        .unwrap();
-
-    // update snapshot
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
-
-    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
-    let signed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
+    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    // update A metadata
+    editor
+        .update_delegated_targets("A", &metadata_base_url_out)
+        .unwrap()
+        .snapshot_version(snapshot_version)
+        .snapshot_expires(snapshot_expiration)
+        .timestamp_version(timestamp_version)
+        .timestamp_expires(timestamp_expiration);
+    let signed_repo = editor.sign(targets_key).unwrap();
 
     // write signed repo
     let end_repo = TempDir::new().unwrap();
@@ -1405,26 +1113,21 @@ fn update_targets_flow() {
     );
 
     // Edit target "file1.txt"
-    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
     File::create(targets_destination_out.join("file1.txt"))
         .unwrap()
         .write_all(b"Updated file1.txt")
         .unwrap();
     let file1 = targets_destination_out.join("file1.txt");
     let targets = vec![file1];
-    editor.add_target_paths_to_role(targets, "A").unwrap();
+    editor
+        .add_target_paths(targets)
+        .unwrap()
+        .version(targets_version)
+        .expires(targets_expiration);
 
     // Sign A metadata
-    let role = editor
-        .sign_delegated_roles(
-            &[Box::new(LocalKeySource {
-                path: targets_key_path(),
-            })],
-            ["A"].to_vec(),
-        )
-        .unwrap()
-        .remove("A")
-        .unwrap();
+    let role = editor.sign(role1_key).unwrap();
 
     let outdir = TempDir::new().unwrap();
     let metadata_destination_output = outdir.as_ref().join("metadata");
@@ -1434,14 +1137,12 @@ fn update_targets_flow() {
     role.write(&metadata_destination_output, false).unwrap();
 
     // Copy targets to outdir/targets/...
-    editor
-        .link_targets(
-            &targets_destination_out,
-            &targets_destination_output,
-            PathExists::Skip,
-            Some(false),
-        )
-        .unwrap();
+    role.link_targets(
+        &targets_destination_out,
+        &targets_destination_output,
+        PathExists::Skip,
+    )
+    .unwrap();
 
     // Add in edited A targets and update snapshot (update-repo)
     // load repo
@@ -1449,7 +1150,7 @@ fn update_targets_flow() {
     let datastore = TempDir::new().unwrap();
     let metadata_base_url = dir_url(&metadata_destination);
     let targets_base_url = dir_url(&targets_destination);
-    let mut new_repo = Repository::load(
+    let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
@@ -1464,16 +1165,16 @@ fn update_targets_flow() {
 
     let metadata_base_url_out = dir_url(&metadata_destination_output);
     let _targets_base_url_out = dir_url(&targets_destination_output);
-    new_repo
-        .load_update_delegated_role("A", &metadata_base_url_out)
-        .unwrap();
-
-    // update snapshot
-    let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
-
-    let editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
-    let signed_repo = editor.sign(&[Box::new(key_source)]).unwrap();
+    let mut editor = RepositoryEditor::from_repo(root_path(), new_repo).unwrap();
+    // add in updated metadata
+    editor
+        .update_delegated_targets("A", &metadata_base_url_out)
+        .unwrap()
+        .snapshot_version(snapshot_version)
+        .snapshot_expires(snapshot_expiration)
+        .timestamp_version(timestamp_version)
+        .timestamp_expires(timestamp_expiration);
+    let signed_repo = editor.sign(targets_key).unwrap();
 
     // write signed repo
     let end_repo = TempDir::new().unwrap();
