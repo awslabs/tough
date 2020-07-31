@@ -10,9 +10,8 @@ pub mod key;
 mod spki;
 mod verify;
 
-pub use crate::schema::error::{Error, Result};
-
 use crate::schema::decoded::{Decoded, Hex};
+pub use crate::schema::error::{Error, Result};
 use crate::schema::iter::KeysIter;
 use crate::schema::key::Key;
 use crate::sign::Sign;
@@ -24,11 +23,12 @@ use ring::digest::{digest, Context, SHA256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_plain::{forward_display_to_serde, forward_from_str_to_serde};
-use snafu::{ensure, ResultExt};
+use snafu::ResultExt;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::num::NonZeroU64;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 /// The type of metadata role.
@@ -47,10 +47,21 @@ pub enum RoleType {
     /// The timestamp role is used to prevent an adversary from replaying an out-of-date signed
     /// metadata file whose signature has not yet expired.
     Timestamp,
+    /// A targets role that is not the top level targets
+    DelegatedTargets,
 }
 
 forward_display_to_serde!(RoleType);
 forward_from_str_to_serde!(RoleType);
+
+/// A role identifier
+#[derive(Debug, Clone)]
+pub enum RoleId {
+    /// Top level roles are identified by a RoleType
+    TopLevel(RoleType),
+    /// A delegated role is identified by a String
+    DelegatedRole(String),
+}
 
 /// Common trait implemented by all roles.
 pub trait Role: Serialize {
@@ -63,6 +74,14 @@ pub trait Role: Serialize {
     /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
     /// number less than the one currently trusted.
     fn version(&self) -> NonZeroU64;
+
+    /// The filename that the role metadata should be written to
+    fn filename(&self, consistent_snapshot: bool) -> String;
+
+    /// The `RoleId` corresponding to the role
+    fn role_id(&self) -> RoleId {
+        RoleId::TopLevel(Self::TYPE)
+    }
 
     /// A deterministic JSON serialization used when calculating the digest of a metadata object.
     /// [More info on canonical JSON](http://wiki.laptop.org/go/Canonical_JSON)
@@ -91,6 +110,16 @@ pub struct Signature {
     pub keyid: Decoded<Hex>,
     /// A hex-encoded signature of the canonical JSON form of a role.
     pub sig: Decoded<Hex>,
+}
+
+/// A `KeyHolder` is metadata that is responsible for verifying the signatures of a role.
+/// `KeyHolder` contains
+#[derive(Debug, Clone)]
+pub enum KeyHolder {
+    /// Delegations verify delegated targets
+    Delegations(Delegations),
+    /// Root verifies the top level targets, snapshot, timestamp, and root
+    Root(Root),
 }
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
@@ -196,6 +225,10 @@ impl Role for Root {
 
     fn version(&self) -> NonZeroU64 {
         self.version
+    }
+
+    fn filename(&self, _consistent_snapshot: bool) -> String {
+        format!("{}.root.json", self.version())
     }
 }
 
@@ -319,6 +352,14 @@ impl Role for Snapshot {
 
     fn version(&self) -> NonZeroU64 {
         self.version
+    }
+
+    fn filename(&self, consistent_snapshot: bool) -> String {
+        if consistent_snapshot {
+            format!("{}.snapshot.json", self.version())
+        } else {
+            "snapshot.json".to_string()
+        }
     }
 }
 
@@ -456,7 +497,7 @@ impl Targets {
             expires,
             targets: HashMap::new(),
             _extra: HashMap::new(),
-            delegations: None,
+            delegations: Some(Delegations::new()),
         }
     }
 
@@ -475,10 +516,10 @@ impl Targets {
 
     /// Given the name of a delegated role, return the delegated role
     pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
-        if let Some(delegations) = &self.delegations {
-            return delegations.delegated_role(name);
-        }
-        Err(Error::NoDelegations {})
+        self.delegations
+            .as_ref()
+            .ok_or_else(|| error::Error::NoDelegations)?
+            .delegated_role(name)
     }
 
     /// Returns an iterator of all targets delegated recursively
@@ -514,7 +555,27 @@ impl Targets {
         targets
     }
 
-    /// Returns a vec of all rolenames
+    ///Returns a hashmap of all targets and all delegated targets recursively with consistent snapshot names
+    pub fn targets_map_consistent(&self) -> HashMap<String, &Target> {
+        let mut targets = HashMap::new();
+        for target in &self.targets {
+            targets.insert(
+                format!(
+                    "{}.{}",
+                    hex::encode(&target.1.hashes.sha256),
+                    target.0.clone()
+                ),
+                target.1,
+            );
+        }
+        if let Some(delegations) = &self.delegations {
+            targets.extend(delegations.targets_map_consistent());
+        }
+
+        targets
+    }
+
+    ///Returns a vec of all rolenames
     pub fn role_names(&self) -> Vec<&String> {
         let mut roles = Vec::new();
         if let Some(delelegations) = &self.delegations {
@@ -528,6 +589,170 @@ impl Targets {
 
         roles
     }
+
+    ///recursively clears all targets
+    pub fn clear_targets(&mut self) {
+        self.targets = HashMap::new();
+        if let Some(delegations) = &mut self.delegations {
+            for delegated_role in &mut delegations.roles {
+                if let Some(targets) = &mut delegated_role.targets {
+                    targets.signed.clear_targets();
+                }
+            }
+        }
+    }
+
+    /// Finds a targets by its `name`
+    pub fn targets_by_name(&mut self, name: &str) -> Result<&mut Self> {
+        if let Some(delegations) = &mut self.delegations {
+            for role in &mut delegations.roles {
+                if let Some(targets) = &mut role.targets {
+                    if role.name == name {
+                        return Ok(&mut targets.signed);
+                    } else if let Ok(role) = targets.signed.targets_by_name(name) {
+                        return Ok(role);
+                    }
+                }
+            }
+        }
+        Err(Error::RoleNotFound {
+            name: name.to_string(),
+        })
+    }
+
+    /// Finds a targets role and verifies that it has access to `path`
+    pub fn targets_by_name_verify_path(&mut self, name: &str, path: &str) -> Result<&mut Self> {
+        if let Some(delegations) = &mut self.delegations {
+            for role in &mut delegations.roles {
+                // If the path is not delegated to this role there is no need to continue searching for it
+                if !role.paths.matched_target(path) {
+                    continue;
+                }
+                if let Some(targets) = &mut role.targets {
+                    if role.name == name {
+                        return Ok(&mut targets.signed);
+                    } else if let Ok(role) = targets.signed.targets_by_name(name) {
+                        return Ok(role);
+                    }
+                }
+            }
+        }
+        Err(Error::RoleNotFound {
+            name: name.to_string(),
+        })
+    }
+
+    /// Returns a result with the `Signed<Targets>` called `name`
+    pub fn signed_targets_by_name(&self, name: &str) -> Result<&Signed<Self>> {
+        if let Some(delegations) = &self.delegations {
+            for role in &delegations.roles {
+                if let Some(targets) = &role.targets {
+                    if role.name == name {
+                        return Ok(&targets);
+                    } else if let Ok(role) = targets.signed.signed_targets_by_name(name) {
+                        return Ok(role);
+                    }
+                }
+            }
+        }
+        Err(Error::RoleNotFound {
+            name: name.to_string(),
+        })
+    }
+
+    /// Add a target to targets
+    pub fn add_target(&mut self, name: &str, target: Target) {
+        self.targets.insert(name.to_string(), target);
+    }
+
+    /// Remove a target from targets
+    pub fn remove_target(&mut self, name: &str) -> Option<Target> {
+        self.targets.remove(name)
+    }
+
+    /// Returns a vec of all rolenames
+    pub fn get_roles_str(&self) -> Vec<&String> {
+        let mut roles = Vec::new();
+        if let Some(del) = &self.delegations {
+            for role in &del.roles {
+                roles.push(&role.name);
+                if let Some(targets) = &role.targets {
+                    roles.append(&mut targets.signed.get_roles_str())
+                }
+            }
+        }
+
+        roles
+    }
+
+    /// Returns a result with the `DelegatedRole` called `name`
+    pub fn get_delegated_role_by_name(&mut self, name: &str) -> Result<&mut DelegatedRole> {
+        if let Some(delegations) = &mut self.delegations {
+            for role in &mut delegations.roles {
+                if role.name == name {
+                    return Ok(role);
+                } else if let Some(targets) = &mut role.targets {
+                    if let Ok(role) = targets.signed.get_delegated_role_by_name(name) {
+                        return Ok(role);
+                    }
+                }
+            }
+        }
+        Err(Error::RoleNotFound {
+            name: name.to_string(),
+        })
+    }
+
+    /// Returns a reference to the parent delegation of `name`
+    pub fn parent_of(&self, name: &str) -> Result<&Delegations> {
+        if let Some(delegations) = &self.delegations {
+            for role in &delegations.roles {
+                if role.name == name {
+                    return Ok(&delegations);
+                }
+                if let Some(targets) = &role.targets {
+                    if let Ok(delegation) = targets.signed.parent_of(name) {
+                        return Ok(delegation);
+                    }
+                }
+            }
+        }
+        Err(error::Error::RoleNotFound {
+            name: name.to_string(),
+        })
+    }
+
+    /// returns a vec of all targets roles delegated by this role
+    pub fn signed_delegated_targets(&self) -> Vec<Signed<DelegatedTargets>> {
+        let mut delegated_targets = Vec::new();
+        if let Some(delegations) = &self.delegations {
+            for role in &delegations.roles {
+                if let Some(targets) = &role.targets {
+                    delegated_targets.push(targets.clone().delegated_targets(&role.name));
+                    delegated_targets.extend(targets.signed.signed_delegated_targets());
+                }
+            }
+        }
+        delegated_targets
+    }
+
+    /// link all current targets to `new_targets` metadata, returns a list of `new_targets` not included in the original targets
+    pub fn update_targets(&self, new_targets: &mut Signed<Targets>) -> Vec<String> {
+        let mut needed_roles = Vec::new();
+        // Copy existing targets into proper places of new_targets
+        if let Some(delegations) = &mut new_targets.signed.delegations {
+            for mut role in &mut delegations.roles {
+                // find the corresponding targets for role
+                if let Ok(targets) = self.signed_targets_by_name(&role.name) {
+                    role.targets = Some(targets.clone());
+                } else {
+                    needed_roles.push(role.name.clone());
+                }
+            }
+        }
+
+        needed_roles
+    }
 }
 
 impl Role for Targets {
@@ -539,6 +764,93 @@ impl Role for Targets {
 
     fn version(&self) -> NonZeroU64 {
         self.version
+    }
+
+    fn filename(&self, consistent_snapshot: bool) -> String {
+        if consistent_snapshot {
+            format!("{}.targets.json", self.version())
+        } else {
+            "targets.json".to_string()
+        }
+    }
+}
+
+/// Wrapper for `Targets` so that a `Targets` role can be given a name
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct DelegatedTargets {
+    /// The name of the role
+    #[serde(skip)]
+    pub name: String,
+    /// The targets representing the role metadata
+    #[serde(flatten)]
+    pub targets: Targets,
+}
+
+impl Deref for DelegatedTargets {
+    type Target = Targets;
+
+    fn deref(&self) -> &Targets {
+        &self.targets
+    }
+}
+
+impl DerefMut for DelegatedTargets {
+    fn deref_mut(&mut self) -> &mut Targets {
+        &mut self.targets
+    }
+}
+
+impl Role for DelegatedTargets {
+    const TYPE: RoleType = RoleType::DelegatedTargets;
+
+    fn expires(&self) -> DateTime<Utc> {
+        self.targets.expires
+    }
+
+    fn version(&self) -> NonZeroU64 {
+        self.targets.version
+    }
+
+    fn filename(&self, consistent_snapshot: bool) -> String {
+        if consistent_snapshot {
+            format!("{}.{}.json", self.version(), self.name)
+        } else {
+            format!("{}.json", self.name)
+        }
+    }
+
+    fn role_id(&self) -> RoleId {
+        if self.name == "targets" {
+            RoleId::TopLevel(RoleType::Targets)
+        } else {
+            RoleId::DelegatedRole(self.name.clone())
+        }
+    }
+}
+
+impl Signed<DelegatedTargets> {
+    /// Convert a `Signed<DelegatedTargets>` to the string representing the role and its `Signed<Targets>`
+    pub fn targets(self) -> (String, Signed<Targets>) {
+        (
+            self.signed.name,
+            Signed {
+                signed: self.signed.targets,
+                signatures: self.signatures,
+            },
+        )
+    }
+}
+
+impl Signed<Targets> {
+    /// Use a string and a `Signed<Targets>` to create a `Signed<DelegatedTargets>`
+    pub fn delegated_targets(self, name: &str) -> Signed<DelegatedTargets> {
+        Signed {
+            signed: DelegatedTargets {
+                name: name.to_string(),
+                targets: self.signed,
+            },
+            signatures: self.signatures,
+        }
     }
 }
 
@@ -558,7 +870,7 @@ impl Role for Targets {
 ///   }, ... ]
 /// }
 /// ```
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct Delegations {
     /// Lists the public keys to verify signatures of delegated targets roles. Revocation and
     /// replacement of delegated targets roles keys is done by changing the keys in this field in
@@ -584,10 +896,10 @@ pub struct DelegatedRole {
 
     /// The paths governed by this role.
     #[serde(flatten)]
-    paths: PathSet,
+    pub paths: PathSet,
 
     /// Indicates whether subsequent delegations should be considered.
-    terminating: bool,
+    pub terminating: bool,
 
     /// The targets that are signed by this role.
     #[serde(skip)]
@@ -661,9 +973,24 @@ impl PathSet {
         };
         glob.is_match(target)
     }
+
+    /// Returns a Vec representation of the `PathSet`
+    pub fn vec(&self) -> &Vec<String> {
+        match self {
+            PathSet::Paths(x) | PathSet::PathHashPrefixes(x) => x,
+        }
+    }
 }
 
 impl Delegations {
+    /// Creates a new Delegations with no keys or roles
+    pub fn new() -> Self {
+        Delegations {
+            keys: HashMap::new(),
+            roles: Vec::new(),
+        }
+    }
+
     /// Determines if target passes pathset specific matching
     pub fn target_is_delegated(&self, target: &str) -> bool {
         for role in &self.roles {
@@ -701,47 +1028,14 @@ impl Delegations {
         None
     }
 
-    /// verifies that roles matches contain valid keys
-    pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
-        let role_keys = self.role(name).expect("Role not found");
-        let mut valid = 0;
-
-        // serialize the role to verify the key ID by using the JSON representation
-        let mut data = Vec::new();
-        let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
-        role.signed
-            .serialize(&mut ser)
-            .context(error::JsonSerialization {
-                what: format!("{} role", name.to_string()),
-            })?;
-
-        for signature in &role.signatures {
-            if role_keys.keyids.contains(&signature.keyid) {
-                if let Some(key) = self.keys.get(&signature.keyid) {
-                    if key.verify(&data, &signature.sig) {
-                        valid += 1;
-                    }
-                }
-            }
-        }
-
-        ensure!(
-            valid >= u64::from(role_keys.threshold),
-            error::SignatureThreshold {
-                role: RoleType::Targets,
-                threshold: role_keys.threshold,
-                valid,
-            }
-        );
-        Ok(())
-    }
-
     /// Finds target using pre ordered search given `target_name` or error if the target is not found
     pub fn find_target(&self, target_name: &str) -> Result<&Target> {
         for delegated_role in &self.roles {
-            if let Some(targets) = &delegated_role.targets {
-                if let Ok(target) = &targets.signed.find_target(target_name) {
-                    return Ok(target);
+            if delegated_role.paths.matched_target(target_name) {
+                if let Some(targets) = &delegated_role.targets {
+                    if let Ok(target) = &targets.signed.find_target(target_name) {
+                        return Ok(target);
+                    }
                 }
             }
         }
@@ -792,6 +1086,69 @@ impl Delegations {
             }
         }
         targets
+    }
+
+    ///Returns all targets delegated by this struct recursively with consistent snapshot prefixes
+    pub fn targets_map_consistent(&self) -> HashMap<String, &Target> {
+        let mut targets = HashMap::new();
+        for role in &self.roles {
+            if let Some(t) = &role.targets {
+                targets.extend(t.signed.targets_map_consistent());
+            }
+        }
+        targets
+    }
+
+    /// Given an object/key that impls Sign, return the corresponding
+    /// key ID from Delegation
+    pub fn key_id(&self, key_pair: &dyn Sign) -> Option<Decoded<Hex>> {
+        for (key_id, key) in &self.keys {
+            if key_pair.tuf_key() == *key {
+                return Some(key_id.clone());
+            }
+        }
+        None
+    }
+}
+
+impl DelegatedRole {
+    /// Returns a `RoleKeys` representation of the role
+    pub fn keys(&self) -> RoleKeys {
+        RoleKeys {
+            keyids: self.keyids.clone(),
+            threshold: self.threshold,
+            _extra: HashMap::new(),
+        }
+    }
+
+    /// Verify that paths can be delegated by this role
+    pub fn verify_paths(&self, paths: &PathSet) -> Result<()> {
+        let paths = match paths {
+            PathSet::Paths(x) | PathSet::PathHashPrefixes(x) => x,
+        };
+        for path in paths {
+            if !self.paths.matched_target(&path) {
+                return Err(Error::UnmatchedPath {
+                    child: path.to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Creates a `Signed<DelegatedTargets>` for the `DelegatedRole`
+    pub fn signed_delegated_targets(self) -> Option<Signed<DelegatedTargets>> {
+        if let Some(targets) = self.targets {
+            Some(Signed {
+                signed: DelegatedTargets {
+                    name: self.name,
+                    targets: targets.signed,
+                },
+                signatures: targets.signatures,
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -875,5 +1232,9 @@ impl Role for Timestamp {
 
     fn version(&self) -> NonZeroU64 {
         self.version
+    }
+
+    fn filename(&self, _consistent_snapshot: bool) -> String {
+        "timestamp.json".to_string()
     }
 }

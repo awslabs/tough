@@ -6,13 +6,15 @@
 
 mod keys;
 pub mod signed;
+pub mod targets;
 mod test;
 
 use crate::editor::signed::{SignedRepository, SignedRole};
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::{
-    Hashes, Role, Root, Signed, Snapshot, SnapshotMeta, Target, Targets, Timestamp, TimestampMeta,
+    Hashes, KeyHolder, Role, Root, Signed, Snapshot, SnapshotMeta, Target, Targets, Timestamp,
+    TimestampMeta,
 };
 use crate::transport::Transport;
 use crate::Repository;
@@ -125,17 +127,17 @@ impl RepositoryEditor {
     /// each role; e.g. `targets_version`, `targets_expires`, etc.
     pub fn sign(self, keys: &[Box<dyn KeySource>]) -> Result<SignedRepository> {
         let rng = SystemRandom::new();
-        let root = &self.signed_root.signed.signed;
+        let root = KeyHolder::Root(self.signed_root.signed.signed.clone());
 
         let signed_targets = self
             .build_targets()
-            .and_then(|targets| SignedRole::new(targets, root, keys, &rng))?;
+            .and_then(|targets| SignedRole::new(targets, &root, keys, &rng))?;
         let signed_snapshot = self
             .build_snapshot(&signed_targets)
-            .and_then(|snapshot| SignedRole::new(snapshot, root, keys, &rng))?;
+            .and_then(|snapshot| SignedRole::new(snapshot, &root, keys, &rng))?;
         let signed_timestamp = self
             .build_timestamp(&signed_snapshot)
-            .and_then(|timestamp| SignedRole::new(timestamp, root, keys, &rng))?;
+            .and_then(|timestamp| SignedRole::new(timestamp, &root, keys, &rng))?;
 
         Ok(SignedRepository {
             root: self.signed_root,
