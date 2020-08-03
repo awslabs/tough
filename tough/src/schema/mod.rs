@@ -555,28 +555,7 @@ impl Targets {
         targets
     }
 
-    /// Returns a hashmap of all targets and all delegated targets recursively.
-    /// Targets are named with consistent snapshot prefixes
-    pub fn targets_map_consistent(&self) -> HashMap<String, &Target> {
-        let mut targets = HashMap::new();
-        for target in &self.targets {
-            targets.insert(
-                format!(
-                    "{}.{}",
-                    hex::encode(&target.1.hashes.sha256),
-                    target.0.clone()
-                ),
-                target.1,
-            );
-        }
-        if let Some(delegations) = &self.delegations {
-            targets.extend(delegations.targets_map_consistent());
-        }
-
-        targets
-    }
-
-    /// Returns a vec of all rolenames
+    ///Returns a vec of all rolenames
     pub fn role_names(&self) -> Vec<&String> {
         let mut roles = Vec::new();
         if let Some(delelegations) = &self.delegations {
@@ -1077,17 +1056,6 @@ impl Delegations {
         for role in &self.roles {
             if let Some(t) = &role.targets {
                 targets.extend(t.signed.targets_map());
-            }
-        }
-        targets
-    }
-
-    ///Returns all targets delegated by this struct recursively with consistent snapshot prefixes
-    pub fn targets_map_consistent(&self) -> HashMap<String, &Target> {
-        let mut targets = HashMap::new();
-        for role in &self.roles {
-            if let Some(t) = &role.targets {
-                targets.extend(t.signed.targets_map_consistent());
             }
         }
         targets

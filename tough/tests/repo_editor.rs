@@ -6,7 +6,6 @@ use chrono::{Duration, Utc};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::Write;
-use std::io::Read;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tempfile::TempDir;
