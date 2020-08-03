@@ -280,6 +280,31 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     where
         P: AsRef<Path>,
     {
+        let (target_name, target) = RepositoryEditor::<T>::build_target(target_path)?;
+        self.add_target(&target_name, target)?;
+        Ok(self)
+    }
+
+    /// Add a list of target paths to the repository
+    ///
+    /// See the note on `add_target_path()` regarding performance.
+    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
+    where
+        P: AsRef<Path>,
+    {
+        for target in targets {
+            let (target_name, target) = RepositoryEditor::<T>::build_target(target)?;
+            self.add_target(&target_name, target)?;
+        }
+
+        Ok(self)
+    }
+
+    /// Builds a target struct for the given path
+    pub fn build_target<P>(target_path: P) -> Result<(String, Target)>
+    where
+        P: AsRef<Path>,
+    {
         let target_path = target_path.as_ref();
 
         // Build a Target from the path given. If it is not a file, this will fail
@@ -294,21 +319,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
             .context(error::PathUtf8 { path: target_path })?
             .to_owned();
 
-        self.add_target(&target_name, target)?;
-        Ok(self)
-    }
-
-    /// Add a list of target paths to the repository
-    ///
-    /// See the note on `add_target_path()` regarding performance.
-    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
-    where
-        P: AsRef<Path>,
-    {
-        for target in targets {
-            self.add_target_path(target)?;
-        }
-        Ok(self)
+        Ok((target_name, target))
     }
 
     /// Remove all targets from this repo
