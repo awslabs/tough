@@ -4,7 +4,7 @@
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::decoded::{Decoded, Hex};
-use crate::schema::{Delegations, KeyHolder, RoleId, RoleKeys, Root};
+use crate::schema::{Delegations, KeyHolder, RoleId, RoleKeys, Root, Signed, Targets};
 use crate::sign::Sign;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
@@ -50,6 +50,24 @@ impl KeyHolder {
             RoleId::DelegatedRole(role_name) => role_name,
         };
         Err(error::Error::SigningKeysNotFound { role })
+    }
+
+    /// Verifies the role using `KeyHolder`'s keys
+    pub(crate) fn verify_role(&self, targets: &Signed<Targets>, name: &str) -> Result<()> {
+        match self {
+            Self::Delegations(delegations) => {
+                delegations
+                    .verify_role(targets, name)
+                    .context(error::VerifyRoleMetadata {
+                        role: name.to_string(),
+                    })
+            }
+            Self::Root(root) => root
+                .verify_role(targets)
+                .context(error::VerifyRoleMetadata {
+                    role: name.to_string(),
+                }),
+        }
     }
 }
 

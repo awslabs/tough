@@ -60,6 +60,12 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Invalid delegation structure"))]
+    DelegationStructure {
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display(
         "Failed to create a Repository Editor with root.json '{}': {}",
         path.display(),

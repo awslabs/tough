@@ -59,7 +59,7 @@ pub struct TargetsEditor<'a, T: Transport> {
     /// The name of the targets role
     name: String,
     /// The metadata containing keyids for the role
-    key_holder: Option<KeyHolder>,
+    pub(crate) key_holder: Option<KeyHolder>,
     /// The delegations field of the Targets metadata
     /// delegations should only be None if the editor is
     /// for "targets" on a repository that doesn't use delegated targets

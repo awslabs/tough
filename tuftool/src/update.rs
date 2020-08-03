@@ -16,7 +16,7 @@ use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
+use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Transport};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -104,20 +104,34 @@ impl UpdateArgs {
         // Loading a `Repository` with different `Transport`s results in
         // different types. This is why we can't assign the `Repository`
         // to a variable with the if statement.
-        let mut editor = if self.metadata_base_url.scheme() == "file" {
+        if self.metadata_base_url.scheme() == "file" {
             let repository =
                 Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
-            RepositoryEditor::from_repo(&self.root, repository)
+            self.with_editor(
+                RepositoryEditor::from_repo(&self.root, repository)
+                    .context(error::EditorFromRepo { path: &self.root })?,
+            )?;
         } else {
             let transport = HttpTransport::new();
             let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
-            RepositoryEditor::from_repo(&self.root, repository)
+            self.with_editor(
+                RepositoryEditor::from_repo(&self.root, repository)
+                    .context(error::EditorFromRepo { path: &self.root })?,
+            )?;
         }
-        .context(error::EditorFromRepo { path: &self.root })?;
 
+        Ok(())
+    }
+
+    fn with_editor<T>(&self, mut editor: RepositoryEditor<'_, T>) -> Result<()>
+    where
+        T: Transport,
+    {
         editor
             .targets_version(self.targets_version)
+            .context(error::DelegationStructure)?
             .targets_expires(self.targets_expires)
+            .context(error::DelegationStructure)?
             .snapshot_version(self.snapshot_version)
             .snapshot_expires(self.snapshot_expires)
             .timestamp_version(self.timestamp_version)
@@ -137,7 +151,9 @@ impl UpdateArgs {
             let new_targets = build_targets(&targets_indir, self.follow)?;
 
             for (filename, target) in new_targets {
-                editor.add_target(filename, target);
+                editor
+                    .add_target(&filename, target)
+                    .context(error::DelegationStructure)?;
             }
         };
 

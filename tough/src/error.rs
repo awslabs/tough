@@ -560,6 +560,9 @@ pub enum Error {
         actual: usize,
         threshold: u64,
     },
+
+    #[snafu(display("The targets editor was not cleared"))]
+    TargetsEditorSome,
 }
 
 // used in `std::io::Read` implementations
