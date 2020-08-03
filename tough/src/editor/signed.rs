@@ -337,6 +337,7 @@ impl TargetsWalker for SignedRepository {
 #[derive(Debug)]
 pub struct SignedDelegatedTargets {
     pub(crate) roles: Vec<SignedRole<DelegatedTargets>>,
+    pub(crate) consistent_snapshot: bool,
 }
 
 impl SignedDelegatedTargets {
@@ -514,7 +515,7 @@ impl TargetsWalker for SignedDelegatedTargets {
     }
 
     fn consistent_snapshot(&self) -> bool {
-        false
+        self.consistent_snapshot
     }
 }
 

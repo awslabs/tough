@@ -520,7 +520,10 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
             }
         }
 
-        Ok(SignedDelegatedTargets { roles })
+        Ok(SignedDelegatedTargets {
+            roles,
+            consistent_snapshot: false,
+        })
     }
 }
 
