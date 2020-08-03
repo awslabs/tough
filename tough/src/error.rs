@@ -343,7 +343,6 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
-    /// A role metadata file could not be verified.
     #[snafu(display("Failed to verify {} metadata: {}", role, source))]
     VerifyRoleMetadata {
         role: String,
@@ -504,7 +503,7 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("No keys were found for {}", role))]
+    #[snafu(display("No keys were found for role '{}'", role))]
     NoKeys { role: String },
 
     #[snafu(display("Invalid number"))]
@@ -531,12 +530,8 @@ pub enum Error {
         source: schema::Error,
     },
 
-    /// Overflow error with checked add
-    #[snafu(display("Overflow of checked add"))]
-    Overflow,
-
     /// SignedDelegatedTargets has more than 1 signed targets
-    #[snafu(display("Not exactly 1 role was created: {}", count))]
+    #[snafu(display("Exactly 1 role was required, but {} were created", count))]
     InvalidRoleCount { count: usize },
 
     /// Could not create a targets map

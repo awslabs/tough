@@ -32,6 +32,10 @@ const SPEC_VERSION: &str = "1.0.0";
 /// `TargetsEditor` contains the various bits of data needed to construct
 /// or edit a `Targets` role.
 ///
+/// `TargetsEditor` should only be used with repositories that do not utilize delegated targets.
+/// `TargetsEditor` cannot create a `SignedRepository`. Whenever a user has access to `snapshot.json` and `timestamp.json` keys,
+/// `RepositoryEditor` should be used so that a `SignedRepository` can be created.
+///
 /// A new Targets may be created using the `new()` method.
 ///
 /// An existing `Targets` may be loaded and edited using the
@@ -298,7 +302,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         Ok(self)
     }
 
-    /// Delegates `paths` to `targets` adding a `DelegatedRole` to `new_roles`
+    /// Adds a `DelegatedRole` to `new_roles`
     pub fn delegate_role(
         &mut self,
         targets: Signed<DelegatedTargets>,
@@ -324,9 +328,9 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         Ok(self)
     }
 
-    /// Removes a role from delegations if `recursive` is `false`
-    /// requires the role to be an immediate delegated role
-    /// if `true` removes whichever role eventually delegates 'role'
+    /// Removes a role from delegations
+    /// If `recursive` is `false`, 'role` is only removed if it is directly delegated by this role
+    /// If `true` removes whichever role eventually delegates 'role'
     pub fn remove_role(&mut self, role: &str, recursive: bool) -> Result<&mut Self> {
         let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
         // Keep all of the roles that are not `role`
@@ -346,7 +350,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         Ok(self)
     }
 
-    /// Adds a role to `new_roles`
+    /// Adds a role to `new_roles` using a metadata file located at `metadata_url`/`name`.json
     pub fn add_role(
         &mut self,
         name: &str,
@@ -442,7 +446,9 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         })
     }
 
-    /// Creates a `Signed<DelegatedTargets>` for this role using the provided keys
+    /// Creates a `Signed<DelegatedTargets>` for only this role using the provided keys
+    /// This is used to create a `Signed<DelegatedTargets>` for the role instead of a `SignedDelegatedTargets`
+    /// like `sign()` creates
     pub fn create_signed(&self, keys: &[Box<dyn KeySource>]) -> Result<Signed<DelegatedTargets>> {
         let rng = SystemRandom::new();
         // create a signed role for the targets being edited
@@ -514,8 +520,9 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
             for role in new_roles {
                 roles.push(SignedRole::from_signed(
                     role.clone()
-                        .signed_delegated_targets()
-                        .ok_or_else(|| error::Error::NoTargets)?,
+                        .targets
+                        .context(error::NoTargets)?
+                        .delegated_targets(&role.name),
                 )?)
             }
         }

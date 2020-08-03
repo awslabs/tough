@@ -50,7 +50,7 @@ impl Root {
 }
 
 impl Delegations {
-    /// verifies that roles matches contain valid keys
+    /// Verifies that roles matches contain valid keys
     pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
         let role_keys = self.role(name).ok_or(error::Error::RoleNotFound {
             name: name.to_string(),

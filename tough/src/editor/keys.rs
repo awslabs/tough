@@ -6,8 +6,7 @@
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::decoded::{Decoded, Hex};
-use crate::schema::{Delegations, KeyHolder, Root};
-use crate::schema::{RoleId, RoleKeys};
+use crate::schema::{Delegations, KeyHolder, RoleId, RoleKeys, Root};
 use crate::sign::Sign;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
@@ -37,7 +36,7 @@ impl KeyHolder {
                 }
             }
             Self::Root(root) => {
-                if let RoleId::TopLevel(roletype) = name {
+                if let RoleId::StandardRole(roletype) = name {
                     return Ok(root
                         .roles
                         .get(&roletype)
@@ -49,7 +48,7 @@ impl KeyHolder {
             }
         }
         let role = match name {
-            RoleId::TopLevel(role) => role.to_string(),
+            RoleId::StandardRole(role) => role.to_string(),
             RoleId::DelegatedRole(role_name) => role_name,
         };
         Err(error::Error::SigningKeysNotFound { role })

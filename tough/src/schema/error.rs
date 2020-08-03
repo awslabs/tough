@@ -114,7 +114,6 @@ pub enum Error {
     #[snafu(display("Targets doesn't contain delegations field"))]
     NoDelegations,
 
-    /// No role with name
     #[snafu(display("Role not found: {}", name))]
     RoleNotFound { name: String },
 }
