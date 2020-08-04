@@ -352,6 +352,8 @@ impl SignedRepository {
 
 impl TargetsWalker for SignedRepository {
     fn targets(&self) -> HashMap<String, &Target> {
+        // Since there is access to `targets.json` metadata, all targets
+        // can be found using `targets_map()`
         self.targets.signed.signed.targets_map()
     }
 
@@ -368,7 +370,8 @@ pub struct SignedDelegatedTargets {
 }
 
 impl SignedDelegatedTargets {
-    /// Writes the metadata to the given directory.
+    /// Writes the metadata to the given directory. If consistent snapshots
+    /// are used, the appropriate files are prefixed with their version.
     pub fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>
     where
         P: AsRef<Path>,
@@ -379,18 +382,7 @@ impl SignedDelegatedTargets {
         Ok(())
     }
 
-    /// Gets the delegated target if there is exactly 1
-    pub fn role(self) -> Result<SignedRole<DelegatedTargets>> {
-        if self.roles.len() == 1 {
-            Ok(self.roles[0].clone())
-        } else {
-            Err(error::Error::InvalidRoleCount {
-                count: self.roles.len(),
-            })
-        }
-    }
-
-    /// Returns all signed delegated targets
+    /// Returns all `SignedRole<DelegatedTargets>>` contained by this `SignedDelegatedTargets`
     pub fn roles(self) -> Vec<SignedRole<DelegatedTargets>> {
         self.roles
     }
@@ -534,6 +526,8 @@ impl SignedDelegatedTargets {
 
 impl TargetsWalker for SignedDelegatedTargets {
     fn targets(&self) -> HashMap<String, &Target> {
+        // There are multiple `Targets` roles here that may or may not be related,
+        // so find all of the `Target`s related to each role and combine them.
         let mut targets_map = HashMap::new();
         for targets in &self.roles {
             targets_map.extend(targets.signed.signed.targets_map());

@@ -29,10 +29,12 @@ use url::Url;
 
 const SPEC_VERSION: &str = "1.0.0";
 
+/// If you are not working with a repository that utilizes delegated targets, use the `RepositoryEditor`.
+///
 /// `TargetsEditor` contains the various bits of data needed to construct
 /// or edit a `Targets` role.
 ///
-/// `TargetsEditor` should only be used with repositories that do not utilize delegated targets.
+/// `TargetsEditor` should only be used with repositories that utilize delegated targets.
 /// `TargetsEditor` cannot create a `SignedRepository`. Whenever a user has access to `snapshot.json` and `timestamp.json` keys,
 /// `RepositoryEditor` should be used so that a `SignedRepository` can be created.
 ///
@@ -118,6 +120,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
 
     /// Creates a `TargetsEditor` with the provided targets from an already loaded repo
     /// `version` and `expires` are thrown out to encourage updating the version and expiration
+    /// If a `Repository` has been loaded, use `from_repo()` to preserve the `Transport` and `Limits`.
     pub fn from_repo(repo: &Repository<'a, T>, name: &str) -> Result<Self>
     where
         T: Transport,
@@ -227,7 +230,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         self
     }
 
-    /// Remove all targets from this repo
+    /// Remove all targets from this role
     pub fn clear_targets(&mut self) -> &mut Self {
         self.existing_targets
             .get_or_insert_with(HashMap::new)
@@ -286,7 +289,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         Ok(self)
     }
 
-    /// Removes a key from delegations keyids, if a role is specified only removes it from the role
+    /// Removes a key from delegations keyids, if a role is specified the key is only removed from the role
     pub fn remove_key(&mut self, keyid: &Decoded<Hex>, role: Option<&str>) -> Result<&mut Self> {
         let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
         // If a role was provided remove keyid from the delegated role
@@ -303,6 +306,8 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
     }
 
     /// Adds a `DelegatedRole` to `new_roles`
+    /// To use `delegate_role()` a new `Targets` should be created using `TargetsEditor::new()`
+    /// followed by `create_signed()` to provide a `Signed<DelegatedTargets>` for the new role.
     pub fn delegate_role(
         &mut self,
         targets: Signed<DelegatedTargets>,
@@ -351,6 +356,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
     }
 
     /// Adds a role to `new_roles` using a metadata file located at `metadata_url`/`name`.json
+    /// `add_role()` uses `delegate_role()` to add a role from an existing metadata file.
     pub fn add_role(
         &mut self,
         name: &str,
@@ -448,7 +454,9 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
 
     /// Creates a `Signed<DelegatedTargets>` for only this role using the provided keys
     /// This is used to create a `Signed<DelegatedTargets>` for the role instead of a `SignedDelegatedTargets`
-    /// like `sign()` creates
+    /// like `sign()` creates. `SignedDelegatedTargets` can contain more than 1 `Signed<DelegatedTargets>`
+    /// `create_signed()` guarantees that only 1 `Signed<DelegatedTargets>` is created and that it is the one representing
+    /// the current targets. `create_signed()` should be used whenever the result of `TargetsEditor` is not being written.
     pub fn create_signed(&self, keys: &[Box<dyn KeySource>]) -> Result<Signed<DelegatedTargets>> {
         let rng = SystemRandom::new();
         // create a signed role for the targets being edited
@@ -464,7 +472,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
     }
 
     /// Creates a `SignedDelegatedTargets` for the Targets role being edited and all added roles
-    /// If `key_holder` was not assigned then this is a newly created role and needs to signed with a
+    /// If `key_holder` was not assigned then this is a newly created role and needs to be signed with a
     /// custom delegations as its `key_holder`
     pub fn sign(&self, keys: &[Box<dyn KeySource>]) -> Result<SignedDelegatedTargets> {
         let rng = SystemRandom::new();

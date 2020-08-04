@@ -1,8 +1,6 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Provides a `KeyHolder` object for managing signing
-
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
 use crate::schema::decoded::{Decoded, Hex};
