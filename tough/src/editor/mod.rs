@@ -52,6 +52,7 @@ const SPEC_VERSION: &str = "1.0.0";
 /// the roles using the data provided, and signs the roles. This results in a
 /// `SignedRepository` which can be used to write the repo to disk.
 ///
+/// The following should only be used in a repository that utilizes delegated targets
 /// `RepositoryEditor` uses a modal design to edit `Targets`. `TargetsEditor`
 /// is used to perform all actions on a specified `Targets`. To change the
 /// `Targets` being used call `change_delegated_targets()` to create a new `TargetsEditor`
@@ -168,12 +169,17 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
         let signed_targets = SignedRole::from_signed(targets)?;
 
         let signed_delegated_targets = if delegated_targets.is_empty() {
+            // If we don't have any delegated targets, there is no reason to create
+            // a `SignedDelegatedTargets`
             None
         } else {
+            // If we have delegated targets
             let mut roles = Vec::new();
             for role in delegated_targets {
+                // Create a `SignedRole<DelegatedTargets>` for each delegated targets
                 roles.push(SignedRole::from_signed(role)?)
             }
+            // SignedDelegatedTargets is a wrapper for a set of `SignedRole<DelegatedTargets>`
             Some(SignedDelegatedTargets {
                 roles,
                 consistent_snapshot: self.signed_root.signed.signed.consistent_snapshot,
@@ -244,7 +250,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
         Ok(self)
     }
 
-    /// Returns a mutable reference to the targets editor if it exists, or an error if it doesn't
+    /// Returns a mutable reference to the targets editor if it exists
     fn targets_editor_mut(&mut self) -> Result<&mut TargetsEditor<'a, T>> {
         self.targets_editor
             .as_mut()
@@ -274,31 +280,6 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     where
         P: AsRef<Path>,
     {
-        let (target_name, target) = RepositoryEditor::<T>::build_target(target_path)?;
-        self.add_target(&target_name, target)?;
-        Ok(self)
-    }
-
-    /// Add a list of target paths to the repository
-    ///
-    /// See the note on `add_target_path()` regarding performance.
-    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
-    where
-        P: AsRef<Path>,
-    {
-        for target in targets {
-            let (target_name, target) = RepositoryEditor::<T>::build_target(target)?;
-            self.add_target(&target_name, target)?;
-        }
-
-        Ok(self)
-    }
-
-    /// Builds a target struct for the given path
-    pub fn build_target<P>(target_path: P) -> Result<(String, Target)>
-    where
-        P: AsRef<Path>,
-    {
         let target_path = target_path.as_ref();
 
         // Build a Target from the path given. If it is not a file, this will fail
@@ -313,7 +294,21 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
             .context(error::PathUtf8 { path: target_path })?
             .to_owned();
 
-        Ok((target_name, target))
+        self.add_target(&target_name, target)?;
+        Ok(self)
+    }
+
+    /// Add a list of target paths to the repository
+    ///
+    /// See the note on `add_target_path()` regarding performance.
+    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
+    where
+        P: AsRef<Path>,
+    {
+        for target in targets {
+            self.add_target_path(target)?;
+        }
+        Ok(self)
     }
 
     /// Remove all targets from this repo
@@ -323,7 +318,9 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    /// Delegate target with name.
+    /// Delegate target with name as a `DelegatedRole` of the `Targets` in `targets_editor`
+    /// This should be used if a role needs to be created by a user with `snapshot.json`,
+    /// `timestamp.json`, and the new role's keys.
     pub fn delegate_role(
         &mut self,
         name: &str,
@@ -424,6 +421,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     }
 
     /// Changes the targets refered to in `targets_editor` to role
+    /// All `Targets` related calls will now be called on the `Targets` role named `role`
     /// Throws error if the `targets_editor` was not cleared using `sign_targets_editor()`
     /// Clones the desired targets from `signed_targets` and creates a `TargetsEditor` for it
     pub fn change_delegated_targets(&mut self, role: &str) -> Result<&mut Self> {
@@ -461,7 +459,10 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     }
 
     #[allow(clippy::too_many_lines)]
-    /// Updates the metadata for `name`
+    /// Updates the metadata for the `Targets` role named `name`
+    /// This method is used to load in a `Targets` metadata file located at
+    /// `metadata_url` and update the repository's metadata for the role
+    /// This method uses the result of `SignedDelegatedTargets::write()`
     /// Clears the current `targets_editor`
     pub fn update_delegated_targets(
         &mut self,
@@ -585,6 +586,8 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     }
 
     /// Adds a role to the targets currently in `targets_editor`
+    /// using a metadata file located at `metadata_url`/`name`.json
+    /// `add_role()` uses `TargetsEditor::add_role()` to add a role from an existing metadata file.
     pub fn add_role(
         &mut self,
         name: &str,

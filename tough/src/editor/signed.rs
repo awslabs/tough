@@ -3,7 +3,7 @@
 
 //! Provides the `SignedRepository` object which represents the output of `RepositoryEditor` after
 //! signing, ready to be written to disk.
-//! //! Provides the `SignedDelegatedTargets` object which represents the output of `TargetsEditor` after
+//! Provides the `SignedDelegatedTargets` object which represents the output of `TargetsEditor` after
 //! signing, ready to be written to disk.
 
 use crate::error::{self, Result};
