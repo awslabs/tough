@@ -453,7 +453,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
     }
 
     /// Creates a `KeyHolder` to sign `name` with the signing keys provided
-    fn create_key_holder(&self, keys: &[Box<dyn KeySource>]) -> Result<KeyHolder>{
+    fn create_key_holder(&self, keys: &[Box<dyn KeySource>]) -> Result<KeyHolder> {
         // There isn't a KeyHolder, so create one based on the provided keys
         let mut temp_delegations = Delegations::new();
         // First create the tuf key pairs and keyids
@@ -505,14 +505,9 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
             self.create_key_holder(keys)?
         };
         // create a signed role for the targets being edited
-        let targets = self.build_targets().and_then(|targets| {
-            SignedRole::new(
-                targets,
-                &key_holder,
-                keys,
-                &rng,
-            )
-        })?;
+        let targets = self
+            .build_targets()
+            .and_then(|targets| SignedRole::new(targets, &key_holder, keys, &rng))?;
         Ok(targets.signed)
     }
 

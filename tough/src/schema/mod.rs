@@ -503,56 +503,131 @@ impl Targets {
 
     /// Given a target url, returns a reference to the Target struct or error if the target is unreachable
     pub fn find_target(&self, target_name: &str) -> Result<&Target> {
-        match self.targets.get(target_name) {
-            Some(target) => Ok(target),
-            None => match &self.delegations {
-                None => Err(Error::TargetNotFound {
-                    target_file: target_name.to_string(),
-                }),
-                Some(delegations) => delegations.find_target(target_name),
-            },
-        }
-    }
-
-    /// Given the name of a delegated role, return the delegated role
-    pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
-        self.delegations
-            .as_ref()
-            .ok_or_else(|| error::Error::NoDelegations)?
-            .delegated_role(name)
-    }
-
-    /// Returns an iterator of all targets delegated recursively
-    pub fn targets_iter<'a>(&'a self) -> impl Iterator + 'a {
-        self.targets_vec().into_iter()
-    }
-
-    /// Returns a vec of all targets and all delegated targets recursively
-    pub fn targets_vec(&self) -> Vec<&Target> {
-        let mut targets = Vec::new();
-        for target in &self.targets {
-            targets.push(target.1);
+        if let Some(target) = self.targets.get(target_name) {
+            return Ok(target);
         }
         if let Some(delegations) = &self.delegations {
-            for t in delegations.targets_vec() {
-                targets.push(t);
+            for role in &delegations.roles {
+                if let Some(targets) = &role.targets {
+                    if let Ok(target) = targets.signed.find_target(target_name) {
+                        return Ok(target);
+                    }
+                }
             }
         }
-
-        targets
+        Err(Error::TargetNotFound {
+            target_file: target_name.to_string(),
+        })
     }
 
     /// Returns a hashmap of all targets and all delegated targets recursively
     pub fn targets_map(&self) -> HashMap<String, &Target> {
-        let mut targets = HashMap::new();
+        let mut targets_map = HashMap::new();
         for target in &self.targets {
-            targets.insert(target.0.clone(), target.1);
+            targets_map.insert(target.0.clone(), target.1);
         }
         if let Some(delegations) = &self.delegations {
-            targets.extend(delegations.targets_map());
+            for role in &delegations.roles {
+                if let Some(targets) = &role.targets {
+                    targets_map.extend(targets.signed.targets_map());
+                }
+            }
         }
 
-        targets
+        targets_map
+    }
+
+    /// Returns an iterator of all targets delegated
+    pub fn targets_iter<'a>(&'a self) -> impl Iterator + 'a {
+        self.targets_map().into_iter()
+    }
+
+    /// Recursively clears all targets
+    pub fn clear_targets(&mut self) {
+        self.targets = HashMap::new();
+        if let Some(delegations) = &mut self.delegations {
+            for delegated_role in &mut delegations.roles {
+                if let Some(targets) = &mut delegated_role.targets {
+                    targets.signed.clear_targets();
+                }
+            }
+        }
+    }
+
+    /// Add a target to targets
+    pub fn add_target(&mut self, name: &str, target: Target) {
+        self.targets.insert(name.to_string(), target);
+    }
+
+    /// Remove a target from targets
+    pub fn remove_target(&mut self, name: &str) -> Option<Target> {
+        self.targets.remove(name)
+    }
+
+    /// Returns the `&Signed<Targets>` for `name`
+    pub fn delegated_targets(&self, name: &str) -> Result<&Signed<Targets>> {
+        self.delegated_role(name)?
+            .targets
+            .as_ref()
+            .ok_or_else(|| error::Error::NoTargets)
+    }
+
+    /// Returns a mutable `Signed<Targets>` for `name`
+    pub fn delegated_targets_mut(&mut self, name: &str) -> Result<&mut Signed<Targets>> {
+        self.delegated_role_mut(name)?
+            .targets
+            .as_mut()
+            .ok_or_else(|| error::Error::NoTargets)
+    }
+
+    /// Returns the `&DelegatedRole` for `name`
+    pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
+        for role in &self
+            .delegations
+            .as_ref()
+            .ok_or_else(|| error::Error::NoDelegations)?
+            .roles
+        {
+            if role.name == name {
+                return Ok(role);
+            } else if let Ok(role) = role
+                .targets
+                .as_ref()
+                .ok_or_else(|| error::Error::NoTargets)?
+                .signed
+                .delegated_role(name)
+            {
+                return Ok(role);
+            }
+        }
+        Err(error::Error::RoleNotFound {
+            name: name.to_string(),
+        })
+    }
+
+    /// Returns a mutable `DelegatedRole` for `name`
+    pub fn delegated_role_mut(&mut self, name: &str) -> Result<&mut DelegatedRole> {
+        for role in &mut self
+            .delegations
+            .as_mut()
+            .ok_or_else(|| error::Error::NoDelegations)?
+            .roles
+        {
+            if role.name == name {
+                return Ok(role);
+            } else if let Ok(role) = role
+                .targets
+                .as_mut()
+                .ok_or_else(|| error::Error::NoTargets)?
+                .signed
+                .delegated_role_mut(name)
+            {
+                return Ok(role);
+            }
+        }
+        Err(error::Error::RoleNotFound {
+            name: name.to_string(),
+        })
     }
 
     ///Returns a vec of all rolenames
@@ -568,109 +643,6 @@ impl Targets {
         }
 
         roles
-    }
-
-    /// Recursively clears all targets
-    pub fn clear_targets(&mut self) {
-        self.targets = HashMap::new();
-        if let Some(delegations) = &mut self.delegations {
-            for delegated_role in &mut delegations.roles {
-                if let Some(targets) = &mut delegated_role.targets {
-                    targets.signed.clear_targets();
-                }
-            }
-        }
-    }
-
-    /// Finds a delegated targets by its `name`
-    pub fn delegated_targets_with_name(&mut self, name: &str) -> Result<&mut Self> {
-        if let Some(delegations) = &mut self.delegations {
-            for role in &mut delegations.roles {
-                if let Some(targets) = &mut role.targets {
-                    if role.name == name {
-                        return Ok(&mut targets.signed);
-                    } else if let Ok(role) = targets.signed.delegated_targets_with_name(name) {
-                        return Ok(role);
-                    }
-                }
-            }
-        }
-        Err(Error::RoleNotFound {
-            name: name.to_string(),
-        })
-    }
-
-    /// Finds a delegated targets role and verifies that it has access to `path`
-    pub fn delegated_targets_with_name_verify_path(
-        &mut self,
-        name: &str,
-        path: &str,
-    ) -> Result<&mut Self> {
-        if let Some(delegations) = &mut self.delegations {
-            for role in &mut delegations.roles {
-                // If the path is not delegated to this role there is no need to continue searching for it
-                if !role.paths.matched_target(path) {
-                    continue;
-                }
-                if let Some(targets) = &mut role.targets {
-                    if role.name == name {
-                        return Ok(&mut targets.signed);
-                    } else if let Ok(role) = targets.signed.delegated_targets_with_name(name) {
-                        return Ok(role);
-                    }
-                }
-            }
-        }
-        Err(Error::RoleNotFound {
-            name: name.to_string(),
-        })
-    }
-
-    /// Returns a result with the `Signed<Targets>` called `name`
-    pub fn signed_delegated_targets_with_name(&self, name: &str) -> Result<&Signed<Self>> {
-        if let Some(delegations) = &self.delegations {
-            for role in &delegations.roles {
-                if let Some(targets) = &role.targets {
-                    if role.name == name {
-                        return Ok(&targets);
-                    } else if let Ok(role) = targets.signed.signed_delegated_targets_with_name(name)
-                    {
-                        return Ok(role);
-                    }
-                }
-            }
-        }
-        Err(Error::RoleNotFound {
-            name: name.to_string(),
-        })
-    }
-
-    /// Add a target to targets
-    pub fn add_target(&mut self, name: &str, target: Target) {
-        self.targets.insert(name.to_string(), target);
-    }
-
-    /// Remove a target from targets
-    pub fn remove_target(&mut self, name: &str) -> Option<Target> {
-        self.targets.remove(name)
-    }
-
-    /// Returns a result with the `DelegatedRole` called `name`
-    pub fn get_delegated_role(&mut self, name: &str) -> Result<&mut DelegatedRole> {
-        if let Some(delegations) = &mut self.delegations {
-            for role in &mut delegations.roles {
-                if role.name == name {
-                    return Ok(role);
-                } else if let Some(targets) = &mut role.targets {
-                    if let Ok(role) = targets.signed.get_delegated_role(name) {
-                        return Ok(role);
-                    }
-                }
-            }
-        }
-        Err(Error::RoleNotFound {
-            name: name.to_string(),
-        })
     }
 
     /// Returns a reference to the parent delegation of `name`
@@ -714,7 +686,7 @@ impl Targets {
         if let Some(delegations) = &mut new_targets.signed.delegations {
             for mut role in &mut delegations.roles {
                 // Check to see if `role.name` has already been loaded
-                if let Ok(targets) = self.signed_delegated_targets_with_name(&role.name) {
+                if let Ok(targets) = self.delegated_targets(&role.name) {
                     // If it has been loaded, use it as the targets for the role
                     role.targets = Some(targets.clone());
                 } else {
@@ -989,76 +961,6 @@ impl Delegations {
             }
         }
         Ok(())
-    }
-
-    /// Returns given role if its a child of struct
-    pub fn role(&self, role_name: &str) -> Option<&DelegatedRole> {
-        for role in &self.roles {
-            if role.name == role_name {
-                return Some(&role);
-            }
-        }
-        None
-    }
-
-    /// Finds target using pre ordered search given `target_name` or error if the target is not found
-    pub fn find_target(&self, target_name: &str) -> Result<&Target> {
-        for delegated_role in &self.roles {
-            if delegated_role.paths.matched_target(target_name) {
-                if let Some(targets) = &delegated_role.targets {
-                    if let Ok(target) = &targets.signed.find_target(target_name) {
-                        return Ok(target);
-                    }
-                }
-            }
-        }
-        Err(Error::TargetNotFound {
-            target_file: target_name.to_string(),
-        })
-    }
-
-    /// Given a role name recursively searches for the delegated role
-    pub fn delegated_role(&self, name: &str) -> Result<&DelegatedRole> {
-        for delegated_role in &self.roles {
-            if delegated_role.name == name {
-                return Ok(&delegated_role);
-            }
-            if let Some(targets) = &delegated_role.targets {
-                match targets.signed.delegated_role(name) {
-                    Ok(delegations) => return Ok(delegations),
-                    Err(_) => continue,
-                }
-            } else {
-                return Err(Error::NoDelegations {});
-            }
-        }
-        Err(Error::TargetNotFound {
-            target_file: name.to_string(),
-        })
-    }
-
-    /// Returns all targets delegated by this struct recursively
-    pub fn targets_vec(&self) -> Vec<&Target> {
-        let mut targets = Vec::<&Target>::new();
-        for role in &self.roles {
-            if let Some(t) = &role.targets {
-                for t in t.signed.targets_vec() {
-                    targets.push(t);
-                }
-            }
-        }
-        targets
-    }
-
-    /// Returns all targets delegated by this struct recursively
-    pub fn targets_map(&self) -> HashMap<String, &Target> {
-        let mut targets = HashMap::new();
-        for role in &self.roles {
-            if let Some(t) = &role.targets {
-                targets.extend(t.signed.targets_map());
-            }
-        }
-        targets
     }
 
     /// Given an object/key that impls Sign, return the corresponding

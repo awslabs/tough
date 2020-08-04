@@ -414,7 +414,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
                     .as_mut()
                     .context(error::NoTargets)?
                     .signed
-                    .get_delegated_role(&name)
+                    .delegated_role_mut(&name)
                     .context(error::DelegateMissing { name })?
                     .targets = Some(targets);
             }
@@ -448,12 +448,12 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
                 })?
                 .clone();
             let targets = targets
-                .delegated_targets_with_name(role)
+                .delegated_targets(role)
                 .context(error::DelegateMissing {
                     name: role.to_string(),
                 })?
                 .clone();
-            (KeyHolder::Delegations(parent), targets)
+            (KeyHolder::Delegations(parent), targets.signed)
         };
         self.targets_editor = Some(TargetsEditor::from_targets(role, targets, key_holder));
 
@@ -508,13 +508,12 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
                     name: name.to_string(),
                 })?
                 .clone();
-            let targets =
-                targets
-                    .delegated_targets_with_name(name)
-                    .context(error::DelegateMissing {
-                        name: name.to_string(),
-                    })?;
-            (KeyHolder::Delegations(parent), targets)
+            let targets = targets
+                .delegated_targets_mut(name)
+                .context(error::DelegateMissing {
+                    name: name.to_string(),
+                })?;
+            (KeyHolder::Delegations(parent), &mut targets.signed)
         };
         parent.verify_role(&role, name)?;
         // Make sure the version isn't downgraded
@@ -575,7 +574,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
                 .as_mut()
                 .context(error::NoTargets)?
                 .signed
-                .get_delegated_role(name)
+                .delegated_role_mut(name)
                 .context(error::DelegateMissing {
                     name: name.to_string(),
                 })?
