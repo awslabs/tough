@@ -478,6 +478,19 @@ pub enum Error {
 
     #[snafu(display("Role missing from snapshot meta: {}", name))]
     RoleNotInMeta { name: String },
+
+    /// Root creates an unloadable repo
+    #[snafu(display(
+        "Unstable root; found {} keys for role {}, threshold is {}",
+        role,
+        actual,
+        threshold
+    ))]
+    UnstableRoot {
+        role: RoleType,
+        actual: usize,
+        threshold: u64,
+    },
 }
 
 // used in `std::io::Read` implementations
