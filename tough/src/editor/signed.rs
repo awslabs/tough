@@ -58,12 +58,9 @@ where
         // Ensure the keys we have available to us will allow us
         // to sign this role. The role's key ids must match up with one of
         // the keys provided.
-        let (signing_key_id, signing_key) = root_keys
+        let valid_keys = root_keys
             .iter()
-            .find(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid))
-            .context(error::SigningKeysNotFound {
-                role: T::TYPE.to_string(),
-            })?;
+            .filter(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid));
 
         // Create the `Signed` struct for this role. This struct will be
         // mutated later to contain the signatures.
@@ -79,13 +76,20 @@ where
             .context(error::SerializeRole {
                 role: T::TYPE.to_string(),
             })?;
-        let sig = signing_key.sign(&data, rng)?;
+        for (signing_key_id, signing_key) in valid_keys {
+            let sig = signing_key.sign(&data, rng)?;
 
-        // Add the signatures to the `Signed` struct for this role
-        role.signatures.push(Signature {
-            keyid: signing_key_id.clone(),
-            sig: sig.into(),
-        });
+            // Add the signatures to the `Signed` struct for this role
+            role.signatures.push(Signature {
+                keyid: signing_key_id.clone(),
+                sig: sig.into(),
+            });
+        }
+        if role_keys.threshold.get() > role.signatures.len() as u64 {
+            return Err(error::Error::SigningKeysNotFound {
+                role: T::TYPE.to_string(),
+            });
+        }
 
         SignedRole::from_signed(role)
     }

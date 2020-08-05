@@ -286,6 +286,39 @@ impl Command {
         )
         .context(error::SignRoot { path })?;
 
+        // Quick check that root is signed by enough key IDs
+        for (roletype, rolekeys) in &signed_root.signed().signed.roles {
+            if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
+                return Err(error::Error::UnstableRoot {
+                    role: *roletype,
+                    threshold: rolekeys.threshold.get(),
+                    actual: rolekeys.keyids.len(),
+                });
+            }
+        }
+
+        // Signature check for root
+        let threshold = signed_root
+            .signed()
+            .signed
+            .roles
+            .get(&RoleType::Root)
+            .ok_or_else(|| error::Error::UnstableRoot {
+                // The code should never reach this point
+                role: RoleType::Root,
+                threshold: 0,
+                actual: 0,
+            })?
+            .threshold
+            .get();
+        let signature_count = signed_root.signed().signatures.len();
+        if threshold > signature_count as u64 {
+            return Err(error::Error::SignatureRoot {
+                threshold,
+                signature_count,
+            });
+        }
+
         // Use `tempfile::NamedTempFile::persist` to perform an atomic file write.
         let parent = path.parent().context(error::PathParent { path })?;
         let mut writer =

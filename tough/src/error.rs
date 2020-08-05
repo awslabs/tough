@@ -547,6 +547,19 @@ pub enum Error {
 
     #[snafu(display("The transport is not in editor"))]
     MissingTransport,
+
+    /// Root creates an unloadable repo
+    #[snafu(display(
+        "Unstable root; found {} keys for role {}, threshold is {}",
+        role,
+        actual,
+        threshold
+    ))]
+    UnstableRoot {
+        role: RoleType,
+        actual: usize,
+        threshold: u64,
+    },
 }
 
 // used in `std::io::Read` implementations
