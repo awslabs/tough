@@ -11,13 +11,19 @@
     clippy::used_underscore_binding,
 )]
 
+mod add_key_role;
+mod add_role;
 mod create;
+mod create_role;
 mod datetime;
 mod download;
 mod error;
+mod remove_key_role;
+mod remove_role;
 mod root;
 mod source;
 mod update;
+mod update_targets;
 
 use crate::error::Result;
 use rayon::prelude::*;
@@ -71,9 +77,11 @@ enum Command {
     /// Download a TUF repository's resources
     Download(download::DownloadArgs),
     /// Update a TUF repository's metadata and optionally add targets
-    Update(update::UpdateArgs),
+    Update(Box<update::UpdateArgs>),
     /// Manipulate a root.json metadata file
     Root(root::Command),
+    /// Delegation Commands
+    Delegation(Delegation),
 }
 
 impl Command {
@@ -83,6 +91,7 @@ impl Command {
             Command::Root(root_subcommand) => root_subcommand.run(),
             Command::Download(args) => args.run(),
             Command::Update(args) => args.run(),
+            Command::Delegation(cmd) => cmd.run(),
         }
     }
 }
@@ -162,4 +171,48 @@ fn main() -> ! {
             1
         }
     })
+}
+
+#[derive(StructOpt, Debug)]
+struct Delegation {
+    /// The signing role
+    #[structopt(long = "signing-role", required = true)]
+    role: String,
+
+    #[structopt(subcommand)]
+    cmd: DelegationCommand,
+}
+
+impl Delegation {
+    fn run(self) -> Result<()> {
+        self.cmd.run(&self.role)
+    }
+}
+
+#[derive(Debug, StructOpt)]
+enum DelegationCommand {
+    CreateRole(Box<create_role::CreateRoleArgs>),
+    /// Add delegated role
+    AddRole(Box<add_role::AddRoleArgs>),
+    /// Update Delegated targets
+    UpdateDelegatedTargets(Box<update_targets::UpdateTargetsArgs>),
+    /// Add a key to a delegatee
+    AddKey(Box<add_key_role::AddKeyArgs>),
+    /// Add a key to a delegatee
+    RemoveKey(Box<remove_key_role::RemoveKeyArgs>),
+    /// Remove a role
+    Remove(Box<remove_role::RemoveRoleArgs>),
+}
+
+impl DelegationCommand {
+    fn run(self, role: &str) -> Result<()> {
+        match self {
+            DelegationCommand::CreateRole(args) => args.run(role),
+            DelegationCommand::AddRole(args) => args.run(role),
+            DelegationCommand::UpdateDelegatedTargets(args) => args.run(role),
+            DelegationCommand::AddKey(args) => args.run(role),
+            DelegationCommand::RemoveKey(args) => args.run(role),
+            DelegationCommand::Remove(args) => args.run(role),
+        }
+    }
 }
