@@ -66,7 +66,7 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Couldn't find {}: {}", role, source))]
+    #[snafu(display("Couldn't find role '{}': {}", role, source))]
     DelegateeNotFound {
         role: String,
         source: tough::error::Error,

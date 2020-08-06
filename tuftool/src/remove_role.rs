@@ -91,7 +91,7 @@ impl RemoveRoleArgs {
         Ok(())
     }
 
-    /// Adds keys to a role using targets Editor
+    /// Removes a delegated role from a `Targets` role using `TargetsEditor`
     fn with_targets_editor<T>(&self, role: &str, mut editor: TargetsEditor<'_, T>) -> Result<()>
     where
         T: Transport,

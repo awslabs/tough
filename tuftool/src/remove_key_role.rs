@@ -25,7 +25,7 @@ pub(crate) struct RemoveKeyArgs {
     #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
     keys: Vec<Box<dyn KeySource>>,
 
-    /// Keys to be removes
+    /// Key to be removed will look similar to `8ec3a843a0f9328c863cac4046ab1cacbbc67888476ac7acf73d9bcd9a223ada`
     #[structopt(long = "keyid", required = true)]
     remove: Decoded<Hex>,
 
@@ -94,7 +94,7 @@ impl RemoveKeyArgs {
         Ok(())
     }
 
-    /// Adds keys to a role using targets Editor
+    /// Removes keys from adelegated role using targets Editor
     fn with_targets_editor<T>(&self, role: &str, mut editor: TargetsEditor<'_, T>) -> Result<()>
     where
         T: Transport,

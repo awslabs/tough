@@ -6,7 +6,7 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use std::fs::File;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
@@ -171,8 +171,16 @@ impl UpdateArgs {
                 .sign_targets_editor(&self.keys)
                 .context(error::DelegationStructure)?
                 .update_delegated_targets(
-                    &self.role.as_ref().unwrap(),
-                    &self.indir.as_ref().unwrap().as_str(),
+                    &self.role.as_ref().context(error::Missing {
+                        what: "delegated role",
+                    })?,
+                    &self
+                        .indir
+                        .as_ref()
+                        .context(error::Missing {
+                            what: "delegated role metadata url",
+                        })?
+                        .as_str(),
                 )
                 .context(error::DelegateeNotFound {
                     role: self.role.as_ref().unwrap().clone(),

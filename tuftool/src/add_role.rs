@@ -59,7 +59,7 @@ pub(crate) struct AddRoleArgs {
     outdir: PathBuf,
 
     /// The delegated paths
-    #[structopt(short = "p", long = "paths")]
+    #[structopt(short = "p", long = "paths", conflicts_with = "path-hash-prefixes")]
     paths: Option<Vec<String>>,
 
     /// The delegated paths hash prefixes
@@ -213,7 +213,7 @@ impl AddRoleArgs {
             // Should warn that no paths are being delegated
             PathSet::Paths(Vec::new())
         };
-        // change editor's targets to role
+        // Sign the top level targets (it's currently the one in targets_editor)
         editor
             .targets_version(self.version)
             .context(error::DelegationStructure)?
@@ -222,11 +222,14 @@ impl AddRoleArgs {
             .sign_targets_editor(&self.keys)
             .context(error::DelegateeNotFound {
                 role: role.to_string(),
-            })?
+            })?;
+        // Change the targets in targets_editor to the one we need to add the new role to
+        editor
             .change_delegated_targets(role)
             .context(error::DelegateeNotFound {
                 role: role.to_string(),
             })?;
+        // Add the new role to the signing role
         editor
             .add_role(
                 &self.delegatee,

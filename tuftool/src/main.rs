@@ -191,14 +191,15 @@ impl Delegation {
 
 #[derive(Debug, StructOpt)]
 enum DelegationCommand {
+    // Creates a delegated role
     CreateRole(Box<create_role::CreateRoleArgs>),
     /// Add delegated role
     AddRole(Box<add_role::AddRoleArgs>),
     /// Update Delegated targets
     UpdateDelegatedTargets(Box<update_targets::UpdateTargetsArgs>),
-    /// Add a key to a delegatee
+    /// Add a key to a delegated role
     AddKey(Box<add_key_role::AddKeyArgs>),
-    /// Add a key to a delegatee
+    /// Remove a key from a delegated role
     RemoveKey(Box<remove_key_role::RemoveKeyArgs>),
     /// Remove a role
     Remove(Box<remove_role::RemoveRoleArgs>),
