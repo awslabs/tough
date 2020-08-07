@@ -94,7 +94,7 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         #[structopt(parse(try_from_str = parse_key_source))]
-        key_source: Box<dyn KeySource>,
+        key_source: Vec<Box<dyn KeySource>>,
     },
 }
 
@@ -137,7 +137,7 @@ impl Command {
                 bits,
                 exponent,
             } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent),
-            Command::Sign { path, key_source } => Command::sign(&path, key_source),
+            Command::Sign { path, key_source } => Command::sign(&path, &key_source),
         }
     }
 
@@ -275,13 +275,12 @@ impl Command {
         write_file(path, &root)
     }
 
-    fn sign(path: &PathBuf, key_source: Box<dyn KeySource>) -> Result<()> {
+    fn sign(path: &PathBuf, key_source: &[Box<dyn KeySource>]) -> Result<()> {
         let root: Signed<Root> = load_file(path)?;
-
         let signed_root = SignedRole::new(
-            root.signed.clone(),
             &KeyHolder::Root(root.signed),
             &[key_source],
+            &root.signed,
             &SystemRandom::new(),
         )
         .context(error::SignRoot { path })?;
