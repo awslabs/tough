@@ -10,7 +10,10 @@ use assert_cmd::Command;
 // Ensure we can create and sign a root file
 fn create_root() {
     let key = test_utils::test_data().join("snakeoil.pem");
+    let key_2 = test_utils::test_data().join("snakeoil_2.pem");
+
     let outdir = TempDir::new().unwrap();
+
     // Create root.json
     Command::cargo_bin("tuftool")
         .unwrap()
@@ -88,7 +91,21 @@ fn create_root() {
         .assert()
         .success();
 
-    // Sign root.json
+    // Add second key for root role
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "add-key",
+            outdir.path().join("root.json").to_str().unwrap(),
+            key_2.to_str().unwrap(),
+            "-r",
+            "root",
+        ])
+        .assert()
+        .success();
+
+    // Sign root.json with 2 keys
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
@@ -96,9 +113,12 @@ fn create_root() {
             "sign",
             outdir.path().join("root.json").to_str().unwrap(),
             key.to_str().unwrap(),
+            key_2.to_str().unwrap(),
+
         ])
         .assert()
         .success();
+
 }
 
 #[test]
