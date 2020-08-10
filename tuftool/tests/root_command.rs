@@ -114,11 +114,9 @@ fn create_root() {
             outdir.path().join("root.json").to_str().unwrap(),
             key.to_str().unwrap(),
             key_2.to_str().unwrap(),
-
         ])
         .assert()
         .success();
-
 }
 
 #[test]
