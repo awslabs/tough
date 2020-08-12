@@ -191,7 +191,7 @@ impl Delegation {
 
 #[derive(Debug, StructOpt)]
 enum DelegationCommand {
-    // Creates a delegated role
+    /// Creates a delegated role
     CreateRole(Box<create_role::CreateRoleArgs>),
     /// Add delegated role
     AddRole(Box<add_role::AddRoleArgs>),

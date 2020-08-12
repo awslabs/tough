@@ -81,6 +81,7 @@ pub(crate) struct AddRoleArgs {
     /// Version of timestamp.json file
     #[structopt(long = "timestamp-version")]
     timestamp_version: Option<NonZeroU64>,
+
     /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[structopt(long = "timestamp-expires", parse(try_from_str = parse_datetime))]
