@@ -3,13 +3,13 @@
 ## Introduction
 
 Delegated targets creates a chain of trust from a repository owner to its developers. 
-tough allows users to delegate a set of paths from the repository to another person. 
+`tough` allows users to delegate a set of paths from the repository to another person. 
 A delegation chain is cryptographically checked to ensure that the all updated targets are from the developer that signed the metadata. 
-tuftool offers commands to create a new delegated target as a delegatee, add a delegated role as a delegator, and update the targets of a delegated role.
+`tuftool` offers commands to create a new delegated target as a delegatee, add a delegated role as a delegator, and update the targets of a delegated role.
 
-## tough
+## `tough`
 
-tough provides 2 types that can be used with delegated targets
+`tough` provides 2 types that can be used with delegated targets
 
 ### `RepositoryEditor`
 
@@ -18,34 +18,36 @@ Anytime a user has access to the keys for the standard TUF roles (`snapshot.json
 `RepositoryEditor` also has the ability to load in role metadata and add them to the delegation chain, or use it to update an existing role. 
 In order to allow editing of all targets, `RepositoryEditor` uses a modal design. 
 Upon loading a repo, the standard targets role will be the one that is edited. 
-To change change the editor to a new targets role, first, the `TargetsEditor` must be cleared using `sign_targets_editor()`. 
+To change the editor to a new targets role, first, the `TargetsEditor` must be cleared using `sign_targets_editor()`. 
 This signs the metadata that was being edited and inserts it to its proper place in the delegated targets structure. 
 Next, `change_delegated_targets()` is used to create a `TargetsEditor` for the new targets. 
 After `change_delegated_targets()` is called, the following methods will perform actions on the newly selected targets role: `targets_version()`, `targets_expires()`,  `add_target()`, `add_target_path()`, `add_target_paths()`,  `delegate_role()`, and `add_role()`. 
 There are three ways to work with the delegations structure in a repository, use `delegate_role()` to create a new role from scratch. 
-`delegate_role()` should be used whenever a user has access to the keys for the standard TUF roles and the keys for the new role. `RepositoryEditor` provides two methods of loading an existing metadata file, `update_role()` should be called if the targets role has already been added. 
+`delegate_role()` should be used whenever a user has access to the keys for the standard TUF roles and the keys for the new role. 
+`RepositoryEditor` provides two methods of loading an existing metadata file, `update_role()` should be called if the targets role has already been added. 
 If a new role has been created it can be added to the repository by using `add_role()`.
 
 ### `TargetsEditor`
 
-`TargetsEditor` is used to edit targets metadata if a user doesn’t have access to the standard TUF roles. 
+`TargetsEditor` is used to edit targets metadata if a user doesn’t have access to the standard TUF roles. `TargetsEditor` should only be used by delegated targets roles. 
 Metadata created from `TargetsEditor` will always be signed, but will not create a TUF repository. 
 The metadata from `TargetsEditor` must be loaded using `RepositoryEditor` to create a complete signed repository. 
 To create a new targets metadata simply use `TargetsEditor::new()`. 
-A `TargetsEditor` can also be created from a repository by using `from_repo()` or from an existing targets using `from_target`s`()`. 
+A `TargetsEditor` can also be created from a repository by using `from_repo()` if the `Repository` contianing the delegated targets role is availible. 
+If just the `Targets` role is available, a `TargetsEditor` can be created from the existing targets using `from_targets()`. 
 To encourage keeping role metadata up to date, `TargetsEditor` throws out the targets old version and expiration. 
 They must be set using `version()` and `expires()` before signing the `TargetsEditor`. 
 `TargetsEditor` provides a variety of methods that can be used to update a targets role. 
-After the role has been update, it should be signed using `sign()`. 
+After the role has been updated, it should be signed using `sign()`. 
 Signing a `TargetsEditor` creates a `SignedDelegatedTargets` containing metadata for the new role as well as metadata for any roles that were added to the repository.
 
 ## Tools
 
-All tuftool delegated targets commands follow the form
+All `tuftool` delegated targets commands follow the form
 
 * `tuftool delegation --signing-role <signing_role> <subcommand>`
 
-## delegation Subcommands
+## `delegation` Subcommands
 
 ### `create-role`
 
@@ -67,7 +69,7 @@ The metadata created with `create-role` needs to be added to the repository by u
 
 The `add-role` subcommand adds a role created with `create-role` to `signing-role`’s metadata. 
 Signed metadata for the delegating role and the delegated role are stored in `outdir/metadata`, and need to be added to the repository by a snapshot and timestamp key holder using `update`. 
-If `sign-all` is included, tuftool assumes the keys provided can be used to sign `snapshot.json` and `timestamp.json`, and the set of signed top level metadata and signed metadata for all roles will be written to `outdir/metadata`.
+If `sign-all` is included, `tuftool` assumes the keys provided can be used to sign `snapshot.json` and `timestamp.json`, and the set of signed top level metadata and signed metadata for all roles will be written to `outdir/metadata`.
 
 * Arguments
     * `-d, --delegated-role` 
@@ -101,7 +103,7 @@ If `sign-all` is included, tuftool assumes the keys provided can be used to sign
 
 The `update-delegated-targets` subcommand adds the targets from `add-targets` to the metadata for `role` and copies or system links them to `outdir/targets` based on `link`. 
 The output needs to be added to the repository by a snapshot and timestamp key holder using `update`. 
-If `sign-all` is included, tuftool assumes the keys provided can be used to sign `snapshot.json` and `timestamp.json`, and the set of signed top level metadata and signed metadata for all roles will be written to `outdir/metadata`. 
+If `sign-all` is included, `tuftool` assumes the keys provided can be used to sign `snapshot.json` and `timestamp.json`, and the set of signed top level metadata and signed metadata for all roles will be written to `outdir/metadata`. 
 Also, the new targets will be linked to `outdir/targets`. `update` can also be used to refresh a delegated role’s metadata.
 
 * Arguments
@@ -204,7 +206,7 @@ If `recursive` is included, whichever of `signing-role`’s delegated roles dele
      * This allows a role to terminate a problematic role as soon as it’s noticed instead of passing the responsibility down the tree of delegated roles
      * Without using `--recursive`, delegated role A would have to remove delegated role B and then send the metadata for delegated role A to targets to update the repository
 
-## tuftool Commands
+## `tuftool` Commands
 
 ### `update`
 
