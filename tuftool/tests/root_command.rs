@@ -112,7 +112,9 @@ fn create_root() {
             "root",
             "sign",
             outdir.path().join("root.json").to_str().unwrap(),
+            "-k",
             key.to_str().unwrap(),
+            "-k",
             key_2.to_str().unwrap(),
         ])
         .assert()
@@ -208,6 +210,7 @@ fn create_unstable_root() {
             "root",
             "sign",
             outdir.path().join("root.json").to_str().unwrap(),
+            "-k",
             key.to_str().unwrap(),
         ])
         .assert()
