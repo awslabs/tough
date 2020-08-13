@@ -93,7 +93,7 @@ pub(crate) enum Command {
     Sign {
         /// Path to root.json
         path: PathBuf,
-        #[structopt(parse(try_from_str = parse_key_source))]
+        #[structopt(short = "k", long = "key",parse(try_from_str = parse_key_source))]
         key_source: Vec<Box<dyn KeySource>>,
     },
 }
