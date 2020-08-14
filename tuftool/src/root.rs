@@ -93,8 +93,12 @@ pub(crate) enum Command {
     Sign {
         /// Path to root.json
         path: PathBuf,
+        ///Key source(s) to sign the file with
         #[structopt(short = "k", long = "key",parse(try_from_str = parse_key_source))]
         key_source: Vec<Box<dyn KeySource>>,
+        ///Optional - Path of older root.json that contains the key-id
+        #[structopt(short = "c", long = "cross-sign")]
+        cross_sign: Option<PathBuf>,
     },
 }
 
@@ -137,7 +141,11 @@ impl Command {
                 bits,
                 exponent,
             } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent),
-            Command::Sign { path, key_source } => Command::sign(&path, &key_source),
+            Command::Sign {
+                path,
+                key_source,
+                cross_sign,
+            } => Command::sign(&path, &key_source, cross_sign),
         }
     }
 
@@ -275,15 +283,40 @@ impl Command {
         write_file(path, &root)
     }
 
-    fn sign(path: &PathBuf, key_source: &[Box<dyn KeySource>]) -> Result<()> {
+    fn sign(
+        path: &PathBuf,
+        key_source: &[Box<dyn KeySource>],
+        cross_sign: Option<PathBuf>,
+    ) -> Result<()> {
         let root: Signed<Root> = load_file(path)?;
-        let signed_root = SignedRole::new(
-            &KeyHolder::Root(root.signed),
-            &[key_source],
-            &root.signed,
-            &SystemRandom::new(),
-        )
-        .context(error::SignRoot { path })?;
+
+        let signed_root = match cross_sign {
+            // This will get the keys from current root.json for validation
+            None => {
+                let signed_root_temp = SignedRole::new(
+                    root.signed.clone(),
+                    &KeyHolder::Root(root.signed),
+                    key_source,
+                    &SystemRandom::new(),
+                )
+                .context(error::SignRoot { path })?;
+                signed_root_temp
+            },
+            _ => {
+                // This will get the keys from cross-sign root.json for validation
+                let cross_sign_root = cross_sign.as_ref().unwrap();
+                let old_root: Signed<Root> = load_file(cross_sign_root)?;
+                let cross_signed_root_temp = SignedRole::new(
+                    root.signed.clone(),
+                    &KeyHolder::Root(old_root.signed),
+                    key_source,
+                    &SystemRandom::new(),
+                )
+                .context(error::SignRoot { path })?;
+                cross_signed_root_temp
+            }
+        };
+
 
         // Quick check that root is signed by enough key IDs
         for (roletype, rolekeys) in &signed_root.signed().signed.roles {
