@@ -18,7 +18,7 @@ use tempfile::NamedTempFile;
 use tough::editor::signed::SignedRole;
 use tough::key_source::KeySource;
 use tough::schema::decoded::{Decoded, Hex};
-use tough::schema::{key::Key, RoleKeys, RoleType, Root, Signed};
+use tough::schema::{key::Key, KeyHolder, RoleKeys, RoleType, Root, Signed};
 use tough::sign::{parse_keypair, Sign};
 
 #[derive(Debug, StructOpt)]
@@ -280,7 +280,7 @@ impl Command {
 
         let signed_root = SignedRole::new(
             root.signed.clone(),
-            &root.signed,
+            &KeyHolder::Root(root.signed),
             &[key_source],
             &SystemRandom::new(),
         )
