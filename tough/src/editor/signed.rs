@@ -3,7 +3,7 @@
 
 //! Provides the `SignedRepository` object which represents the output of `RepositoryEditor` after
 //! signing, ready to be written to disk.
-//! //! Provides the `SignedDelegatedTargets` object which represents the output of `TargetsEditor` after
+//! Provides the `SignedDelegatedTargets` object which represents the output of `TargetsEditor` after
 //! signing, ready to be written to disk.
 
 use crate::error::{self, Result};
@@ -200,6 +200,7 @@ pub struct SignedRepository {
     pub(crate) targets: SignedRole<Targets>,
     pub(crate) snapshot: SignedRole<Snapshot>,
     pub(crate) timestamp: SignedRole<Timestamp>,
+    pub(crate) delegated_targets: Option<SignedDelegatedTargets>,
 }
 
 impl SignedRepository {
@@ -214,6 +215,9 @@ impl SignedRepository {
         self.targets.write(&outdir, consistent_snapshot)?;
         self.snapshot.write(&outdir, consistent_snapshot)?;
         self.timestamp.write(&outdir, consistent_snapshot)?;
+        if let Some(delegated_targets) = &self.delegated_targets {
+            delegated_targets.write(&outdir, consistent_snapshot)?;
+        }
         Ok(())
     }
 

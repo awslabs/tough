@@ -59,7 +59,7 @@ pub struct TargetsEditor<'a, T: Transport> {
     /// The name of the targets role
     name: String,
     /// The metadata containing keyids for the role
-    key_holder: Option<KeyHolder>,
+    pub(crate) key_holder: Option<KeyHolder>,
     /// The delegations field of the Targets metadata
     /// delegations should only be None if the editor is
     /// for "targets" on a repository that doesn't use delegated targets
@@ -452,6 +452,46 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         })
     }
 
+    /// Creates a `KeyHolder` to sign the `Targets` role with the signing keys provided
+    fn create_key_holder(&self, keys: &[Box<dyn KeySource>]) -> Result<KeyHolder> {
+        // There isn't a KeyHolder, so create one based on the provided keys
+        let mut delegations = Delegations::new();
+        // First create the tuf key pairs and keyids
+        let mut keyids = Vec::new();
+        let mut key_pairs = HashMap::new();
+        for source in keys {
+            let key_pair = source
+                .as_sign()
+                .context(error::KeyPairFromKeySource)?
+                .tuf_key();
+            key_pairs.insert(
+                key_pair
+                    .key_id()
+                    .context(error::JsonSerialization {})?
+                    .clone(),
+                key_pair.clone(),
+            );
+            keyids.push(
+                key_pair
+                    .key_id()
+                    .context(error::JsonSerialization {})?
+                    .clone(),
+            );
+        }
+        // Then add the keys to the new delegations keys
+        delegations.keys = key_pairs;
+        // Now create a DelegatedRole for the new role
+        delegations.roles.push(DelegatedRole {
+            name: self.name.clone(),
+            threshold: NonZeroU64::new(1).unwrap(),
+            paths: PathSet::Paths([].to_vec()),
+            terminating: false,
+            keyids,
+            targets: None,
+        });
+        Ok(KeyHolder::Delegations(delegations))
+    }
+
     /// Creates a `Signed<DelegatedTargets>` for only this role using the provided keys
     /// This is used to create a `Signed<DelegatedTargets>` for the role instead of a `SignedDelegatedTargets`
     /// like `sign()` creates. `SignedDelegatedTargets` can contain more than 1 `Signed<DelegatedTargets>`
@@ -459,15 +499,15 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
     /// the current targets. `create_signed()` should be used whenever the result of `TargetsEditor` is not being written.
     pub fn create_signed(&self, keys: &[Box<dyn KeySource>]) -> Result<Signed<DelegatedTargets>> {
         let rng = SystemRandom::new();
+        let key_holder = if let Some(key_holder) = self.key_holder.as_ref() {
+            key_holder.clone()
+        } else {
+            self.create_key_holder(keys)?
+        };
         // create a signed role for the targets being edited
-        let targets = self.build_targets().and_then(|targets| {
-            SignedRole::new(
-                targets,
-                self.key_holder.as_ref().context(error::NoKeyHolder)?,
-                keys,
-                &rng,
-            )
-        })?;
+        let targets = self
+            .build_targets()
+            .and_then(|targets| SignedRole::new(targets, &key_holder, keys, &rng))?;
         Ok(targets.signed)
     }
 
@@ -480,42 +520,7 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         let key_holder = if let Some(key_holder) = self.key_holder.as_ref() {
             key_holder.clone()
         } else {
-            // There isn't a KeyHolder, so create one based on the provided keys
-            let mut temp_delegations = Delegations::new();
-            // First create the tuf key pairs and keyids
-            let mut keyids = Vec::new();
-            let mut key_pairs = HashMap::new();
-            for source in keys {
-                let key_pair = source
-                    .as_sign()
-                    .context(error::KeyPairFromKeySource)?
-                    .tuf_key();
-                key_pairs.insert(
-                    key_pair
-                        .key_id()
-                        .context(error::JsonSerialization {})?
-                        .clone(),
-                    key_pair.clone(),
-                );
-                keyids.push(
-                    key_pair
-                        .key_id()
-                        .context(error::JsonSerialization {})?
-                        .clone(),
-                );
-            }
-            // Then add the keys to the new delegations keys
-            temp_delegations.keys = key_pairs;
-            // Now create a DelegatedRole for the new role
-            temp_delegations.roles.push(DelegatedRole {
-                name: self.name.clone(),
-                threshold: NonZeroU64::new(1).unwrap(),
-                paths: PathSet::Paths([].to_vec()),
-                terminating: false,
-                keyids,
-                targets: None,
-            });
-            KeyHolder::Delegations(temp_delegations)
+            self.create_key_holder(keys)?
         };
 
         // create a signed role for the targets we are editing

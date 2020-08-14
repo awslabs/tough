@@ -900,6 +900,7 @@ fn load_targets<T: Transport>(
         load_delegations(
             transport,
             snapshot,
+            root.signed.consistent_snapshot,
             metadata_base_url,
             max_targets_size,
             delegations,
@@ -914,6 +915,7 @@ fn load_targets<T: Transport>(
 fn load_delegations<T: Transport>(
     transport: &T,
     snapshot: &Signed<Snapshot>,
+    consistent_snapshot: bool,
     metadata_base_url: &Url,
     max_targets_size: u64,
     delegation: &mut Delegations,
@@ -931,7 +933,11 @@ fn load_delegations<T: Transport>(
                 name: delegated_role.name.clone(),
             })?;
 
-        let path = format!("{}.json", &delegated_role.name);
+        let path = if consistent_snapshot {
+            format!("{}.{}.json", &role_meta.version, &delegated_role.name)
+        } else {
+            format!("{}.json", &delegated_role.name)
+        };
         let role_url = metadata_base_url.join(&path).context(error::JoinUrl {
             path: path.clone(),
             url: metadata_base_url.to_owned(),
@@ -984,6 +990,7 @@ fn load_delegations<T: Transport>(
                 load_delegations(
                     transport,
                     snapshot,
+                    consistent_snapshot,
                     metadata_base_url,
                     max_targets_size,
                     delegations,

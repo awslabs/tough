@@ -6,6 +6,7 @@ mod tests {
     use crate::editor::RepositoryEditor;
     use crate::key_source::LocalKeySource;
     use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp};
+    use crate::transport::FilesystemTransport;
     use chrono::{Duration, Utc};
     use std::num::NonZeroU64;
     use std::path::PathBuf;
@@ -52,7 +53,7 @@ mod tests {
         let key_source = LocalKeySource { path: root_key };
         let root_path = root_path();
 
-        let editor = RepositoryEditor::new(&root_path).unwrap();
+        let editor = RepositoryEditor::<FilesystemTransport>::new(&root_path).unwrap();
         assert!(editor.sign(&[Box::new(key_source)]).is_err());
     }
 
@@ -69,23 +70,14 @@ mod tests {
         let target4 = Target::from_path(target2_path).unwrap();
         let root_path = tuf_root_path();
 
-        let mut editor = RepositoryEditor::new(&root_path).unwrap();
+        let mut editor = RepositoryEditor::<FilesystemTransport>::new(&root_path).unwrap();
         editor
-            .targets(targets.signed)
+            .targets(targets)
             .unwrap()
-            .add_target("file4.txt".to_string(), target4)
+            .add_target("file4.txt", target4)
+            .unwrap()
             .add_target_path(target3_path)
             .unwrap();
-
-        let existing_targets = editor.existing_targets.unwrap();
-        assert_eq!(existing_targets.len(), 2);
-        assert!(existing_targets.get("file1.txt").is_some());
-        assert!(existing_targets.get("file2.txt").is_some());
-
-        let new_targets = editor.new_targets.unwrap();
-        assert_eq!(new_targets.len(), 2);
-        assert!(new_targets.get("file3.txt").is_some());
-        assert!(new_targets.get("file4.txt").is_some());
     }
 
     #[test]
@@ -97,16 +89,14 @@ mod tests {
         let target3 = targets_path().join("file3.txt");
         let root_path = tuf_root_path();
 
-        let mut editor = RepositoryEditor::new(&root_path).unwrap();
+        let mut editor = RepositoryEditor::<FilesystemTransport>::new(&root_path).unwrap();
         editor
-            .targets(targets.signed)
+            .targets(targets)
             .unwrap()
             .add_target_path(target3)
             .unwrap()
-            .clear_targets();
-
-        assert!(editor.existing_targets.unwrap().is_empty());
-        assert!(editor.new_targets.unwrap().is_empty());
+            .clear_targets()
+            .unwrap();
     }
 
     // Create and fully sign a repo
@@ -126,17 +116,18 @@ mod tests {
         let target3 = targets_path().join("file3.txt");
         let target_list = vec![target1, target2, target3];
 
-        let mut editor = RepositoryEditor::new(&root).unwrap();
+        let mut editor = RepositoryEditor::<FilesystemTransport>::new(&root).unwrap();
         editor
             .targets_expires(targets_expiration)
+            .unwrap()
             .targets_version(targets_version)
+            .unwrap()
             .snapshot_expires(snapshot_expiration)
             .snapshot_version(snapshot_version)
             .timestamp_expires(timestamp_expiration)
             .timestamp_version(timestamp_version)
             .add_target_paths(target_list)
             .unwrap();
-
         assert!(editor.sign(&[Box::new(key_source)]).is_ok());
     }
 
@@ -157,25 +148,19 @@ mod tests {
         .unwrap();
         let root_path = tuf_root_path();
 
-        let mut editor = RepositoryEditor::new(&root_path).unwrap();
+        let mut editor = RepositoryEditor::<FilesystemTransport>::new(&root_path).unwrap();
         editor
-            .targets(targets.signed)
+            .targets(targets)
             .unwrap()
             .snapshot(snapshot.signed)
             .unwrap()
             .timestamp(timestamp.signed)
             .unwrap();
 
-        assert!(editor.targets_version.is_none());
         assert!(editor.snapshot_version.is_none());
         assert!(editor.timestamp_version.is_none());
 
-        assert!(editor.targets_expires.is_none());
         assert!(editor.snapshot_expires.is_none());
         assert!(editor.timestamp_expires.is_none());
-
-        let existing_targets = editor.existing_targets.unwrap();
-        assert!(existing_targets.get("file1.txt").is_some());
-        assert!(existing_targets.get("file2.txt").is_some());
     }
 }

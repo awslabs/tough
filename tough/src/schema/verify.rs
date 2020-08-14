@@ -52,9 +52,13 @@ impl Root {
 impl Delegations {
     /// Verifies that roles matches contain valid keys
     pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
-        let role_keys = self.role(name).ok_or(error::Error::RoleNotFound {
-            name: name.to_string(),
-        })?;
+        let role_keys =
+            self.roles
+                .iter()
+                .find(|role| role.name == name)
+                .ok_or(error::Error::RoleNotFound {
+                    name: name.to_string(),
+                })?;
         let mut valid = 0;
 
         // serialize the role to verify the key ID by using the JSON representation
