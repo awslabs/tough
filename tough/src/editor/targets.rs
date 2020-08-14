@@ -125,25 +125,33 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
     where
         T: Transport,
     {
-        let targets = repo
-            .delegated_role(name)
-            .context(error::DelegateNotFound {
-                name: name.to_string(),
-            })?
-            .targets
-            .as_ref()
-            .context(error::NoTargets)?
-            .signed
-            .clone();
-        let key_holder = KeyHolder::Delegations(
-            repo.targets
-                .signed
-                .parent_of(name)
-                .context(error::DelegateMissing {
+        let (targets, key_holder) = if name == "targets" {
+            (
+                repo.targets.signed.clone(),
+                KeyHolder::Root(repo.root.signed.clone()),
+            )
+        } else {
+            let targets = repo
+                .delegated_role(name)
+                .context(error::DelegateNotFound {
                     name: name.to_string(),
                 })?
-                .clone(),
-        );
+                .targets
+                .as_ref()
+                .context(error::NoTargets)?
+                .signed
+                .clone();
+            let key_holder = KeyHolder::Delegations(
+                repo.targets
+                    .signed
+                    .parent_of(name)
+                    .context(error::DelegateMissing {
+                        name: name.to_string(),
+                    })?
+                    .clone(),
+            );
+            (targets, key_holder)
+        };
         Ok(TargetsEditor::<'a, T> {
             key_holder: Some(key_holder),
             delegations: targets.delegations,

@@ -60,8 +60,15 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Invalid delegation structure"))]
+    #[snafu(display("Invalid delegation structure: {}", source))]
     DelegationStructure {
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Couldn't find role '{}': {}", role, source))]
+    DelegateeNotFound {
+        role: String,
         source: tough::error::Error,
         backtrace: Backtrace,
     },
@@ -131,6 +138,12 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Failed to serialize to JSON: {}", source))]
+    JsonSerialization {
+        source: tough::schema::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Duplicate key ID: {}", key_id))]
     KeyDuplicate {
         key_id: String,
@@ -174,11 +187,20 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to load incoming metadata: {}", source))]
+    LoadMetadata {
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Metadata error: {}", source))]
     Metadata {
         source: tough::error::Error,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Missing: {}", what))]
+    Missing { what: String, backtrace: Backtrace },
 
     #[snafu(display("Unable to determine file name from path: '{}'", path.display()))]
     NoFileName { path: PathBuf, backtrace: Backtrace },
@@ -318,6 +340,13 @@ pub(crate) enum Error {
     #[snafu(display("Failed writing repo data to disk at '{}': {}", directory.display(), source))]
     WriteRepo {
         directory: PathBuf,
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Unable to write roles: {:?}", roles))]
+    WriteRoles {
+        roles: Vec<String>,
         source: tough::error::Error,
         backtrace: Backtrace,
     },

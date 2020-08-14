@@ -6,7 +6,7 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use std::fs::File;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
@@ -82,6 +82,14 @@ pub(crate) struct UpdateArgs {
     /// The directory where the updated repository will be written
     #[structopt(short = "o", long = "outdir")]
     outdir: PathBuf,
+
+    /// Incoming metadata from delegatee
+    #[structopt(short = "i", long = "incoming-metadata")]
+    indir: Option<Url>,
+
+    /// Role of incoming metadata
+    #[structopt(long = "role")]
+    role: Option<String>,
 }
 
 impl UpdateArgs {
@@ -156,6 +164,28 @@ impl UpdateArgs {
                     .context(error::DelegationStructure)?;
             }
         };
+
+        // If a `Targets` metadata needs to be updated
+        if self.role.is_some() && self.indir.is_some() {
+            editor
+                .sign_targets_editor(&self.keys)
+                .context(error::DelegationStructure)?
+                .update_delegated_targets(
+                    &self.role.as_ref().context(error::Missing {
+                        what: "delegated role",
+                    })?,
+                    &self
+                        .indir
+                        .as_ref()
+                        .context(error::Missing {
+                            what: "delegated role metadata url",
+                        })?
+                        .as_str(),
+                )
+                .context(error::DelegateeNotFound {
+                    role: self.role.as_ref().unwrap().clone(),
+                })?;
+        }
 
         // Sign the repo
         let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
