@@ -310,3 +310,107 @@ fn create_invalid_root() {
         .assert()
         .failure();
 }
+
+#[test]
+fn cross_sign_root(){
+
+    let root_json_old = test_utils::test_data().join("cross-sign-root").join("1.root.json");
+    let root_key_old = test_utils::test_data().join("snakeoil.pem");
+    let new_key = test_utils::test_data().join("snakeoil_2.pem");
+
+    let outdir = TempDir::new().unwrap();
+
+    //create 2.root.json
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "init",
+            outdir.path().join("2.root.json").to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    // Set the threshold for roles
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "set-threshold",
+            outdir.path().join("2.root.json").to_str().unwrap(),
+            "root",
+            "1",
+        ])
+        .assert()
+        .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "set-threshold",
+            outdir.path().join("2.root.json").to_str().unwrap(),
+            "targets",
+            "1",
+        ])
+        .assert()
+        .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "set-threshold",
+            outdir.path().join("2.root.json").to_str().unwrap(),
+            "snapshot",
+            "1",
+        ])
+        .assert()
+        .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "set-threshold",
+            outdir.path().join("2.root.json").to_str().unwrap(),
+            "timestamp",
+            "1",
+        ])
+        .assert()
+        .success();
+
+    // Add keys for all roles
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "add-key",
+            outdir.path().join("2.root.json").to_str().unwrap(),
+            new_key.to_str().unwrap(),
+            "-r",
+            "root",
+            "-r",
+            "targets",
+            "-r",
+            "snapshot",
+            "-r",
+            "timestamp",
+        ])
+        .assert()
+        .success();
+
+   //Sign 2.root.json with key from 1.root.json
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "sign",
+            outdir.path().join("2.root.json").to_str().unwrap(),
+            "-k",
+            root_key_old.to_str().unwrap(),
+            "--cross-sign",
+            root_json_old.to_str().unwrap()
+
+        ])
+        .assert()
+        .success();
+
+}
