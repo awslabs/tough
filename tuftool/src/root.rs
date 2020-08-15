@@ -292,31 +292,25 @@ impl Command {
 
         let signed_root = match cross_sign {
             // This will get the keys from current root.json for validation
-            None => {
-                let signed_root_temp = SignedRole::new(
-                    root.signed.clone(),
-                    &KeyHolder::Root(root.signed),
-                    key_source,
-                    &SystemRandom::new(),
-                )
-                .context(error::SignRoot { path })?;
-                signed_root_temp
-            },
-            _ => {
+            None => SignedRole::new(
+                root.signed.clone(),
+                &KeyHolder::Root(root.signed),
+                key_source,
+                &SystemRandom::new(),
+            )
+            .context(error::SignRoot { path })?,
+            Some(cross_sign_root) => {
                 // This will get the keys from cross-sign root.json for validation
-                let cross_sign_root = cross_sign.as_ref().unwrap();
-                let old_root: Signed<Root> = load_file(cross_sign_root)?;
-                let cross_signed_root_temp = SignedRole::new(
-                    root.signed.clone(),
+                let old_root: Signed<Root> = load_file(&cross_sign_root)?;
+                SignedRole::new(
+                    root.signed,
                     &KeyHolder::Root(old_root.signed),
                     key_source,
                     &SystemRandom::new(),
                 )
-                .context(error::SignRoot { path })?;
-                cross_signed_root_temp
+                .context(error::SignRoot { path })?
             }
         };
-
 
         // Quick check that root is signed by enough key IDs
         for (roletype, rolekeys) in &signed_root.signed().signed.roles {

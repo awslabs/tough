@@ -312,9 +312,10 @@ fn create_invalid_root() {
 }
 
 #[test]
-fn cross_sign_root(){
-
-    let root_json_old = test_utils::test_data().join("cross-sign-root").join("1.root.json");
+fn cross_sign_root() {
+    let root_json_old = test_utils::test_data()
+        .join("cross-sign-root")
+        .join("1.root.json");
     let root_key_old = test_utils::test_data().join("snakeoil.pem");
     let new_key = test_utils::test_data().join("snakeoil_2.pem");
 
@@ -397,7 +398,7 @@ fn cross_sign_root(){
         .assert()
         .success();
 
-   //Sign 2.root.json with key from 1.root.json
+    //Sign 2.root.json with key from 1.root.json
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
@@ -407,10 +408,8 @@ fn cross_sign_root(){
             "-k",
             root_key_old.to_str().unwrap(),
             "--cross-sign",
-            root_json_old.to_str().unwrap()
-
+            root_json_old.to_str().unwrap(),
         ])
         .assert()
         .success();
-
 }
