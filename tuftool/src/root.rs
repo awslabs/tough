@@ -95,7 +95,7 @@ pub(crate) enum Command {
         path: PathBuf,
         ///Key source(s) to sign the file with
         #[structopt(short = "k", long = "key",parse(try_from_str = parse_key_source))]
-        key_source: Vec<Box<dyn KeySource>>,
+        key_sources: Vec<Box<dyn KeySource>>,
         ///Optional - Path of older root.json that contains the key-id
         #[structopt(short = "c", long = "cross-sign")]
         cross_sign: Option<PathBuf>,
@@ -143,9 +143,9 @@ impl Command {
             } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent),
             Command::Sign {
                 path,
-                key_source,
+                key_sources,
                 cross_sign,
-            } => Command::sign(&path, &key_source, cross_sign),
+            } => Command::sign(&path, &key_sources, cross_sign),
         }
     }
 
@@ -289,29 +289,19 @@ impl Command {
         cross_sign: Option<PathBuf>,
     ) -> Result<()> {
         let root: Signed<Root> = load_file(path)?;
-
-        let mut signed_root = match cross_sign {
-            // get the keys from current root.json for validation
-            None => SignedRole::new(
-                root.signed.clone(),
-                &KeyHolder::Root(root.signed),
-                key_source,
-                &SystemRandom::new(),
-            )
-            .context(error::SignRoot { path })?,
-
-            Some(cross_sign_root) => {
-                // get the keys from cross-sign root.json for validation
-                let old_root: Signed<Root> = load_file(&cross_sign_root)?;
-                SignedRole::new(
-                    root.signed,
-                    &KeyHolder::Root(old_root.signed),
-                    key_source,
-                    &SystemRandom::new(),
-                )
-                .context(error::SignRoot { path })?
-            }
+        // get the root based on cross-sign
+        let loaded_root = match cross_sign {
+            None => root.clone(),
+            Some(cross_sign_root) => load_file(&cross_sign_root)?,
         };
+        //sign the root
+        let mut signed_root = SignedRole::new(
+            root.signed.clone(),
+            &KeyHolder::Root(loaded_root.signed),
+            key_source,
+            &SystemRandom::new(),
+        )
+        .context(error::SignRoot { path })?;
 
         // append the existing signatures if present
         if !root.signatures.is_empty() {
