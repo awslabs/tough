@@ -290,8 +290,8 @@ impl Command {
     ) -> Result<()> {
         let root: Signed<Root> = load_file(path)?;
 
-        let signed_root = match cross_sign {
-            // This will get the keys from current root.json for validation
+        let mut signed_root = match cross_sign {
+            // get the keys from current root.json for validation
             None => SignedRole::new(
                 root.signed.clone(),
                 &KeyHolder::Root(root.signed),
@@ -299,8 +299,9 @@ impl Command {
                 &SystemRandom::new(),
             )
             .context(error::SignRoot { path })?,
+
             Some(cross_sign_root) => {
-                // This will get the keys from cross-sign root.json for validation
+                // get the keys from cross-sign root.json for validation
                 let old_root: Signed<Root> = load_file(&cross_sign_root)?;
                 SignedRole::new(
                     root.signed,
@@ -311,6 +312,13 @@ impl Command {
                 .context(error::SignRoot { path })?
             }
         };
+
+        // append the existing signatures if present
+        if !root.signatures.is_empty() {
+            signed_root = signed_root
+                .add_old_signatures(root.signatures)
+                .context(error::SignRoot { path })?;
+        }
 
         // Quick check that root is signed by enough key IDs
         for (roletype, rolekeys) in &signed_root.signed().signed.roles {
