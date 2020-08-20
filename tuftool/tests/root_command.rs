@@ -76,6 +76,14 @@ fn add_key_all_roles(key: &str, root_json: &str) {
     add_key_targets(key, root_json);
 }
 
+fn sign_root_json(key: &str, root_json: &str) {
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "sign", root_json, "-k", key])
+        .assert()
+        .success();
+}
+
 fn sign_root_json_two_keys(key_1: &str, key_2: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
@@ -103,12 +111,12 @@ fn cross_sign(old_root: &str, new_root: &str, key: &str) {
 #[test]
 // Ensure we can create and sign a root file
 fn create_root() {
-    let outdir = TempDir::new().unwrap();
-    let root_json = outdir.path().join("root.json");
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
     let key = test_utils::test_data().join("snakeoil.pem");
     let key_2 = test_utils::test_data().join("snakeoil_2.pem");
 
-    // Create and intialise root.json
+    // Create and initialise root.json
     initialise_root_json(root_json.to_str().unwrap());
     // Add keys for all roles
     add_key_all_roles(key.to_str().unwrap(), root_json.to_str().unwrap());
@@ -125,11 +133,11 @@ fn create_root() {
 #[test]
 // Ensure creating an unstable root throws error
 fn create_unstable_root() {
-    let outdir = TempDir::new().unwrap();
+    let out_dir = TempDir::new().unwrap();
     let key = test_utils::test_data().join("snakeoil.pem");
-    let root_json = outdir.path().join("root.json");
+    let root_json = out_dir.path().join("root.json");
 
-    // Create and intialise root.json
+    // Create and initialise root.json
     initialise_root_json(root_json.to_str().unwrap());
     // Set the threshold for roles with targets being more than 1
     Command::cargo_bin("tuftool")
@@ -151,7 +159,7 @@ fn create_unstable_root() {
         .args(&[
             "root",
             "sign",
-            outdir.path().join("root.json").to_str().unwrap(),
+            out_dir.path().join("root.json").to_str().unwrap(),
             "-k",
             key.to_str().unwrap(),
         ])
@@ -162,11 +170,11 @@ fn create_unstable_root() {
 #[test]
 // Ensure signing a root with insufficient keys throws error
 fn create_invalid_root() {
-    let outdir = TempDir::new().unwrap();
+    let out_dir = TempDir::new().unwrap();
     let key = test_utils::test_data().join("snakeoil.pem");
-    let root_json = outdir.path().join("root.json");
+    let root_json = out_dir.path().join("root.json");
 
-    // Create and intialise root.json
+    // Create and initialise root.json
     initialise_root_json(root_json.to_str().unwrap());
     // Add keys for all roles
     add_key_all_roles(key.to_str().unwrap(), root_json.to_str().unwrap());
@@ -176,7 +184,7 @@ fn create_invalid_root() {
         .args(&[
             "root",
             "sign",
-            outdir.path().join("root.json").to_str().unwrap(),
+            out_dir.path().join("root.json").to_str().unwrap(),
         ])
         .assert()
         .failure();
@@ -184,15 +192,15 @@ fn create_invalid_root() {
 
 #[test]
 fn cross_sign_root() {
-    let outdir = TempDir::new().unwrap();
+    let out_dir = TempDir::new().unwrap();
     let old_root_json = test_utils::test_data()
         .join("cross-sign-root")
         .join("1.root.json");
     let old_root_key = test_utils::test_data().join("snakeoil.pem");
-    let new_root_json = outdir.path().join("2.root.json");
+    let new_root_json = out_dir.path().join("2.root.json");
     let new_key = test_utils::test_data().join("snakeoil_2.pem");
 
-    // Create and intialise root.json
+    // Create and initialise root.json
     initialise_root_json(new_root_json.to_str().unwrap());
     // Add keys for all roles
     add_key_all_roles(new_key.to_str().unwrap(), new_root_json.to_str().unwrap());
@@ -202,4 +210,23 @@ fn cross_sign_root() {
         new_root_json.to_str().unwrap(),
         old_root_key.to_str().unwrap(),
     );
+}
+
+#[test]
+fn root_multiple_signature() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_1 = test_utils::test_data().join("snakeoil.pem");
+    let key_2 = test_utils::test_data().join("snakeoil_2.pem");
+
+    // Create and initialise root.json
+    initialise_root_json(root_json.to_str().unwrap());
+    // Add key_1 for all roles
+    add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    // Add key 2 to root
+    add_key_root(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+    // Sign root.json with key_1
+    sign_root_json(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    // Sign root.json with key_2
+    sign_root_json(key_2.to_str().unwrap(), root_json.to_str().unwrap());
 }

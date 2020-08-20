@@ -157,11 +157,16 @@ where
     }
 
     /// Append the old signatures for root role
-    pub fn add_old_signatures(mut self, old_signatures: Vec<Signature>) -> Result<Self>{
-
+    pub fn add_old_signatures(mut self, old_signatures: Vec<Signature>) -> Result<Self> {
         for old_signature in old_signatures {
             //add only if the signature of the key does not exist
-            if  self.signed.signatures.iter().find(|new_sig| new_sig.keyid == old_signature.keyid) == None {
+            if self
+                .signed
+                .signatures
+                .iter()
+                .find(|new_sig| new_sig.keyid == old_signature.keyid)
+                == None
+            {
                 self.signed.signatures.push(Signature {
                     keyid: old_signature.keyid,
                     sig: old_signature.sig,
