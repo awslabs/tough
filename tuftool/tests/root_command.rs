@@ -3,7 +3,11 @@
 
 mod test_utils;
 use assert_cmd::Command;
+use std::fs::File;
 use tempfile::TempDir;
+use tough::key_source::{KeySource, LocalKeySource};
+use tough::schema::decoded::{Decoded, Hex};
+use tough::schema::{Root, Signed};
 
 fn initialise_root_json(root_json: &str) {
     Command::cargo_bin("tuftool")
@@ -108,26 +112,45 @@ fn cross_sign(old_root: &str, new_root: &str, key: &str) {
         .success();
 }
 
+fn get_signed_root(root_json: &str) -> Signed<Root> {
+    let root = File::open(root_json).unwrap();
+    serde_json::from_reader(root).unwrap()
+}
+
+fn get_sign_len(root_json: &str) -> usize {
+    let root = get_signed_root(root_json);
+    root.signatures.len()
+}
+
+fn check_signature_exists(root_json: &str, key_id: Decoded<Hex>) -> bool {
+    let root = get_signed_root(root_json);
+    if root.signatures.iter().find(|sig| sig.keyid == key_id) == None {
+        return false;
+    }
+    return true;
+}
+
 #[test]
 // Ensure we can create and sign a root file
 fn create_root() {
     let out_dir = TempDir::new().unwrap();
     let root_json = out_dir.path().join("root.json");
-    let key = test_utils::test_data().join("snakeoil.pem");
+    let key_1 = test_utils::test_data().join("snakeoil.pem");
     let key_2 = test_utils::test_data().join("snakeoil_2.pem");
 
     // Create and initialise root.json
     initialise_root_json(root_json.to_str().unwrap());
     // Add keys for all roles
-    add_key_all_roles(key.to_str().unwrap(), root_json.to_str().unwrap());
+    add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
     // Add second key for root role
     add_key_root(key_2.to_str().unwrap(), root_json.to_str().unwrap());
     // Sign root.json with 1 key
     sign_root_json_two_keys(
-        key.to_str().unwrap(),
+        key_1.to_str().unwrap(),
         key_2.to_str().unwrap(),
         root_json.to_str().unwrap(),
     );
+    assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
 }
 
 #[test]
@@ -196,24 +219,71 @@ fn cross_sign_root() {
     let old_root_json = test_utils::test_data()
         .join("cross-sign-root")
         .join("1.root.json");
-    let old_root_key = test_utils::test_data().join("snakeoil.pem");
+    // 1.root.json is signed with 'snakeoil.pem'
     let new_root_json = out_dir.path().join("2.root.json");
-    let new_key = test_utils::test_data().join("snakeoil_2.pem");
-
+    let old_root_key = test_utils::test_data().join("snakeoil.pem");
+    let new_root_key = test_utils::test_data().join("snakeoil_2.pem");
+    let old_key_source = LocalKeySource {
+        path: old_root_key.clone(),
+    };
+    let old_key_id = old_key_source
+        .as_sign()
+        .ok()
+        .unwrap()
+        .tuf_key()
+        .key_id()
+        .unwrap();
     // Create and initialise root.json
     initialise_root_json(new_root_json.to_str().unwrap());
     // Add keys for all roles
-    add_key_all_roles(new_key.to_str().unwrap(), new_root_json.to_str().unwrap());
+    add_key_all_roles(
+        new_root_key.to_str().unwrap(),
+        new_root_json.to_str().unwrap(),
+    );
     //Sign 2.root.json with key from 1.root.json
     cross_sign(
         old_root_json.to_str().unwrap(),
         new_root_json.to_str().unwrap(),
         old_root_key.to_str().unwrap(),
     );
+    assert_eq!(
+        check_signature_exists(new_root_json.to_str().unwrap(), old_key_id),
+        true
+    );
+}
+
+//cross-signing new_root.json with invalid key ( key not present in old_root.json )
+#[test]
+fn cross_sign_root_invalid_key() {
+    let out_dir = TempDir::new().unwrap();
+    let old_root_json = test_utils::test_data()
+        .join("cross-sign-root")
+        .join("1.root.json");
+    let new_root_json = out_dir.path().join("2.root.json");
+    let root_key = test_utils::test_data().join("snakeoil_2.pem");
+
+    // Create and initialise root.json
+    initialise_root_json(new_root_json.to_str().unwrap());
+    // Add keys for all roles
+    add_key_all_roles(root_key.to_str().unwrap(), new_root_json.to_str().unwrap());
+    //Sign 2.root.json with key not in 1.root.json
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "sign",
+            new_root_json.to_str().unwrap(),
+            "-k",
+            root_key.to_str().unwrap(),
+            "--cross-sign",
+            old_root_json.to_str().unwrap(),
+        ])
+        .assert()
+        .failure();
 }
 
 #[test]
-fn root_multiple_signature() {
+fn append_signature_root() {
     let out_dir = TempDir::new().unwrap();
     let root_json = out_dir.path().join("root.json");
     let key_1 = test_utils::test_data().join("snakeoil.pem");
@@ -223,10 +293,13 @@ fn root_multiple_signature() {
     initialise_root_json(root_json.to_str().unwrap());
     // Add key_1 for all roles
     add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
-    // Add key 2 to root
+    // Add key_2 to root
     add_key_root(key_2.to_str().unwrap(), root_json.to_str().unwrap());
     // Sign root.json with key_1
     sign_root_json(key_1.to_str().unwrap(), root_json.to_str().unwrap());
     // Sign root.json with key_2
     sign_root_json(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+
+    //validate number of signatures
+    assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
 }
