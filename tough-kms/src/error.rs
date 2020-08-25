@@ -71,6 +71,10 @@ pub enum Error {
     #[snafu(display("Public key does not exist"))]
     PublicKeyNone,
 
+    /// Public key could not be parsed as an SPKI document
+    #[snafu(display("Failed to parse public key: {}", source))]
+    PublicKeyParse { source: tough::schema::Error },
+
     /// The library failed to get the message signature from AWS KMS
     #[snafu(display("Error while signing message for aws-kms://{}/{} : {}", profile.as_deref().unwrap_or(""), key_id, source))]
     KmsSignMessage {

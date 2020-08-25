@@ -1895,6 +1895,7 @@ name = "tough-kms"
 version = "0.1.0"
 dependencies = [
  "bytes 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pem 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.16.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusoto_core 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusoto_credential 0.44.0 (registry+https://github.com/rust-lang/crates.io-index)",

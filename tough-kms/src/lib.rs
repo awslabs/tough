@@ -81,16 +81,20 @@ impl KeySource for KmsKeySource {
                 profile: self.profile.clone(),
                 key_id: self.key_id.clone(),
             })?;
-        let pb_key: Decoded<RsaPem> = response
-            .public_key
-            .context(error::PublicKeyNone)?
-            .to_vec()
-            .into();
+        let key = pem::encode_config(
+            &pem::Pem {
+                tag: String::from("PUBLIC KEY"),
+                contents: response.public_key.context(error::PublicKeyNone)?.to_vec(),
+            },
+            pem::EncodeConfig {
+                line_ending: pem::LineEnding::LF,
+            },
+        );
         Ok(Box::new(KmsRsaKey {
             profile: self.profile.clone(),
             client: Some(kms_client.clone()),
             key_id: self.key_id.clone(),
-            public_key: pb_key,
+            public_key: key.parse().context(error::PublicKeyParse)?,
             signing_algorithm: KmsSigningAlgorithms::Rsa(String::from("RSASSA_PSS_SHA_256")),
         }))
     }
