@@ -1,8 +1,12 @@
 # tough
 
-**tough** is a Rust client for [The Update Framework](https://theupdateframework.github.io/) (TUF) repositories.
+**tough** is a Rust client library for [The Update Framework](https://theupdateframework.github.io/) (TUF) repositories.
 
 **tuftool** is a Rust command-line utility for generating and signing TUF repositories.
+
+## Documentation
+See [tough - Rust](https://docs.rs/tough/) for the latest documentation.
+
 
 ## License
 
