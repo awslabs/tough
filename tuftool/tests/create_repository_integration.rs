@@ -4,18 +4,21 @@
 mod test_utils;
 use assert_cmd::Command;
 use chrono::{Duration, Utc};
+use std::env;
 use std::fs::File;
 use tempfile::TempDir;
 use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 // This file include integration tests for KeySources: tough-ssm, tough-kms and local file key.
 // Since the tests are run using the actual "AWS SSM and AWS KMS", you would have to configure
-// AWS account profile "test-profile" with root permission.
+// AWS credentials with root permission.
 // Refer https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html to configure named profile.
 // Additionally, tough-kms key generation is not supported (issue  #211), so you would have to manually create kms CMK key.
-// To run test include feature flag 'integration-tests' like : "cargo test --features=integration-tests"
+// To run test include feature flag 'integ' like : "cargo test --features=integ"
 
-const PROFILE: &str = "test-profile";
+fn get_profile() -> String {
+    env::var("AWS_PROFILE").unwrap_or_default()
+}
 
 fn initialize_root_json(root_json: &str) {
     Command::cargo_bin("tuftool")
@@ -214,7 +217,7 @@ fn create_repository(root_key: &str, auto_generate: bool) {
 }
 
 #[test]
-#[cfg_attr(not(feature = "integration-tests"), ignore)]
+#[cfg_attr(not(feature = "integ"), ignore)]
 // Ensure we can use local rsa key to create and sign a repo created by the `tuftool` binary using the `tough` library
 fn create_repository_local_key() {
     let root_key_dir = TempDir::new().unwrap();
@@ -224,17 +227,17 @@ fn create_repository_local_key() {
 }
 
 #[test]
-#[cfg_attr(not(feature = "integration-tests"), ignore)]
+#[cfg_attr(not(feature = "integ"), ignore)]
 // Ensure we can use ssm key to create and sign a repo created by the `tuftool` binary using the `tough` library
 fn create_repository_ssm_key() {
-    let root_key = &format!("aws-ssm://{}/tough-integ/key-a", PROFILE);
+    let root_key = &format!("aws-ssm://{}/tough-integ/key-a", get_profile());
     create_repository(root_key, true);
 }
 
 #[test]
-#[cfg_attr(not(feature = "integration-tests"), ignore)]
+#[cfg_attr(not(feature = "integ"), ignore)]
 // Ensure we can use kms key to create and sign a repo created by the `tuftool` binary using the `tough` library
 fn create_repository_kms_key() {
-    let root_key = &format!("aws-kms://{}/alias/tough-integ/key-a", PROFILE);
+    let root_key = &format!("aws-kms://{}/alias/tough-integ/key-a", get_profile());
     create_repository(root_key, false);
 }

@@ -37,7 +37,7 @@ use crate::error::{self, Result};
 use snafu::ResultExt;
 use std::path::PathBuf;
 use tough::key_source::{KeySource, LocalKeySource};
-use tough_kms::KmsKeySource;
+use tough_kms::{KmsKeySource, KmsSigningAlgorithm};
 use tough_ssm::SsmKeySource;
 use url::Url;
 
@@ -91,6 +91,7 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
             // remove first '/' from the path to get the key_id
             key_id: url.path()[1..].to_string(),
             client: None,
+            signing_algorithm: KmsSigningAlgorithm::RsassaPssSha256,
         })),
         _ => error::UnrecognizedScheme {
             scheme: url.scheme(),

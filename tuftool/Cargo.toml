@@ -9,7 +9,7 @@ keywords = ["tuf", "update", "repository"]
 edition = "2018"
 
 [features]
-integration-tests = []
+integ = []
 default = ["rusoto"]
 rusoto = ["rusoto-rustls"]
 rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/native-tls", "rusoto_kms/native-tls"]

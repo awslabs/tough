@@ -25,7 +25,7 @@ pub mod error;
 use ring::digest::{digest, SHA256};
 use ring::rand::SecureRandom;
 use rusoto_kms::{Kms, KmsClient, SignRequest};
-use snafu::{OptionExt, ResultExt};
+use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fmt;
 use tough::key_source::KeySource;
@@ -34,10 +34,21 @@ use tough::schema::key::{Key, RsaKey, RsaScheme};
 use tough::sign::Sign;
 
 /// Represents a Signing Algorithms for AWS KMS.
-#[derive(Debug, Clone, PartialEq)]
-pub enum KmsSigningAlgorithms {
-    /// The key type
-    Rsa(String),
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum KmsSigningAlgorithm {
+    /// Signing Algorithm `RSASSA_PSS_SHA_256`
+    RsassaPssSha256,
+}
+
+impl KmsSigningAlgorithm {
+    fn value(self) -> String {
+        // Currently we are supporting only single algorithm, but code stub is added to support
+        // multiple algorithms in future.
+        String::from(match self {
+            KmsSigningAlgorithm::RsassaPssSha256 => "RSASSA_PSS_SHA_256",
+        })
+    }
 }
 
 /// Implements the `KeySource` trait for keys that live in AWS KMS
@@ -48,6 +59,8 @@ pub struct KmsKeySource {
     pub key_id: String,
     /// KmsClient Object to query AWS KMS
     pub client: Option<KmsClient>,
+    /// Signing Algorithm to be used for the message digest, only `KmsSigningAlgorithm::RsassaPssSha256` is supported at present.
+    pub signing_algorithm: KmsSigningAlgorithm,
 }
 
 impl fmt::Debug for KmsKeySource {
@@ -90,12 +103,19 @@ impl KeySource for KmsKeySource {
                 line_ending: pem::LineEnding::LF,
             },
         );
+        ensure!(
+            response
+                .signing_algorithms
+                .context(error::MissingSignAlgorithm)?
+                .contains(&self.signing_algorithm.value()),
+            error::ValidSignAlgorithm
+        );
         Ok(Box::new(KmsRsaKey {
             profile: self.profile.clone(),
             client: Some(kms_client.clone()),
             key_id: self.key_id.clone(),
             public_key: key.parse().context(error::PublicKeyParse)?,
-            signing_algorithm: KmsSigningAlgorithms::Rsa(String::from("RSASSA_PSS_SHA_256")),
+            signing_algorithm: self.signing_algorithm.value(),
         }))
     }
 
@@ -119,7 +139,7 @@ pub struct KmsRsaKey {
     /// Public Key corresponding to Customer Managed Key
     public_key: Decoded<RsaPem>,
     /// Signing Algorithm to be used for the Customer Managed Key
-    signing_algorithm: KmsSigningAlgorithms,
+    signing_algorithm: String,
 }
 
 impl fmt::Debug for KmsRsaKey {
@@ -158,9 +178,7 @@ impl Sign for KmsRsaKey {
             key_id: self.key_id.clone(),
             message: digest(&SHA256, msg).as_ref().to_vec().into(),
             message_type: Some(String::from("DIGEST")),
-            signing_algorithm: match self.signing_algorithm.clone() {
-                KmsSigningAlgorithms::Rsa(algorithm) => algorithm,
-            },
+            signing_algorithm: self.signing_algorithm.clone(),
             ..rusoto_kms::SignRequest::default()
         });
         let response = tokio::runtime::Runtime::new()

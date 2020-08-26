@@ -8,11 +8,13 @@ use ring::rand::SystemRandom;
 use rusoto_core::signature::SignedRequest;
 use rusoto_core::{HttpDispatchError, Region};
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use tough::key_source::KeySource;
-use tough::schema::key::{Key, RsaKey, RsaScheme};
+use tough::schema::decoded::{Decoded, RsaPem};
+use tough::schema::key::Key;
+use tough_kms::KmsKeySource;
+use tough_kms::KmsSigningAlgorithm::RsassaPssSha256;
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 struct PublicKeyResp {
@@ -24,6 +26,11 @@ struct PublicKeyResp {
     )]
     #[serde(skip_serializing_if = "Option::is_none")]
     public_key: bytes::Bytes,
+}
+
+#[derive(Deserialize, Debug)]
+struct ExpectedPublicKey {
+    public_key: Decoded<RsaPem>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
@@ -50,17 +57,15 @@ struct CreateKeyResp {
 fn check_tuf_key_success() {
     let input = "response_public_key.json";
     let key_id = String::from("alias/some_alias");
-    let file = File::open(test_utils::test_data().join(input).to_str().unwrap()).unwrap();
+    let file = File::open(
+        test_utils::test_data()
+            .join("expected_public_key.json")
+            .to_str()
+            .unwrap(),
+    )
+    .unwrap();
     let reader = BufReader::new(file);
-    let expected_json: PublicKeyResp = serde_json::from_reader(reader).unwrap();
-    let expected_key = Key::Rsa {
-        keyval: RsaKey {
-            public: expected_json.public_key.to_vec().into(),
-            _extra: HashMap::new(),
-        },
-        scheme: RsaScheme::RsassaPssSha256,
-        _extra: HashMap::new(),
-    };
+    let expected_key: Key = serde_json::from_reader(reader).unwrap();
     let mock = MockRequestDispatcher::default()
         .with_request_checker(|request: &SignedRequest| {
             assert!(request
@@ -74,10 +79,11 @@ fn check_tuf_key_success() {
                 .as_ref(),
         );
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
-    let kms_key = tough_kms::KmsKeySource {
+    let kms_key = KmsKeySource {
         profile: None,
         key_id: key_id.clone(),
         client: Some(mock_client),
+        signing_algorithm: RsassaPssSha256,
     };
     let sign = kms_key.as_sign().unwrap();
     let key = sign.tuf_key();
@@ -133,10 +139,11 @@ fn check_sign_success() {
             ),
     ]);
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
-    let kms_key = tough_kms::KmsKeySource {
+    let kms_key = KmsKeySource {
         profile: None,
         key_id: String::from("alias/some_alias"),
         client: Some(mock_client),
+        signing_algorithm: RsassaPssSha256,
     };
     let rng = SystemRandom::new();
     let kms_sign = kms_key.as_sign().unwrap();
@@ -154,10 +161,11 @@ fn check_public_key_failure() {
         MockRequestDispatcher::with_dispatch_error(HttpDispatchError::new(error_msg.clone()));
     let client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
     let key_id = String::from("alias/some_alias");
-    let kms_key = tough_kms::KmsKeySource {
+    let kms_key = KmsKeySource {
         profile: None,
         key_id: key_id.clone(),
         client: Some(client),
+        signing_algorithm: RsassaPssSha256,
     };
     let result = kms_key.as_sign();
     assert!(result.is_err());
@@ -168,6 +176,70 @@ fn check_public_key_failure() {
             key_id.clone(),
             error_msg.clone()
         ),
+        err.to_string()
+    );
+}
+
+#[test]
+// Ensure call to as_sign fails when signing algorithms are missing in get_public_key response
+fn check_public_key_missing_algo() {
+    let input = "response_public_key_no_algo.json";
+    let key_id = String::from("alias/some_alias");
+    let mock = MockRequestDispatcher::default()
+        .with_request_checker(|request: &SignedRequest| {
+            assert!(request
+                .headers
+                .get("x-amz-target")
+                .unwrap()
+                .contains(&Vec::from("TrentService.GetPublicKey")));
+        })
+        .with_body(
+            MockResponseReader::read_response(test_utils::test_data().to_str().unwrap(), input)
+                .as_ref(),
+        );
+    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
+    let kms_key = KmsKeySource {
+        profile: None,
+        key_id: key_id.clone(),
+        client: Some(mock_client),
+        signing_algorithm: RsassaPssSha256,
+    };
+    let err = kms_key.as_sign().err().unwrap();
+    assert_eq!(
+        String::from(
+            "Found public key from AWS KMS, but list of supported signing algorithm is missing"
+        ),
+        err.to_string()
+    );
+}
+
+#[test]
+// Ensure call to as_sign fails when provided signing algorithm does not match
+fn check_public_key_unmatch_algo() {
+    let input = "response_public_key_unmatch_algo.json";
+    let key_id = String::from("alias/some_alias");
+    let mock = MockRequestDispatcher::default()
+        .with_request_checker(|request: &SignedRequest| {
+            assert!(request
+                .headers
+                .get("x-amz-target")
+                .unwrap()
+                .contains(&Vec::from("TrentService.GetPublicKey")));
+        })
+        .with_body(
+            MockResponseReader::read_response(test_utils::test_data().to_str().unwrap(), input)
+                .as_ref(),
+        );
+    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
+    let kms_key = KmsKeySource {
+        profile: None,
+        key_id: key_id.clone(),
+        client: Some(mock_client),
+        signing_algorithm: RsassaPssSha256,
+    };
+    let err = kms_key.as_sign().err().unwrap();
+    assert_eq!(
+        String::from("Please provide valid signing algorithm"),
         err.to_string()
     );
 }
@@ -204,10 +276,11 @@ fn check_sign_request_failure() {
             }),
     ]);
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
-    let kms_key = tough_kms::KmsKeySource {
+    let kms_key = KmsKeySource {
         profile: None,
         key_id: key_id.clone(),
         client: Some(mock_client),
+        signing_algorithm: RsassaPssSha256,
     };
     let rng = SystemRandom::new();
     let kms_sign = kms_key.as_sign().unwrap();
@@ -263,10 +336,11 @@ fn check_signature_failure() {
             ),
     ]);
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
-    let kms_key = tough_kms::KmsKeySource {
+    let kms_key = KmsKeySource {
         profile: None,
         key_id: key_id.clone(),
         client: Some(mock_client),
+        signing_algorithm: RsassaPssSha256,
     };
     let rng = SystemRandom::new();
     let kms_sign = kms_key.as_sign().unwrap();
@@ -277,4 +351,16 @@ fn check_signature_failure() {
         format!("Empty signature returned by AWS KMS"),
         err.to_string()
     );
+}
+
+#[test]
+fn check_write_ok() {
+    let key_id = String::from("alias/some_alias");
+    let kms_key = KmsKeySource {
+        profile: None,
+        key_id: key_id.clone(),
+        client: None,
+        signing_algorithm: RsassaPssSha256,
+    };
+    assert_eq!((), kms_key.write("", "").unwrap())
 }

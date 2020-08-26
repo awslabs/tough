@@ -87,4 +87,14 @@ pub enum Error {
     /// Empty signature was returned by AWS KMS
     #[snafu(display("Empty signature returned by AWS KMS"))]
     SignatureNotFound,
+
+    /// Provided signing algorithm is not valid
+    #[snafu(display("Please provide valid signing algorithm"))]
+    ValidSignAlgorithm,
+
+    /// Supported signing algorithm list is missing for CMK in AWS KMS
+    #[snafu(display(
+        "Found public key from AWS KMS, but list of supported signing algorithm is missing"
+    ))]
+    MissingSignAlgorithm,
 }
