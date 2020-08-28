@@ -5,8 +5,9 @@
 **tuftool** is a Rust command-line utility for generating and signing TUF repositories.
 
 ## Documentation
-See [tough - Rust](https://docs.rs/tough/) for the latest documentation.
+See [tough - Rust](https://docs.rs/tough/) for the latest `tough` library documentation.
 
+See `tuftool`'s [README](tuftool/README.md) for more on how to use `tuftool`.
 
 ## License
 
