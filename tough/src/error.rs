@@ -287,6 +287,12 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Failed to sign message: {}", source))]
+    SignMessage {
+        source: Box<dyn std::error::Error + Send + Sync + 'static>,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Unable to find signing keys for role '{}'", role))]
     SigningKeysNotFound { role: String },
 

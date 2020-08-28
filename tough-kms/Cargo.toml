@@ -1,0 +1,31 @@
+[package]
+name = "tough-kms"
+version = "0.1.0"
+description = "Implements AWS KMS as a key source for TUF signing keys"
+authors = ["Shailesh Gothi <gothisg@amazon.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/awslabs/tough"
+keywords = ["TUF", "KMS"]
+edition = "2018"
+
+[features]
+default = ["rusoto"]
+rusoto = ["rusoto-rustls"]
+rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_kms/native-tls"]
+rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_kms/rustls"]
+
+[dependencies]
+tough = { version = "0.8.0", path = "../tough", features = ["http"] }
+ring = { version = "0.16.13", features = ["std"] }
+rusoto_core = { version = "0.44", optional = true, default-features = false }
+rusoto_credential = { version = "0.44", optional = true }
+rusoto_kms = { version = "0.44", optional = true, default-features = false }
+bytes = "0.5.6"
+snafu = { version = "0.6.6", features = ["backtraces-impl-backtrace-crate"] }
+tokio = "0.2.13"
+pem = "0.8.1"
+
+[dev-dependencies]
+rusoto_mock = { version = "0.44", default-features = false }
+serde = "1.0.105"
+serde_json = "1.0.50"

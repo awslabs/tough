@@ -77,7 +77,7 @@ where
                 role: T::TYPE.to_string(),
             })?;
         for (signing_key_id, signing_key) in valid_keys {
-            let sig = signing_key.sign(&data, rng)?;
+            let sig = signing_key.sign(&data, rng).context(error::SignMessage)?;
 
             // Add the signatures to the `Signed` struct for this role
             role.signatures.push(Signature {

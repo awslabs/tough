@@ -37,6 +37,7 @@ use crate::error::{self, Result};
 use snafu::ResultExt;
 use std::path::PathBuf;
 use tough::key_source::{KeySource, LocalKeySource};
+use tough_kms::{KmsKeySource, KmsSigningAlgorithm};
 use tough_ssm::SsmKeySource;
 use url::Url;
 
@@ -55,7 +56,6 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
         .base_url(Some(&pwd_url))
         .parse(input)
         .context(error::UrlParse { url: input })?;
-
     match url.scheme() {
         "file" => Ok(Box::new(LocalKeySource {
             path: PathBuf::from(url.path()),
@@ -79,6 +79,19 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
                     None
                 }
             }),
+        })),
+        "aws-kms" => Ok(Box::new(KmsKeySource {
+            profile: url.host_str().and_then(|s| {
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_owned())
+                }
+            }),
+            // remove first '/' from the path to get the key_id
+            key_id: url.path()[1..].to_string(),
+            client: None,
+            signing_algorithm: KmsSigningAlgorithm::RsassaPssSha256,
         })),
         _ => error::UnrecognizedScheme {
             scheme: url.scheme(),

@@ -20,7 +20,11 @@ pub trait Sign: Sync + Send {
     fn tuf_key(&self) -> crate::schema::key::Key;
 
     /// Signs the supplied message
-    fn sign(&self, msg: &[u8], rng: &dyn SecureRandom) -> Result<Vec<u8>>;
+    fn sign(
+        &self,
+        msg: &[u8],
+        rng: &dyn SecureRandom,
+    ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 }
 
 /// Implements the Sign trait for ED25519
@@ -38,7 +42,11 @@ impl Sign for Ed25519KeyPair {
         }
     }
 
-    fn sign(&self, msg: &[u8], _rng: &dyn SecureRandom) -> Result<Vec<u8>> {
+    fn sign(
+        &self,
+        msg: &[u8],
+        _rng: &dyn SecureRandom,
+    ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let signature = self.sign(msg);
         Ok(signature.as_ref().to_vec())
     }
@@ -59,7 +67,11 @@ impl Sign for RsaKeyPair {
         }
     }
 
-    fn sign(&self, msg: &[u8], rng: &dyn SecureRandom) -> Result<Vec<u8>> {
+    fn sign(
+        &self,
+        msg: &[u8],
+        rng: &dyn SecureRandom,
+    ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let mut signature = vec![0; self.public_modulus_len()];
         self.sign(&ring::signature::RSA_PSS_SHA256, rng, msg, &mut signature)
             .context(error::Sign)?;
@@ -82,7 +94,11 @@ impl Sign for EcdsaKeyPair {
         }
     }
 
-    fn sign(&self, msg: &[u8], rng: &dyn SecureRandom) -> Result<Vec<u8>> {
+    fn sign(
+        &self,
+        msg: &[u8],
+        rng: &dyn SecureRandom,
+    ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let signature = self.sign(rng, msg).context(error::Sign)?;
         Ok(signature.as_ref().to_vec())
     }
@@ -108,7 +124,11 @@ impl Sign for SignKeyPair {
         }
     }
 
-    fn sign(&self, msg: &[u8], rng: &dyn SecureRandom) -> Result<Vec<u8>> {
+    fn sign(
+        &self,
+        msg: &[u8],
+        rng: &dyn SecureRandom,
+    ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         match self {
             RSA(key) => (key as &dyn Sign).sign(msg, rng),
             ED25519(key) => (key as &dyn Sign).sign(msg, rng),
