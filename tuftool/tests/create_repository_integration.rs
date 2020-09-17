@@ -97,7 +97,7 @@ fn add_key_all_role(key: &str, root_json: &str) {
 fn sign_root_json(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "sign", root_json, key])
+        .args(&["root", "sign", root_json, "-k", key])
         .assert()
         .success();
 }

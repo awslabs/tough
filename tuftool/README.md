@@ -56,7 +56,7 @@ tuftool root add-key "${ROOT}" "${WRK}/keys/root.pem" --role targets
 tuftool root add-key "${ROOT}" "${WRK}/keys/root.pem" --role timestamp
 
 # sign root.json
-tuftool root sign "${ROOT}" "${WRK}/keys/root.pem"
+tuftool root sign "${ROOT}" -k "${WRK}/keys/root.pem"
 ```
 
 ### Create a new TUF Repo
