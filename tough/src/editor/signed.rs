@@ -10,8 +10,8 @@ use crate::error::{self, Result};
 use crate::io::DigestAdapter;
 use crate::key_source::KeySource;
 use crate::schema::{
-    DelegatedTargets, KeyHolder, Role, Root, Signature, Signed, Snapshot, Target, Targets,
-    Timestamp,
+    DelegatedTargets, KeyHolder, Role, RoleType, Root, Signature, Signed, Snapshot, Target,
+    Targets, Timestamp,
 };
 use olpc_cjson::CanonicalFormatter;
 use ring::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
@@ -85,12 +85,13 @@ where
                 sig: sig.into(),
             });
         }
-        if role_keys.threshold.get() > role.signatures.len() as u64 {
+
+        // since for root the check depends on cross-sign
+        if T::TYPE != RoleType::Root && role_keys.threshold.get() > role.signatures.len() as u64 {
             return Err(error::Error::SigningKeysNotFound {
                 role: T::TYPE.to_string(),
             });
         }
-
         SignedRole::from_signed(role)
     }
 
@@ -154,6 +155,26 @@ where
 
         let path = outdir.join(filename);
         std::fs::write(&path, &self.buffer).context(error::FileWrite { path })
+    }
+
+    /// Append the old signatures for root role
+    pub fn add_old_signatures(mut self, old_signatures: Vec<Signature>) -> Result<Self> {
+        for old_signature in old_signatures {
+            //add only if the signature of the key does not exist
+            if self
+                .signed
+                .signatures
+                .iter()
+                .find(|new_sig| new_sig.keyid == old_signature.keyid)
+                == None
+            {
+                self.signed.signatures.push(Signature {
+                    keyid: old_signature.keyid,
+                    sig: old_signature.sig,
+                });
+            }
+        }
+        SignedRole::from_signed(self.signed)
     }
 }
 

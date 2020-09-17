@@ -2,194 +2,188 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 mod test_utils;
-use tempfile::TempDir;
-
 use assert_cmd::Command;
+use std::fs::File;
+use tempfile::TempDir;
+use tough::key_source::{KeySource, LocalKeySource};
+use tough::schema::decoded::{Decoded, Hex};
+use tough::schema::{Root, Signed};
 
-#[test]
-// Ensure we can create and sign a root file
-fn create_root() {
-    let key = test_utils::test_data().join("snakeoil.pem");
-    let outdir = TempDir::new().unwrap();
-    // Create root.json
+fn initialise_root_json(root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
-            "root",
-            "init",
-            outdir.path().join("root.json").to_str().unwrap(),
-        ])
+        .args(&["root", "init", root_json])
         .assert()
         .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "expire", root_json, "2020-09-22T00:00:00Z"])
+        .assert()
+        .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "set-threshold", root_json, "root", "1"])
+        .assert()
+        .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "set-threshold", root_json, "snapshot", "1"])
+        .assert()
+        .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "set-threshold", root_json, "targets", "1"])
+        .assert()
+        .success();
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "set-threshold", root_json, "timestamp", "1"])
+        .assert()
+        .success();
+}
 
-    // Set the threshold for roles
+fn add_key_root(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "root",
-            "1",
-        ])
+        .args(&["root", "add-key", root_json, key, "--role", "root"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "targets",
-            "1",
-        ])
-        .assert()
-        .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "snapshot",
-            "1",
-        ])
-        .assert()
-        .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "timestamp",
-            "1",
-        ])
-        .assert()
-        .success();
+}
 
-    // Add keys for all roles
+fn add_key_timestamp(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
-            "root",
-            "add-key",
-            outdir.path().join("root.json").to_str().unwrap(),
-            key.to_str().unwrap(),
-            "-r",
-            "root",
-            "-r",
-            "targets",
-            "-r",
-            "snapshot",
-            "-r",
-            "timestamp",
-        ])
+        .args(&["root", "add-key", root_json, key, "--role", "timestamp"])
         .assert()
         .success();
+}
 
-    // Sign root.json
+fn add_key_snapshot(key: &str, root_json: &str) {
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "add-key", root_json, key, "--role", "snapshot"])
+        .assert()
+        .success();
+}
+fn add_key_targets(key: &str, root_json: &str) {
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "add-key", root_json, key, "--role", "targets"])
+        .assert()
+        .success();
+}
+
+fn add_key_all_roles(key: &str, root_json: &str) {
+    add_key_root(key, root_json);
+    add_key_timestamp(key, root_json);
+    add_key_snapshot(key, root_json);
+    add_key_targets(key, root_json);
+}
+
+fn sign_root_json(key: &str, root_json: &str) {
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "sign", root_json, "-k", key])
+        .assert()
+        .success();
+}
+
+fn sign_root_json_two_keys(key_1: &str, key_2: &str, root_json: &str) {
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "sign", root_json, "-k", key_1, "-k", key_2])
+        .assert()
+        .success();
+}
+
+fn cross_sign(old_root: &str, new_root: &str, key: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
             "root",
             "sign",
-            outdir.path().join("root.json").to_str().unwrap(),
-            key.to_str().unwrap(),
+            new_root,
+            "-k",
+            key,
+            "--cross-sign",
+            old_root,
         ])
         .assert()
         .success();
 }
 
+fn get_signed_root(root_json: &str) -> Signed<Root> {
+    let root = File::open(root_json).unwrap();
+    serde_json::from_reader(root).unwrap()
+}
+
+fn get_sign_len(root_json: &str) -> usize {
+    let root = get_signed_root(root_json);
+    root.signatures.len()
+}
+
+fn check_signature_exists(root_json: &str, key_id: Decoded<Hex>) -> bool {
+    let root = get_signed_root(root_json);
+    if root.signatures.iter().find(|sig| sig.keyid == key_id) == None {
+        return false;
+    }
+    return true;
+}
+
+#[test]
+// Ensure we can create and sign a root file
+fn create_root() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_1 = test_utils::test_data().join("snakeoil.pem");
+    let key_2 = test_utils::test_data().join("snakeoil_2.pem");
+
+    // Create and initialise root.json
+    initialise_root_json(root_json.to_str().unwrap());
+    // Add keys for all roles
+    add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    // Add second key for root role
+    add_key_root(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+    // Sign root.json with 1 key
+    sign_root_json_two_keys(
+        key_1.to_str().unwrap(),
+        key_2.to_str().unwrap(),
+        root_json.to_str().unwrap(),
+    );
+    assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
+}
+
 #[test]
 // Ensure creating an unstable root throws error
 fn create_unstable_root() {
-    let outdir = TempDir::new().unwrap();
+    let out_dir = TempDir::new().unwrap();
     let key = test_utils::test_data().join("snakeoil.pem");
-    // Create root.json
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "init",
-            outdir.path().join("root.json").to_str().unwrap(),
-        ])
-        .assert()
-        .success();
+    let root_json = out_dir.path().join("root.json");
 
+    // Create and initialise root.json
+    initialise_root_json(root_json.to_str().unwrap());
     // Set the threshold for roles with targets being more than 1
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
             "root",
             "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "root",
-            "1",
-        ])
-        .assert()
-        .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
+            root_json.to_str().unwrap(),
             "targets",
             "2",
         ])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "snapshot",
-            "1",
-        ])
-        .assert()
-        .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "timestamp",
-            "1",
-        ])
-        .assert()
-        .success();
-
     // Add keys for all roles
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "add-key",
-            outdir.path().join("root.json").to_str().unwrap(),
-            key.to_str().unwrap(),
-            "-r",
-            "root",
-            "-r",
-            "targets",
-            "-r",
-            "snapshot",
-            "-r",
-            "timestamp",
-        ])
-        .assert()
-        .success();
-
+    add_key_all_roles(key.to_str().unwrap(), root_json.to_str().unwrap());
     // Sign root.json (error because targets can never be validated root has 1 key but targets requires 2 signatures)
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
             "root",
             "sign",
-            outdir.path().join("root.json").to_str().unwrap(),
+            out_dir.path().join("root.json").to_str().unwrap(),
+            "-k",
             key.to_str().unwrap(),
         ])
         .assert()
@@ -197,95 +191,115 @@ fn create_unstable_root() {
 }
 
 #[test]
-// Ensure signing a root with insuffecient keys throws error
+// Ensure signing a root with insufficient keys throws error
 fn create_invalid_root() {
-    let outdir = TempDir::new().unwrap();
+    let out_dir = TempDir::new().unwrap();
     let key = test_utils::test_data().join("snakeoil.pem");
-    // Create root.json
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "init",
-            outdir.path().join("root.json").to_str().unwrap(),
-        ])
-        .assert()
-        .success();
+    let root_json = out_dir.path().join("root.json");
 
-    // Set the threshold for roles
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "root",
-            "1",
-        ])
-        .assert()
-        .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "targets",
-            "1",
-        ])
-        .assert()
-        .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "snapshot",
-            "1",
-        ])
-        .assert()
-        .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "set-threshold",
-            outdir.path().join("root.json").to_str().unwrap(),
-            "timestamp",
-            "1",
-        ])
-        .assert()
-        .success();
-
+    // Create and initialise root.json
+    initialise_root_json(root_json.to_str().unwrap());
     // Add keys for all roles
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(&[
-            "root",
-            "add-key",
-            outdir.path().join("root.json").to_str().unwrap(),
-            key.to_str().unwrap(),
-            "-r",
-            "root",
-            "-r",
-            "targets",
-            "-r",
-            "snapshot",
-            "-r",
-            "timestamp",
-        ])
-        .assert()
-        .success();
-
+    add_key_all_roles(key.to_str().unwrap(), root_json.to_str().unwrap());
     // Sign root.json (error because key is not valid)
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&[
             "root",
             "sign",
-            outdir.path().join("root.json").to_str().unwrap(),
+            out_dir.path().join("root.json").to_str().unwrap(),
         ])
         .assert()
         .failure();
+}
+
+#[test]
+fn cross_sign_root() {
+    let out_dir = TempDir::new().unwrap();
+    let old_root_json = test_utils::test_data()
+        .join("cross-sign-root")
+        .join("1.root.json");
+    // 1.root.json is signed with 'snakeoil.pem'
+    let new_root_json = out_dir.path().join("2.root.json");
+    let old_root_key = test_utils::test_data().join("snakeoil.pem");
+    let new_root_key = test_utils::test_data().join("snakeoil_2.pem");
+    let old_key_source = LocalKeySource {
+        path: old_root_key.clone(),
+    };
+    let old_key_id = old_key_source
+        .as_sign()
+        .ok()
+        .unwrap()
+        .tuf_key()
+        .key_id()
+        .unwrap();
+    // Create and initialise root.json
+    initialise_root_json(new_root_json.to_str().unwrap());
+    // Add keys for all roles
+    add_key_all_roles(
+        new_root_key.to_str().unwrap(),
+        new_root_json.to_str().unwrap(),
+    );
+    //Sign 2.root.json with key from 1.root.json
+    cross_sign(
+        old_root_json.to_str().unwrap(),
+        new_root_json.to_str().unwrap(),
+        old_root_key.to_str().unwrap(),
+    );
+    assert_eq!(
+        check_signature_exists(new_root_json.to_str().unwrap(), old_key_id),
+        true
+    );
+}
+
+//cross-signing new_root.json with invalid key ( key not present in old_root.json )
+#[test]
+fn cross_sign_root_invalid_key() {
+    let out_dir = TempDir::new().unwrap();
+    let old_root_json = test_utils::test_data()
+        .join("cross-sign-root")
+        .join("1.root.json");
+    let new_root_json = out_dir.path().join("2.root.json");
+    let root_key = test_utils::test_data().join("snakeoil_2.pem");
+
+    // Create and initialise root.json
+    initialise_root_json(new_root_json.to_str().unwrap());
+    // Add keys for all roles
+    add_key_all_roles(root_key.to_str().unwrap(), new_root_json.to_str().unwrap());
+    //Sign 2.root.json with key not in 1.root.json
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&[
+            "root",
+            "sign",
+            new_root_json.to_str().unwrap(),
+            "-k",
+            root_key.to_str().unwrap(),
+            "--cross-sign",
+            old_root_json.to_str().unwrap(),
+        ])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn append_signature_root() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_1 = test_utils::test_data().join("snakeoil.pem");
+    let key_2 = test_utils::test_data().join("snakeoil_2.pem");
+
+    // Create and initialise root.json
+    initialise_root_json(root_json.to_str().unwrap());
+    // Add key_1 for all roles
+    add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    // Add key_2 to root
+    add_key_root(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+    // Sign root.json with key_1
+    sign_root_json(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    // Sign root.json with key_2
+    sign_root_json(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+
+    //validate number of signatures
+    assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
 }
