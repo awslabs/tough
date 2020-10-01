@@ -16,7 +16,7 @@ rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/
 rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls", "rusoto_kms/rustls",]
 
 [dependencies]
-chrono = "0.4.11"
+chrono = "0.4.19"
 hex = "0.4.2"
 log = "0.4.8"
 maplit = "1.0.1"
