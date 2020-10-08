@@ -353,11 +353,10 @@ impl<'a, T: Transport> TargetsEditor<'a, T> {
         if recursive {
             // Keep all roles that do not delegate `role` down the chain of delegations
             delegations.roles.retain(|delegated_role| {
-                if let Some(targets) = delegated_role.targets.as_ref() {
-                    targets.signed.delegated_role(role).is_err()
-                } else {
-                    true
-                }
+                delegated_role
+                    .targets
+                    .as_ref()
+                    .map_or(true, |targets| targets.signed.delegated_role(role).is_err())
             });
         }
         Ok(self)
