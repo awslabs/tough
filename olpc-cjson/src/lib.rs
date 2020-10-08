@@ -91,15 +91,15 @@ impl CanonicalFormatter {
     ///
     /// If we are not currently writing an object, pass through `writer`.
     fn writer<'a, W: Write + ?Sized>(&'a mut self, writer: &'a mut W) -> Box<dyn Write + 'a> {
-        if let Some(object) = self.object_stack.last_mut() {
-            if object.key_done {
-                Box::new(&mut object.next_value)
-            } else {
-                Box::new(&mut object.next_key)
-            }
-        } else {
-            Box::new(writer)
-        }
+        self.object_stack
+            .last_mut()
+            .map_or(Box::new(writer), |object| {
+                if object.key_done {
+                    Box::new(&mut object.next_value)
+                } else {
+                    Box::new(&mut object.next_key)
+                }
+            })
     }
 
     /// Returns a mutable reference to the top of the object stack.

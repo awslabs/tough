@@ -151,6 +151,7 @@ impl AddRoleArgs {
         Ok(())
     }
 
+    #[allow(clippy::option_if_let_else)]
     /// Adds a role to metadata using targets Editor
     fn with_targets_editor<T>(&self, role: &str, mut editor: TargetsEditor<'_, T>) -> Result<()>
     where
@@ -187,6 +188,7 @@ impl AddRoleArgs {
         Ok(())
     }
 
+    #[allow(clippy::option_if_let_else)]
     /// Adds a role to metadata using repo Editor
     fn with_repo_editor<T>(&self, role: &str, mut editor: RepositoryEditor<'_, T>) -> Result<()>
     where
