@@ -51,6 +51,13 @@ pub(crate) enum Command {
         /// The new threshold
         threshold: NonZeroU64,
     },
+    /// Set the version number for root.json
+    SetVersion {
+        /// Path to root.json
+        path: PathBuf,
+        /// Version number
+        version: NonZeroU64,
+    },
     /// Add a key (public or private) to a role
     AddKey {
         /// Path to root.json
@@ -128,6 +135,7 @@ impl Command {
                 role,
                 threshold,
             } => Command::set_threshold(&path, role, threshold),
+            Command::SetVersion { path, version } => Command::set_version(&path, version),
             Command::AddKey {
                 path,
                 roles,
@@ -200,6 +208,13 @@ impl Command {
             .entry(role)
             .and_modify(|rk| rk.threshold = threshold)
             .or_insert_with(|| role_keys!(threshold));
+        clear_sigs(&mut root);
+        write_file(path, &root)
+    }
+
+    fn set_version(path: &PathBuf, version: NonZeroU64) -> Result<()> {
+        let mut root: Signed<Root> = load_file(path)?;
+        root.signed.version = version;
         clear_sigs(&mut root);
         write_file(path, &root)
     }
