@@ -19,7 +19,7 @@ tough = { version = "0.9.0", path = "../tough", features = ["http"] }
 ring = { version = "0.16.13", features = ["std"] }
 rusoto_core = { version = "0.44", optional = true, default-features = false }
 rusoto_credential = { version = "0.44", optional = true }
-rusoto_kms = { version = "0.44", optional = true, default-features = false }
+rusoto_kms = { version = "0.45", optional = true, default-features = false }
 bytes = "0.5.6"
 snafu = { version = "0.6.6", features = ["backtraces-impl-backtrace-crate"] }
 tokio = "0.2.13"
