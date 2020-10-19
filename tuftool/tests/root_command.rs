@@ -4,12 +4,13 @@
 mod test_utils;
 use assert_cmd::Command;
 use std::fs::File;
+use std::num::NonZeroU64;
 use tempfile::TempDir;
 use tough::key_source::{KeySource, LocalKeySource};
 use tough::schema::decoded::{Decoded, Hex};
 use tough::schema::{Root, Signed};
 
-fn initialise_root_json(root_json: &str) {
+fn initialize_root_json(root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(&["root", "init", root_json])
@@ -130,6 +131,11 @@ fn check_signature_exists(root_json: &str, key_id: Decoded<Hex>) -> bool {
     return true;
 }
 
+fn get_version(root_json: &str) -> NonZeroU64 {
+    let root = get_signed_root(root_json);
+    return root.signed.version;
+}
+
 #[test]
 // Ensure we can create and sign a root file
 fn create_root() {
@@ -139,7 +145,7 @@ fn create_root() {
     let key_2 = test_utils::test_data().join("snakeoil_2.pem");
 
     // Create and initialise root.json
-    initialise_root_json(root_json.to_str().unwrap());
+    initialize_root_json(root_json.to_str().unwrap());
     // Add keys for all roles
     add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
     // Add second key for root role
@@ -161,7 +167,7 @@ fn create_unstable_root() {
     let root_json = out_dir.path().join("root.json");
 
     // Create and initialise root.json
-    initialise_root_json(root_json.to_str().unwrap());
+    initialize_root_json(root_json.to_str().unwrap());
     // Set the threshold for roles with targets being more than 1
     Command::cargo_bin("tuftool")
         .unwrap()
@@ -198,7 +204,7 @@ fn create_invalid_root() {
     let root_json = out_dir.path().join("root.json");
 
     // Create and initialise root.json
-    initialise_root_json(root_json.to_str().unwrap());
+    initialize_root_json(root_json.to_str().unwrap());
     // Add keys for all roles
     add_key_all_roles(key.to_str().unwrap(), root_json.to_str().unwrap());
     // Sign root.json (error because key is not valid)
@@ -234,7 +240,7 @@ fn cross_sign_root() {
         .key_id()
         .unwrap();
     // Create and initialise root.json
-    initialise_root_json(new_root_json.to_str().unwrap());
+    initialize_root_json(new_root_json.to_str().unwrap());
     // Add keys for all roles
     add_key_all_roles(
         new_root_key.to_str().unwrap(),
@@ -263,7 +269,7 @@ fn cross_sign_root_invalid_key() {
     let root_key = test_utils::test_data().join("snakeoil_2.pem");
 
     // Create and initialise root.json
-    initialise_root_json(new_root_json.to_str().unwrap());
+    initialize_root_json(new_root_json.to_str().unwrap());
     // Add keys for all roles
     add_key_all_roles(root_key.to_str().unwrap(), new_root_json.to_str().unwrap());
     //Sign 2.root.json with key not in 1.root.json
@@ -290,7 +296,7 @@ fn append_signature_root() {
     let key_2 = test_utils::test_data().join("snakeoil_2.pem");
 
     // Create and initialise root.json
-    initialise_root_json(root_json.to_str().unwrap());
+    initialize_root_json(root_json.to_str().unwrap());
     // Add key_1 for all roles
     add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
     // Add key_2 to root
@@ -302,4 +308,24 @@ fn append_signature_root() {
 
     //validate number of signatures
     assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
+}
+
+#[test]
+fn set_version_root() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+
+    // Create and initialise root.json
+    initialize_root_json(root_json.to_str().unwrap());
+    let version = NonZeroU64::new(5).unwrap();
+
+    //set version to 5
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args(&["root", "set-version", root_json.to_str().unwrap(), "5"])
+        .assert()
+        .success();
+
+    //validate version number
+    assert_eq!(get_version(root_json.to_str().unwrap()), version);
 }
