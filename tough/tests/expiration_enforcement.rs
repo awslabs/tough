@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use std::fs::File;
-use tempfile::TempDir;
 use test_utils::{dir_url, test_data};
 use tough::error::Error::ExpiredMetadata;
 use tough::schema::RoleType;
@@ -15,18 +14,14 @@ mod test_utils;
 #[test]
 fn test_expiration_enforcement_safe() {
     let base = test_data().join("expired-repository");
-    let datastore = TempDir::new().unwrap();
-
-    let metadata_base_url = &dir_url(base.join("metadata"));
-    let targets_base_url = &dir_url(base.join("targets"));
 
     let result = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(base.join("metadata").join("1.root.json")).unwrap(),
-            datastore: datastore.as_ref(),
-            metadata_base_url,
-            targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(base.join("metadata")),
+            targets_base_url: dir_url(base.join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -53,18 +48,13 @@ fn test_expiration_enforcement_safe() {
 #[test]
 fn test_expiration_enforcement_unsafe() {
     let base = test_data().join("expired-repository");
-    let datastore = TempDir::new().unwrap();
-
-    let metadata_base_url = &dir_url(base.join("metadata"));
-    let targets_base_url = &dir_url(base.join("targets"));
-
     let result = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(base.join("metadata").join("1.root.json")).unwrap(),
-            datastore: datastore.as_ref(),
-            metadata_base_url,
-            targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(base.join("metadata")),
+            targets_base_url: dir_url(base.join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Unsafe,
         },

@@ -8,6 +8,7 @@ use chrono::{Duration, Utc};
 use std::fs::File;
 use std::path::Path;
 use tempfile::TempDir;
+use test_utils::dir_url;
 use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 fn create_repo<P: AsRef<Path>>(repo_dir: P) {
@@ -76,7 +77,7 @@ fn create_add_role_command() {
 
     // Set new expiration date for the new role
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -111,7 +112,7 @@ fn create_add_role_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(&meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -140,16 +141,15 @@ fn create_add_role_command() {
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(new_repo_dir.path().join("targets"));
+    let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
+    let updated_targets_base_url = &dir_url(new_repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(&root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
-            targets_base_url: updated_targets_base_url,
+            datastore: None,
+            metadata_base_url: updated_metadata_base_url.clone(),
+            targets_base_url: updated_targets_base_url.clone(),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -191,7 +191,7 @@ fn create_add_role_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(&create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key.to_str().unwrap(),
             "--root",
@@ -242,22 +242,19 @@ fn create_add_role_command() {
             "--role",
             "A",
             "-i",
-            test_utils::dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(&add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
-            targets_base_url: updated_targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(update_out.path().join("metadata")),
+            targets_base_url: dir_url(update_out.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -286,7 +283,7 @@ fn update_target_command() {
 
     // Set new expiration date for the new role
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -321,7 +318,7 @@ fn update_target_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(&meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -351,9 +348,9 @@ fn update_target_command() {
 
     // Update A's targets
     let ut_out = TempDir::new().unwrap();
-    let meta_out_url = test_utils::dir_url(&ut_out.path().join("metadata"));
+    let meta_out_url = dir_url(&ut_out.path().join("metadata"));
     let targets_out_url = ut_out.path().join("targets");
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let targets_input_dir = test_utils::test_data().join("targets");
     Command::cargo_bin("tuftool")
         .unwrap()
@@ -427,16 +424,13 @@ fn update_target_command() {
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
-            targets_base_url: updated_targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(update_out.path().join("metadata")),
+            targets_base_url: dir_url(update_out.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -469,7 +463,7 @@ fn add_key_command() {
     let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -504,7 +498,7 @@ fn add_key_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(&meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -531,7 +525,7 @@ fn add_key_command() {
         ])
         .assert()
         .success();
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
 
     // add key to A
     let key_out = TempDir::new().unwrap();
@@ -573,7 +567,7 @@ fn add_key_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&key_out.path().join("metadata")).as_str(),
+            dir_url(&key_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -596,7 +590,7 @@ fn add_key_command() {
         .assert()
         .success();
 
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
 
     let create_out = TempDir::new().unwrap();
     // create role B
@@ -631,7 +625,7 @@ fn add_key_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(&create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key1.to_str().unwrap(),
             "--root",
@@ -682,22 +676,19 @@ fn add_key_command() {
             "--role",
             "A",
             "-i",
-            test_utils::dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(&add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let _repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
-            targets_base_url: updated_targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(update_out.path().join("metadata")),
+            targets_base_url: dir_url(update_out.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -724,7 +715,7 @@ fn remove_key_command() {
     let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -761,7 +752,7 @@ fn remove_key_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(&meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -789,7 +780,7 @@ fn remove_key_command() {
         .assert()
         .success();
 
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
 
     // remove key from A
     let key_out = TempDir::new().unwrap();
@@ -831,7 +822,7 @@ fn remove_key_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&key_out.path().join("metadata")).as_str(),
+            dir_url(&key_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -854,7 +845,7 @@ fn remove_key_command() {
         .assert()
         .success();
 
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
+    let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
 
     let create_out = TempDir::new().unwrap();
     // create role B
@@ -889,7 +880,7 @@ fn remove_key_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(&create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key1.to_str().unwrap(),
             "--root",
@@ -927,7 +918,7 @@ fn remove_role_command() {
     let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -962,7 +953,7 @@ fn remove_role_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(&meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -991,15 +982,14 @@ fn remove_role_command() {
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(new_repo_dir.path().join("targets"));
+    let updated_metadata_base_url = dir_url(new_repo_dir.path().join("metadata"));
+    let updated_targets_base_url = dir_url(new_repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(&root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
+            datastore: None,
+            metadata_base_url: updated_metadata_base_url.clone(),
             targets_base_url: updated_targets_base_url,
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
@@ -1042,13 +1032,13 @@ fn remove_role_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(&create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key.to_str().unwrap(),
             "--root",
             root_json.to_str().unwrap(),
             "--metadata-url",
-            updated_metadata_base_url,
+            updated_metadata_base_url.as_str(),
             "-e",
             expiration.to_rfc3339().as_str(),
             "--delegated-role",
@@ -1083,7 +1073,7 @@ fn remove_role_command() {
             "--root",
             root_json.to_str().unwrap(),
             "--metadata-url",
-            updated_metadata_base_url,
+            updated_metadata_base_url.as_str(),
             "--targets-expires",
             new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
@@ -1099,14 +1089,14 @@ fn remove_role_command() {
             "--role",
             "A",
             "-i",
-            test_utils::dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(&add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
 
     // Remove B from the repo
     let remove_b_out = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
+    let updated_metadata_base_url = &dir_url(update_out.path().join("metadata"));
 
     // remove role B from A metadata and sign A meta
     Command::cargo_bin("tuftool")
@@ -1172,22 +1162,19 @@ fn remove_role_command() {
             "--role",
             "A",
             "-i",
-            test_utils::dir_url(&remove_b_out.path().join("metadata")).as_str(),
+            dir_url(&remove_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
-            targets_base_url: updated_targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(update_out.path().join("metadata")),
+            targets_base_url: dir_url(update_out.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -1216,7 +1203,7 @@ fn remove_role_recursive_command() {
     let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
     let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
     // create role A
@@ -1251,7 +1238,7 @@ fn remove_role_recursive_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(&meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -1280,16 +1267,14 @@ fn remove_role_recursive_command() {
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(new_repo_dir.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(new_repo_dir.path().join("targets"));
+    let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(&root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
-            targets_base_url: updated_targets_base_url,
+            datastore: None,
+            metadata_base_url: updated_metadata_base_url.clone(),
+            targets_base_url: dir_url(new_repo_dir.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -1331,7 +1316,7 @@ fn remove_role_recursive_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            test_utils::dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(&create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key.to_str().unwrap(),
             "--root",
@@ -1388,14 +1373,14 @@ fn remove_role_recursive_command() {
             "--role",
             "A",
             "-i",
-            test_utils::dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(&add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
 
     // Remove B from the repo
     let remove_b_out = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
+    let updated_metadata_base_url = &dir_url(update_out.path().join("metadata"));
 
     // remove role B from A metadata and sign A meta
     Command::cargo_bin("tuftool")
@@ -1462,22 +1447,19 @@ fn remove_role_recursive_command() {
             "--role",
             "targets",
             "-i",
-            test_utils::dir_url(&remove_b_out.path().join("metadata")).as_str(),
+            dir_url(&remove_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
 
     // Load the updated repo
-    let temp_datastore = TempDir::new().unwrap();
-    let updated_metadata_base_url = &test_utils::dir_url(update_out.path().join("metadata"));
-    let updated_targets_base_url = &test_utils::dir_url(update_out.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
-            datastore: temp_datastore.as_ref(),
-            metadata_base_url: updated_metadata_base_url,
-            targets_base_url: updated_targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(update_out.path().join("metadata")),
+            targets_base_url: dir_url(update_out.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },

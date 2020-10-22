@@ -7,6 +7,7 @@ use assert_cmd::Command;
 use chrono::{Duration, Utc};
 use std::fs::File;
 use tempfile::TempDir;
+use test_utils::dir_url;
 use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 #[test]
@@ -24,7 +25,6 @@ fn create_command() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let repo_dir = TempDir::new().unwrap();
-    let load_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation targets
     Command::cargo_bin("tuftool")
@@ -56,15 +56,13 @@ fn create_command() {
         .success();
 
     // Load our newly created repo
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
-    let targets_base_url = &test_utils::dir_url(repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
-            datastore: load_dir.as_ref(),
-            metadata_base_url,
-            targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(repo_dir.path().join("metadata")),
+            targets_base_url: dir_url(repo_dir.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },

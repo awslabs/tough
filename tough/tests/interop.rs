@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use std::fs::File;
-use tempfile::TempDir;
 use test_utils::{dir_url, read_to_end, test_data};
 use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
@@ -15,18 +14,14 @@ mod test_utils;
 #[test]
 fn test_tuf_reference_impl() {
     let base = test_data().join("tuf-reference-impl");
-    let datastore = TempDir::new().unwrap();
-
-    let metadata_base_url = &dir_url(base.join("metadata"));
-    let targets_base_url = &dir_url(base.join("targets"));
 
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(base.join("metadata").join("1.root.json")).unwrap(),
-            datastore: datastore.as_ref(),
-            metadata_base_url,
-            targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(base.join("metadata")),
+            targets_base_url: dir_url(base.join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },

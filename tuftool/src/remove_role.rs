@@ -10,7 +10,6 @@ use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use tempfile::tempdir;
 use tough::editor::targets::TargetsEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
@@ -56,13 +55,12 @@ pub(crate) struct RemoveRoleArgs {
 impl RemoveRoleArgs {
     pub(crate) fn run(&self, role: &str) -> Result<()> {
         // load the repo
-        let datastore = tempdir().context(error::TempDir)?;
         // We don't do anything with targets so we will use metadata url
         let settings = tough::Settings {
             root: File::open(&self.root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: self.metadata_base_url.as_str(),
-            targets_base_url: self.metadata_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: self.metadata_base_url.to_string(),
+            targets_base_url: self.metadata_base_url.to_string(),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         };

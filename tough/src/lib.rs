@@ -56,7 +56,7 @@ use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Read;
-use std::path::Path;
+use std::path::PathBuf;
 use url::Url;
 
 /// Represents whether a Repository should fail to load when metadata is expired (`Safe`) or whether
@@ -96,7 +96,7 @@ impl From<ExpirationEnforcement> for bool {
 
 /// Repository fetch settings, provided to [`Repository::load`].
 #[derive(Debug, Clone)]
-pub struct Settings<'a, R: Read> {
+pub struct Settings<R: Read> {
     /// A [`Read`]er to the trusted root metadata file, which you must ship with your software
     /// using an out-of-band-process.
     ///
@@ -105,16 +105,19 @@ pub struct Settings<'a, R: Read> {
     /// file.)
     pub root: R,
 
-    /// A [`Path`] to a directory on a persistent filesystem. Tough stores the most recently
-    /// fetched timestamp, snapshot, and targets metadata files here to detect version rollback
-    /// attacks. The directory must exist prior to calling [`Repository::load`].
-    pub datastore: &'a Path,
+    /// Tough stores the most recently fetched timestamp, snapshot, and targets metadata files here
+    /// to detect version rollback attacks.
+    ///
+    /// You may chose to provide a [`PathBuf`] to a directory on a persistent filesystem where
+    /// directory must exist prior to calling [`Repository::load`]. If given `None`, a temporary
+    /// directory will be created and cleaned up for for you.
+    pub datastore: Option<PathBuf>,
 
     /// The URL base for TUF metadata (such as timestamp.json).
-    pub metadata_base_url: &'a str,
+    pub metadata_base_url: String,
 
     /// The URL base for targets.
-    pub targets_base_url: &'a str,
+    pub targets_base_url: String,
 
     /// Limits used when fetching repository metadata.
     ///
@@ -178,7 +181,7 @@ impl Default for Limits {
 pub struct Repository<'a, T: Transport> {
     transport: &'a T,
     consistent_snapshot: bool,
-    datastore: Datastore<'a>,
+    datastore: Datastore,
     earliest_expiration: DateTime<Utc>,
     earliest_expiration_role: RoleType,
     root: Signed<Root>,
@@ -212,11 +215,11 @@ impl<'a, T: Transport> Repository<'a, T> {
     ///
     /// `metadata_base_url` and `targets_base_url` are the HTTP(S) base URLs for where the client
     /// can find metadata (such as root.json) and targets (as listed in targets.json).
-    pub fn load<R: Read>(transport: &'a T, settings: Settings<'a, R>) -> Result<Self> {
+    pub fn load<R: Read>(transport: &'a T, settings: Settings<R>) -> Result<Self> {
         let metadata_base_url = parse_url(settings.metadata_base_url)?;
         let targets_base_url = parse_url(settings.targets_base_url)?;
 
-        let datastore = Datastore::new(settings.datastore);
+        let datastore = Datastore::new(settings.datastore)?;
 
         // 0. Load the trusted root metadata file + 1. Update the root metadata file
         let root = load_root(
@@ -365,7 +368,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 }
 
 /// Ensures that system time has not stepped backward since it was last sampled
-fn system_time(datastore: &Datastore<'_>) -> Result<DateTime<Utc>> {
+fn system_time(datastore: &Datastore) -> Result<DateTime<Utc>> {
     let file = "latest_known_time.json";
     // Get 'current' system time
     let sys_time = Utc::now();
@@ -389,7 +392,7 @@ fn system_time(datastore: &Datastore<'_>) -> Result<DateTime<Utc>> {
     Ok(sys_time)
 }
 
-fn check_expired<T: Role>(datastore: &Datastore<'_>, role: &T) -> Result<()> {
+fn check_expired<T: Role>(datastore: &Datastore, role: &T) -> Result<()> {
     ensure!(
         system_time(datastore)? < role.expires(),
         error::ExpiredMetadata { role: T::TYPE }
@@ -397,8 +400,8 @@ fn check_expired<T: Role>(datastore: &Datastore<'_>, role: &T) -> Result<()> {
     Ok(())
 }
 
-fn parse_url(url: &str) -> Result<Url> {
-    let mut url = Cow::from(url);
+fn parse_url<S: AsRef<str>>(url: S) -> Result<Url> {
+    let mut url = Cow::from(url.as_ref());
     if !url.ends_with('/') {
         url.to_mut().push('/');
     }
@@ -410,7 +413,7 @@ fn parse_url(url: &str) -> Result<Url> {
 fn load_root<R: Read, T: Transport>(
     transport: &T,
     root: R,
-    datastore: &Datastore<'_>,
+    datastore: &Datastore,
     max_root_size: u64,
     max_root_updates: u64,
     metadata_base_url: &Url,
@@ -576,7 +579,7 @@ fn load_root<R: Read, T: Transport>(
 fn load_timestamp<T: Transport>(
     transport: &T,
     root: &Signed<Root>,
-    datastore: &Datastore<'_>,
+    datastore: &Datastore,
     max_timestamp_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
@@ -648,7 +651,7 @@ fn load_snapshot<T: Transport>(
     transport: &T,
     root: &Signed<Root>,
     timestamp: &Signed<Timestamp>,
-    datastore: &Datastore<'_>,
+    datastore: &Datastore,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
 ) -> Result<Signed<Snapshot>> {
@@ -782,7 +785,7 @@ fn load_targets<T: Transport>(
     transport: &T,
     root: &Signed<Root>,
     snapshot: &Signed<Snapshot>,
-    datastore: &Datastore<'_>,
+    datastore: &Datastore,
     max_targets_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
@@ -919,7 +922,7 @@ fn load_delegations<T: Transport>(
     metadata_base_url: &Url,
     max_targets_size: u64,
     delegation: &mut Delegations,
-    datastore: &Datastore<'_>,
+    datastore: &Datastore,
 ) -> Result<()> {
     let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
         HashMap::new();
