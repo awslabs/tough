@@ -32,23 +32,7 @@ fn assert_file_match(outdir: &TempDir, filename: &str) {
     assert_eq!(got, want, "{} contents do not match.", filename);
 }
 
-#[test]
-// Ensure that the download command works, and that we truncate files when downloading into a non-
-// empty directory (i.e. that issue #173 is fixed).
-fn download_command_truncates() {
-    // let repo_dir = utl::test_data().join("tuf-reference-impl");
-    let _role_1 = create_successful_get_mock("metadata/role1.json");
-    let _role_2 = create_successful_get_mock("metadata/role2.json");
-    let _snapshot = create_successful_get_mock("metadata/snapshot.json");
-    let _targets = create_successful_get_mock("metadata/targets.json");
-    let _timestamp = create_successful_get_mock("metadata/timestamp.json");
-    let _file1 = create_successful_get_mock("targets/file1.txt");
-    let _file2 = create_successful_get_mock("targets/file2.txt");
-    let _file3 = create_successful_get_mock("targets/file3.txt");
-    let base_url = Url::from_str(mockito::server_url().as_str()).unwrap();
-    let metadata_base_url = base_url.join("metadata").unwrap().to_string();
-    let targets_base_url = base_url.join("targets").unwrap().to_string();
-
+fn download_command(metadata_base_url: String, targets_base_url: String) {
     let outdir = TempDir::new().unwrap();
     let root_json = test_utils::test_data()
         .join("tuf-reference-impl")
@@ -104,4 +88,34 @@ fn download_command_truncates() {
     assert_file_match(&outdir, "file1.txt");
     assert_file_match(&outdir, "file2.txt");
     // TODO - assert_file_match(&outdir, "file3.txt"); when delegate support lands.
+}
+
+#[test]
+// Ensure that the download command works with http url, and that we truncate files when downloading into a non-
+// empty directory (i.e. that issue #173 is fixed).
+fn download_command_truncates_http() {
+    // let repo_dir = utl::test_data().join("tuf-reference-impl");
+    let _role_1 = create_successful_get_mock("metadata/role1.json");
+    let _role_2 = create_successful_get_mock("metadata/role2.json");
+    let _snapshot = create_successful_get_mock("metadata/snapshot.json");
+    let _targets = create_successful_get_mock("metadata/targets.json");
+    let _timestamp = create_successful_get_mock("metadata/timestamp.json");
+    let _file1 = create_successful_get_mock("targets/file1.txt");
+    let _file2 = create_successful_get_mock("targets/file2.txt");
+    let _file3 = create_successful_get_mock("targets/file3.txt");
+    let base_url = Url::from_str(mockito::server_url().as_str()).unwrap();
+    base_url.join("metadata").unwrap().to_string();
+    let metadata_base_url = base_url.join("metadata").unwrap().to_string();
+    let targets_base_url = base_url.join("targets").unwrap().to_string();
+    download_command(metadata_base_url, targets_base_url);
+}
+
+#[test]
+// Ensure that the download command works with file url, and that we truncate files when downloading into a non-
+// empty directory (i.e. that issue #173 is fixed).
+fn download_command_truncates_file() {
+    let repo_dir = test_utils::test_data().join("tuf-reference-impl");
+    let metadata_base_url = test_utils::dir_url(repo_dir.join("metadata").to_str().unwrap());
+    let targets_base_url = test_utils::dir_url(repo_dir.join("targets").to_str().unwrap());
+    download_command(metadata_base_url, targets_base_url);
 }

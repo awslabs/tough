@@ -10,9 +10,9 @@ cargo install --force tuftool
 
 By default, cargo installs binaries to `~/.cargo/bin`, so you will need this in your path. See the [cargo book](https://doc.rust-lang.org/cargo/commands/cargo-install.html) for more about installing Rust binary crates.
 
-## Creating a Minimal TUF Repo
+## Minimal TUF Repo
 
-The following is an example of how you can create a TUF repository using `tuftool`.
+The following is an example of how you can create and download a TUF repository using `tuftool`.
 First, create a working directory:
 
 ```sh
@@ -73,7 +73,7 @@ mkdir -p "${WRK}/input"
 echo "1" > "${WRK}/input/1.txt"
 echo "2" > "${WRK}/input/2.txt"
 
-# finally, create a tuf repo!
+# create a tuf repo!
 tuftool create \
   --root "${ROOT}" \
   --key "${WRK}/keys/root.pem" \
@@ -96,7 +96,7 @@ ls "${WRK}/tuf-repo/targets"
 # Change one of the target files
 echo "1.1" > "${WRK}/input/1.txt"
 
-# finally, update tuf repo!
+# update tuf repo!
 tuftool update \
    --root "${ROOT}" \
    --key "${WRK}/keys/root.pem" \
@@ -109,6 +109,20 @@ tuftool update \
    --timestamp-version 2 \
    --outdir "${WRK}/tuf-repo" \
    --metadata-url file:///$WRK/tuf-repo/metadata
+```
+
+### Download TUF Repo
+Now that we have created TUF repo, we can inspect it using download command. 
+Download command is usually used to download a remote repo using HTTP/S url, but 
+for this example we will use a file based url to download from local repo.
+
+```sh
+# downlaod tuf repo
+tuftool download \
+   --root "${ROOT}" \
+   -t "file://${WRK}/tuf-repo/targets" \
+   -m "file://${WRK}/tuf-repo/metadata" \
+   "${WRK}/tuf-downlaod"
 ```
 
 ## Testing
