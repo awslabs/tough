@@ -3,8 +3,9 @@
 
 mod test_utils;
 
+use assert_cmd::assert::Assert;
 use assert_cmd::Command;
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use std::fs::File;
 use std::path::Path;
 use tempfile::TempDir;
@@ -291,4 +292,117 @@ fn update_with_no_key() {
         ])
         .assert()
         .failure();
+}
+
+fn updates_expired_repo(
+    outdir: &TempDir,
+    repo_dir: &TempDir,
+    allow_expired_repo: bool,
+) -> (
+    Assert,
+    DateTime<Utc>,
+    u64,
+    DateTime<Utc>,
+    u64,
+    DateTime<Utc>,
+    u64,
+) {
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let root_key = test_utils::test_data().join("snakeoil.pem");
+    // Set expiration dates and version numbers for the update command
+    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let timestamp_version: u64 = 310;
+    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let snapshot_version: u64 = 250;
+    let targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let targets_version: u64 = 170;
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    cmd.args(&[
+        "update",
+        "-o",
+        outdir.path().to_str().unwrap(),
+        "-k",
+        root_key.to_str().unwrap(),
+        "--root",
+        root_json.to_str().unwrap(),
+        "--metadata-url",
+        metadata_base_url,
+        "--targets-expires",
+        targets_expiration.to_rfc3339().as_str(),
+        "--targets-version",
+        format!("{}", targets_version).as_str(),
+        "--snapshot-expires",
+        snapshot_expiration.to_rfc3339().as_str(),
+        "--snapshot-version",
+        format!("{}", snapshot_version).as_str(),
+        "--timestamp-expires",
+        timestamp_expiration.to_rfc3339().as_str(),
+        "--timestamp-version",
+        format!("{}", timestamp_version).as_str(),
+    ]);
+    let assert = if allow_expired_repo {
+        cmd.arg("--allow-expired-repo").assert()
+    } else {
+        cmd.assert()
+    };
+    return (
+        assert,
+        timestamp_expiration,
+        timestamp_version,
+        snapshot_expiration,
+        snapshot_version,
+        targets_expiration,
+        targets_version,
+    );
+}
+
+#[test]
+// Ensure we cannot update a repo that has had its metadata expired
+fn update_command_expired_repo_fail() {
+    let outdir = TempDir::new().unwrap();
+    let repo_dir = TempDir::new().unwrap();
+    // Create a expired repo using tuftool and the reference tuf implementation data
+    test_utils::create_expired_repo(repo_dir.path());
+    let update_expected = updates_expired_repo(&outdir, &repo_dir, false);
+    // assert failure for update command
+    update_expected.0.failure();
+}
+
+#[test]
+// Ensure we can update a repo that has its metadata expired but --allow-expired-repo flag is passed
+fn update_command_expired_repo_allow() {
+    let outdir = TempDir::new().unwrap();
+    let repo_dir = TempDir::new().unwrap();
+    // Create a expired repo using tuftool and the reference tuf implementation data
+    test_utils::create_expired_repo(repo_dir.path());
+    let update_expected = updates_expired_repo(&outdir, &repo_dir, true);
+    // assert success for update command
+    update_expected.0.success();
+    // Load the updated repo
+    let temp_datastore = TempDir::new().unwrap();
+    let updated_metadata_base_url = &test_utils::dir_url(outdir.path().join("metadata"));
+    let updated_targets_base_url = &test_utils::dir_url(outdir.path().join("targets"));
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let repo = Repository::load(
+        &tough::FilesystemTransport,
+        Settings {
+            root: File::open(root_json).unwrap(),
+            datastore: temp_datastore.as_ref(),
+            metadata_base_url: updated_metadata_base_url,
+            targets_base_url: updated_targets_base_url,
+            limits: Limits::default(),
+            expiration_enforcement: ExpirationEnforcement::Safe,
+        },
+    )
+    .unwrap();
+    // Ensure all the existing targets are accounted for
+    assert_eq!(repo.targets().signed.targets.len(), 3);
+    // Ensure all the metadata has been updated
+    assert_eq!(repo.timestamp().signed.expires, update_expected.1);
+    assert_eq!(repo.timestamp().signed.version.get(), update_expected.2);
+    assert_eq!(repo.snapshot().signed.expires, update_expected.3);
+    assert_eq!(repo.snapshot().signed.version.get(), update_expected.4);
+    assert_eq!(repo.targets().signed.expires, update_expected.5);
+    assert_eq!(repo.targets().signed.version.get(), update_expected.6);
 }

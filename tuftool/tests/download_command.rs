@@ -1,5 +1,6 @@
 mod test_utils;
 
+use assert_cmd::assert::Assert;
 use assert_cmd::Command;
 use mockito::mock;
 use std::fs::{read_to_string, OpenOptions};
@@ -118,4 +119,51 @@ fn download_command_truncates_file() {
     let metadata_base_url = test_utils::dir_url(repo_dir.join("metadata").to_str().unwrap());
     let targets_base_url = test_utils::dir_url(repo_dir.join("targets").to_str().unwrap());
     download_command(metadata_base_url, targets_base_url);
+}
+
+fn download_expired_repo(outdir: &TempDir, repo_dir: &TempDir, allow_expired_repo: bool) -> Assert {
+    let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
+    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
+    let targets_base_url = &test_utils::dir_url(repo_dir.path().join("targets"));
+    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    cmd.args(&[
+        "download",
+        "-r",
+        root_json.to_str().unwrap(),
+        "--metadata-url",
+        metadata_base_url.as_str(),
+        "--target-url",
+        targets_base_url.as_str(),
+        outdir.path().to_str().unwrap(),
+    ]);
+    if allow_expired_repo {
+        cmd.arg("--allow-expired-repo").assert()
+    } else {
+        cmd.assert()
+    }
+}
+
+#[test]
+// Ensure download command fails when metadata has expired
+fn download_command_expired_repo_fail() {
+    let outdir = TempDir::new().unwrap();
+    let repo_dir = TempDir::new().unwrap();
+    // Create a expired repo using tuftool
+    test_utils::create_expired_repo(repo_dir.path());
+    // assert failure for download command
+    download_expired_repo(&outdir, &repo_dir, false).failure();
+}
+
+#[test]
+// Ensure download command is successful when metadata has expired but --allow-expired-repo flag is passed
+fn download_command_expired_repo_allow() {
+    let outdir = TempDir::new().unwrap();
+    let repo_dir = TempDir::new().unwrap();
+    // Create a expired repo using tuftool
+    test_utils::create_expired_repo(repo_dir.path());
+    // assert success for download command
+    download_expired_repo(&outdir, &repo_dir, true).success();
+    // Assert the files are exactly correct
+    assert_file_match(&outdir, "file1.txt");
+    assert_file_match(&outdir, "file2.txt");
 }

@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use snafu::{OptionExt, ResultExt};
 use std::fs::File;
 use std::num::{NonZeroU64, NonZeroUsize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tempfile::tempdir;
 use tough::editor::signed::PathExists;
@@ -90,6 +90,20 @@ pub(crate) struct UpdateArgs {
     /// Role of incoming metadata
     #[structopt(long = "role")]
     role: Option<String>,
+
+    /// Allow repo download for expired metadata
+    #[structopt(long)]
+    allow_expired_repo: bool,
+}
+
+fn expired_repo_warning<P: AsRef<Path>>(path: P) {
+    #[rustfmt::skip]
+    eprintln!("\
+=================================================================
+Updating repo at {}
+WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establish trust, use only for testing!
+=================================================================",
+              path.as_ref().display());
 }
 
 impl UpdateArgs {
@@ -105,7 +119,12 @@ impl UpdateArgs {
             // a value so we use `metadata_base_url` as a placeholder
             targets_base_url: self.metadata_base_url.as_str(),
             limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
+            expiration_enforcement: if self.allow_expired_repo {
+                expired_repo_warning(&self.outdir);
+                ExpirationEnforcement::Unsafe
+            } else {
+                ExpirationEnforcement::Safe
+            },
         };
 
         // Load the `Repository` into the `RepositoryEditor`
