@@ -34,9 +34,8 @@ mod http_happy {
         let mock_file1_txt = create_successful_get_mock("targets/file1.txt");
         let mock_file2_txt = create_successful_get_mock("targets/file2.txt");
         let base_url = Url::from_str(mockito::server_url().as_str()).unwrap();
-        let transport = HttpTransport::default();
         let repo = Repository::load(
-            &transport,
+            Box::new(HttpTransport::default()),
             Settings {
                 root: File::open(repo_dir.join("metadata").join("1.root.json")).unwrap(),
                 datastore: None,
@@ -129,7 +128,9 @@ mod http_integ {
             .stderr(Stdio::inherit())
             .output()
             .expect("failed to start server with docker containers");
-        assert!(output.status.success());
+        if !output.status.success() {
+            panic!("Failed to run integration test HTTP servers, is docker running?");
+        }
 
         // load the tuf-reference-impl repo via http repeatedly through faulty proxies
         for i in 0..5 {
@@ -147,7 +148,7 @@ mod http_integ {
             });
             let root_path = tuf_reference_impl_root_json();
             Repository::load(
-                &transport,
+                Box::new(transport),
                 Settings {
                     root: File::open(&root_path).unwrap(),
                     datastore: None,

@@ -12,7 +12,7 @@ fn rotated_root() {
     let base = test_data().join("rotated-root");
 
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(base.join("1.root.json")).unwrap(),
             datastore: None,

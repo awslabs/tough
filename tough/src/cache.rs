@@ -1,13 +1,13 @@
 use crate::error::{self, Result};
 use crate::fetch::{fetch_max_size, fetch_sha256};
 use crate::schema::{RoleType, Target};
-use crate::{Repository, Transport};
+use crate::Repository;
 use snafu::{OptionExt, ResultExt};
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::Path;
 
-impl<'a, T: Transport> Repository<'a, T> {
+impl Repository {
     /// Cache an entire or partial repository to disk, including all required metadata.
     /// The cached repo will be local, using filesystem paths.
     ///
@@ -138,7 +138,7 @@ impl<'a, T: Transport> Repository<'a, T> {
         outdir: P,
     ) -> Result<()> {
         let mut read = fetch_max_size(
-            self.transport,
+            self.transport.as_ref(),
             self.metadata_base_url
                 .join(filename)
                 .context(error::JoinUrl {
@@ -221,7 +221,7 @@ impl<'a, T: Transport> Repository<'a, T> {
         filename: &str,
     ) -> Result<impl Read> {
         fetch_sha256(
-            self.transport,
+            self.transport.as_ref(),
             self.targets_base_url
                 .join(&filename)
                 .context(error::JoinUrl {

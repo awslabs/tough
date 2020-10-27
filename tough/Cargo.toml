@@ -10,6 +10,7 @@ edition = "2018"
 
 [dependencies]
 chrono = { version = "0.4.11", features = ["serde"] }
+dyn-clone = "1.0.3"
 globset = { version = "0.4.5" }
 hex = "0.4.2"
 log = "0.4.8"

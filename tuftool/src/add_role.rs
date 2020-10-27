@@ -14,7 +14,6 @@ use tough::editor::{targets::TargetsEditor, RepositoryEditor};
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
 use tough::schema::PathSet;
-use tough::Transport;
 use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
@@ -106,16 +105,16 @@ impl AddRoleArgs {
             // different types. This is why we can't assign the `Repository`
             // to a variable with the if statement.
             if self.metadata_base_url.scheme() == "file" {
-                let repository =
-                    Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+                let repository = Repository::load(Box::new(FilesystemTransport), settings)
+                    .context(error::RepoLoad)?;
                 self.with_repo_editor(
                     role,
                     RepositoryEditor::from_repo(&self.root, repository)
                         .context(error::EditorFromRepo { path: &self.root })?,
                 )?;
             } else {
-                let transport = HttpTransport::new();
-                let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+                let repository = Repository::load(Box::new(HttpTransport::new()), settings)
+                    .context(error::RepoLoad)?;
                 self.with_repo_editor(
                     role,
                     RepositoryEditor::from_repo(&self.root, repository)
@@ -128,19 +127,19 @@ impl AddRoleArgs {
             // different types. This is why we can't assign the `Repository`
             // to a variable with the if statement.
             if self.metadata_base_url.scheme() == "file" {
-                let repository =
-                    Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+                let repository = Repository::load(Box::new(FilesystemTransport), settings)
+                    .context(error::RepoLoad)?;
                 self.with_targets_editor(
                     role,
-                    TargetsEditor::from_repo(&repository, role)
+                    TargetsEditor::from_repo(repository, role)
                         .context(error::EditorFromRepo { path: &self.root })?,
                 )?;
             } else {
-                let transport = HttpTransport::new();
-                let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+                let repository = Repository::load(Box::new(HttpTransport::new()), settings)
+                    .context(error::RepoLoad)?;
                 self.with_targets_editor(
                     role,
-                    TargetsEditor::from_repo(&repository, role)
+                    TargetsEditor::from_repo(repository, role)
                         .context(error::EditorFromRepo { path: &self.root })?,
                 )?;
             }
@@ -151,10 +150,7 @@ impl AddRoleArgs {
 
     #[allow(clippy::option_if_let_else)]
     /// Adds a role to metadata using targets Editor
-    fn with_targets_editor<T>(&self, role: &str, mut editor: TargetsEditor<'_, T>) -> Result<()>
-    where
-        T: Transport,
-    {
+    fn with_targets_editor(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         let paths = if let Some(paths) = &self.paths {
             PathSet::Paths(paths.clone())
         } else if let Some(path_hash_prefixes) = &self.path_hash_prefixes {
@@ -188,10 +184,7 @@ impl AddRoleArgs {
 
     #[allow(clippy::option_if_let_else)]
     /// Adds a role to metadata using repo Editor
-    fn with_repo_editor<T>(&self, role: &str, mut editor: RepositoryEditor<'_, T>) -> Result<()>
-    where
-        T: Transport,
-    {
+    fn with_repo_editor(&self, role: &str, mut editor: RepositoryEditor) -> Result<()> {
         // Since we are using repo editor we will sign snapshot and timestamp
         // Check to make sure all versions and expirations are present
         let snapshot_version = self.snapshot_version.context(error::Missing {

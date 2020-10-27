@@ -144,7 +144,7 @@ fn create_add_role_command() {
     let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let updated_targets_base_url = &dir_url(new_repo_dir.path().join("targets"));
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(&root_json).unwrap(),
             datastore: None,
@@ -249,7 +249,7 @@ fn create_add_role_command() {
 
     // Load the updated repo
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(root_json).unwrap(),
             datastore: None,
@@ -425,7 +425,7 @@ fn update_target_command() {
 
     // Load the updated repo
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(root_json).unwrap(),
             datastore: None,
@@ -683,7 +683,7 @@ fn add_key_command() {
 
     // Load the updated repo
     let _repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(root_json).unwrap(),
             datastore: None,
@@ -985,7 +985,7 @@ fn remove_role_command() {
     let updated_metadata_base_url = dir_url(new_repo_dir.path().join("metadata"));
     let updated_targets_base_url = dir_url(new_repo_dir.path().join("targets"));
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(&root_json).unwrap(),
             datastore: None,
@@ -1169,7 +1169,7 @@ fn remove_role_command() {
 
     // Load the updated repo
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(root_json).unwrap(),
             datastore: None,
@@ -1269,7 +1269,7 @@ fn remove_role_recursive_command() {
     // Load the updated repo
     let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(&root_json).unwrap(),
             datastore: None,
@@ -1454,7 +1454,7 @@ fn remove_role_recursive_command() {
 
     // Load the updated repo
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(root_json).unwrap(),
             datastore: None,

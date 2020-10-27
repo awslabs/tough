@@ -5,8 +5,8 @@
 
 #![allow(clippy::default_trait_access)]
 
-use crate::schema;
 use crate::schema::RoleType;
+use crate::{schema, TransportError};
 use chrono::{DateTime, Utc};
 use snafu::{Backtrace, Snafu};
 use std::io;
@@ -346,7 +346,7 @@ pub enum Error {
     #[snafu(display("Failed to fetch {}: {}", url, source))]
     Transport {
         url: url::Url,
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: TransportError,
         backtrace: Backtrace,
     },
 
@@ -419,55 +419,6 @@ pub enum Error {
         target_name: String,
         source: crate::schema::Error,
         backtrace: Backtrace,
-    },
-
-    #[cfg(feature = "http")]
-    #[snafu(display("Error creating HTTP client for '{}': {}", url, source))]
-    HttpClientBuild {
-        url: Url,
-        source: reqwest::Error,
-        backtrace: Backtrace,
-    },
-
-    #[cfg(feature = "http")]
-    #[snafu(display("Error fetching target from '{}': {}", url, source))]
-    HttpFetch {
-        url: Url,
-        source: reqwest::Error,
-        backtrace: Backtrace,
-    },
-
-    #[cfg(feature = "http")]
-    #[snafu(display(
-        "HTTP header '{}' contains invalid characters: {}",
-        header_value,
-        source
-    ))]
-    HttpHeader {
-        header_value: String,
-        source: reqwest::header::InvalidHeaderValue,
-        backtrace: Backtrace,
-    },
-
-    #[cfg(feature = "http")]
-    #[snafu(display("Error creating HTTP request for '{}': {}", url, source))]
-    HttpRequestBuild {
-        url: Url,
-        source: reqwest::Error,
-        backtrace: Backtrace,
-    },
-
-    #[cfg(feature = "http")]
-    #[snafu(display(
-        "Failed to fetch '{}' after {} tries, final error: {}",
-        url,
-        tries,
-        source
-    ))]
-    HttpRetries {
-        url: Url,
-        tries: u32,
-        source: reqwest::Error,
     },
 
     #[snafu(display("Failed to walk directory tree '{}': {}", directory.display(), source))]

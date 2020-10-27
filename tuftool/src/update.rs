@@ -15,7 +15,7 @@ use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Transport};
+use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -130,15 +130,15 @@ impl UpdateArgs {
         // different types. This is why we can't assign the `Repository`
         // to a variable with the if statement.
         if self.metadata_base_url.scheme() == "file" {
-            let repository =
-                Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+            let repository = Repository::load(Box::new(FilesystemTransport), settings)
+                .context(error::RepoLoad)?;
             self.with_editor(
                 RepositoryEditor::from_repo(&self.root, repository)
                     .context(error::EditorFromRepo { path: &self.root })?,
             )?;
         } else {
-            let transport = HttpTransport::new();
-            let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+            let repository = Repository::load(Box::new(HttpTransport::new()), settings)
+                .context(error::RepoLoad)?;
             self.with_editor(
                 RepositoryEditor::from_repo(&self.root, repository)
                     .context(error::EditorFromRepo { path: &self.root })?,
@@ -148,10 +148,7 @@ impl UpdateArgs {
         Ok(())
     }
 
-    fn with_editor<T>(&self, mut editor: RepositoryEditor<'_, T>) -> Result<()>
-    where
-        T: Transport,
-    {
+    fn with_editor(&self, mut editor: RepositoryEditor) -> Result<()> {
         editor
             .targets_version(self.targets_version)
             .context(error::DelegationStructure)?

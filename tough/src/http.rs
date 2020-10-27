@@ -1,12 +1,12 @@
 //! The `http` module provides `HttpTransport` which enables `Repository` objects to be
 //! loaded over HTTP
-use crate::error::{self, Error, Result};
-use crate::Transport;
+use crate::{Transport, TransportError, TransportErrorKind};
 use log::{debug, error, trace};
 use reqwest::blocking::{Client, ClientBuilder, Request, Response};
 use reqwest::header::{self, HeaderValue, ACCEPT_RANGES};
-use reqwest::Method;
+use reqwest::{Error, Method};
 use snafu::ResultExt;
+use snafu::Snafu;
 use std::cmp::Ordering;
 use std::io::Read;
 use std::time::Duration;
@@ -64,14 +64,14 @@ impl HttpTransport {
 
 /// Implement the `tough` `Transport` trait for `HttpRetryTransport`
 impl Transport for HttpTransport {
-    type Stream = RetryRead;
-    type Error = Error;
-
     /// Send a GET request to the URL. Request will be retried per the `ClientSettings`. The
     /// returned `RetryRead` will also retry as necessary per the `ClientSettings`.
-    fn fetch(&self, url: Url) -> Result<Self::Stream> {
+    fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
         let mut r = RetryState::new(self.settings.initial_backoff);
-        fetch_with_retries(&mut r, &self.settings, &url)
+        Ok(Box::new(
+            fetch_with_retries(&mut r, &self.settings, &url)
+                .map_err(|e| TransportError::from(url.to_string(), e))?,
+        ))
     }
 }
 
@@ -105,19 +105,12 @@ impl Read for RetryRead {
                 return Err(retry_err);
             }
             self.retry_state.increment(&self.settings);
+            self.err_if_no_range_support(retry_err)?;
             // wait, then retry the request (with a range header).
             std::thread::sleep(self.retry_state.wait);
-            if !self.supports_range() {
-                // we cannot send a byte range request to this server, so return the error
-                error!(
-                    "an error occurred and we cannot retry because the server \
-                    does not support range requests '{}': {:?}",
-                    self.url, retry_err
-                );
-                return Err(retry_err);
-            }
             let new_retry_read =
-                fetch_with_retries(&mut self.retry_state, &self.settings, &self.url)?;
+                fetch_with_retries(&mut self.retry_state, &self.settings, &self.url)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             // the new fetch succeeded so we need to replace our read object with the new one.
             self.response = new_retry_read.response;
         }
@@ -135,6 +128,23 @@ impl RetryRead {
             }
         }
         false
+    }
+
+    /// Returns an error when we have received an error during read, but our server does not support
+    /// range headers. Our retry implementation considers this a fatal condition rather that trying
+    /// to start over from the beginning and advancing the `Read` to the point where failure
+    /// occurred.
+    fn err_if_no_range_support(&self, e: std::io::Error) -> std::io::Result<()> {
+        if !self.supports_range() {
+            // we cannot send a byte range request to this server, so return the error
+            error!(
+                "an error occurred and we cannot retry because the server \
+                    does not support range requests '{}': {:?}",
+                self.url, e
+            );
+            return Err(e);
+        }
+        Ok(())
     }
 }
 
@@ -160,8 +170,7 @@ impl RetryState {
 }
 
 impl RetryState {
-    /// Increments the count and the wait duration. Returns `true` if `current_try` is less than or
-    /// equal to `tries` (i.e. if you should retry).
+    /// Increments the count and the wait duration.
     fn increment(&mut self, settings: &ClientSettings) {
         if self.current_try > 0 {
             let new_wait = self.wait.mul_f32(settings.backoff_factor);
@@ -180,81 +189,182 @@ impl RetryState {
 }
 
 /// Sends a `GET` request to the `url`. Retries the request as necessary per the `ClientSettings`.
-fn fetch_with_retries(r: &mut RetryState, cs: &ClientSettings, url: &Url) -> Result<RetryRead> {
+fn fetch_with_retries(
+    r: &mut RetryState,
+    cs: &ClientSettings,
+    url: &Url,
+) -> Result<RetryRead, HttpError> {
     trace!("beginning fetch for '{}'", url);
     // create a reqwest client
     let client = ClientBuilder::new()
         .timeout(cs.timeout)
         .connect_timeout(cs.connect_timeout)
         .build()
-        .context(error::HttpClientBuild { url: url.clone() })?;
+        .context(HttpClient)?;
+
     // retry loop
     loop {
         // build the request
         let request = build_request(&client, r.next_byte, &url)?;
 
-        // send the request and convert error status codes to an `Err`.
-        let result = match client.execute(request) {
-            Ok(response) => match response.error_for_status() {
-                Ok(response) => Ok(response),
-                Err(err) => Err(err),
-            },
-            Err(err) => Err(err),
-        };
+        // send the GET request, then categories the outcome by converting to an HttpResult.
+        let http_result: HttpResult = client.execute(request).into();
 
-        // check the result, if it is a non-retryable error, return the error. if it is a retryable-
-        // error, assign it to `retry_err`. if there is no error then return the read.
-        let retry_err = match result {
-            Ok(reqwest_read) => {
+        match http_result {
+            HttpResult::Ok(response) => {
+                trace!("{:?} - returning from successful fetch", r);
                 return Ok(RetryRead {
                     retry_state: *r,
                     settings: *cs,
-                    response: reqwest_read,
+                    response,
                     url: url.clone(),
                 });
             }
-            Err(err) => {
-                // if it's a status code error other than 5XX, return the error
-                if let Some(status) = err.status() {
-                    if !status.is_success() && !status.is_server_error() {
-                        return Err(err).context(error::HttpFetch { url: url.clone() });
-                    }
-                }
-                // we will retry if possible, otherwise we will return this err.
-                err
+            HttpResult::Fatal(err) => {
+                trace!("{:?} - returning fatal error from fetch: {}", r, err);
+                return Err(err).context(FetchFatal);
             }
-        };
-
-        // increment the retry state and continue trying unless we are out of tries
-        if r.current_try >= cs.tries - 1 {
-            return Err(retry_err).context(error::HttpRetries {
-                url: url.clone(),
-                tries: cs.tries,
-            });
+            HttpResult::FileNotFound(err) => {
+                trace!("{:?} - returning file not found from fetch: {}", r, err);
+                return Err(err).context(FetchFileNotFound);
+            }
+            HttpResult::Retryable(err) => {
+                trace!("{:?} - retryable error: {}", r, err);
+                if r.current_try >= cs.tries - 1 {
+                    debug!("{:?} - returning failure, no more retries: {}", r, err);
+                    return Err(err).context(FetchNoMoreRetries { tries: cs.tries });
+                }
+            }
         }
+
         r.increment(&cs);
         std::thread::sleep(r.wait);
     }
 }
 
-fn build_request(client: &Client, next_byte: usize, url: &Url) -> Result<Request> {
+/// Much of the complexity in the `fetch_with_retries` function is in deciphering the `Result`
+/// we get from `reqwest::Client::execute`. Using this enum we categorize the states of the
+/// `Result` into the categories that we need to understand.
+enum HttpResult {
+    /// We got a response with an HTTP code that indicates success.
+    Ok(reqwest::blocking::Response),
+    /// We got an `Error` (other than file-not-found) which we will not retry.
+    Fatal(reqwest::Error),
+    /// The file could not be found (HTTP status 403 or 404).
+    FileNotFound(reqwest::Error),
+    /// We received an `Error`, or we received an HTTP response code that we can retry.
+    Retryable(reqwest::Error),
+}
+
+/// Takes the `Result` type from `reqwest::Client::execute`, and categorizes it into an
+/// `HttpResult` variant.
+impl From<Result<reqwest::blocking::Response, reqwest::Error>> for HttpResult {
+    fn from(result: Result<Response, Error>) -> Self {
+        match result {
+            Ok(response) => {
+                trace!("response received");
+                // checks the status code of the response for errors
+                parse_response_code(response)
+            }
+            Err(err) => {
+                // an error occurred before the HTTP header could be read
+                trace!("retryable error during fetch: {}", err);
+                HttpResult::Retryable(err)
+            }
+        }
+    }
+}
+
+/// Checks the HTTP response code and converts a non-successful response code to an error.
+fn parse_response_code(response: reqwest::blocking::Response) -> HttpResult {
+    match response.error_for_status() {
+        Ok(ok) => {
+            trace!("response is success");
+            // http status code indicates success
+            HttpResult::Ok(ok)
+        }
+        // http status is an error
+        Err(err) => match err.status() {
+            None => {
+                // this shouldn't happen, we received this err from the err_for_status function,
+                // so the error should have a status. we cannot consider this a retryable error.
+                trace!("error is fatal (no status): {}", err);
+                HttpResult::Fatal(err)
+            }
+            Some(status) if status.is_server_error() => {
+                trace!("error is retryable: {}", err);
+                HttpResult::Retryable(err)
+            }
+            Some(status) if matches!(status.as_u16(), 403 | 404) => {
+                trace!("error is file not found: {}", err);
+                HttpResult::FileNotFound(err)
+            }
+            Some(_) => {
+                trace!("error is fatal (status): {}", err);
+                HttpResult::Fatal(err)
+            }
+        },
+    }
+}
+
+/// Builds a GET request. If `next_byte` is greater than zero, adds a byte range header to the request.
+fn build_request(client: &Client, next_byte: usize, url: &Url) -> Result<Request, HttpError> {
     if next_byte == 0 {
         let request = client
             .request(Method::GET, url.as_str())
             .build()
-            .context(error::HttpRequestBuild { url: url.clone() })?;
+            .context(RequestBuild)?;
         Ok(request)
     } else {
         let header_value_string = format!("bytes={}-", next_byte);
         let header_value =
-            HeaderValue::from_str(header_value_string.as_str()).context(error::HttpHeader {
+            HeaderValue::from_str(header_value_string.as_str()).context(InvalidHeader {
                 header_value: &header_value_string,
             })?;
         let request = client
             .request(Method::GET, url.as_str())
             .header(header::RANGE, header_value)
             .build()
-            .context(error::HttpRequestBuild { url: url.clone() })?;
+            .context(RequestBuild)?;
         Ok(request)
+    }
+}
+
+/// The error type for the HTTP transport module.
+#[derive(Debug, Snafu)]
+#[snafu(visibility = "pub(super)")]
+#[non_exhaustive]
+#[allow(missing_docs)]
+pub enum HttpError {
+    #[snafu(display("A non-retryable error occurred: {}", source))]
+    FetchFatal { source: reqwest::Error },
+
+    #[snafu(display("File not found: {}", source))]
+    FetchFileNotFound { source: reqwest::Error },
+
+    #[snafu(display("Fetch failed after {} retries: {}", tries, source))]
+    FetchNoMoreRetries { tries: u32, source: reqwest::Error },
+
+    #[snafu(display("The HTTP client could not be built: {}", source))]
+    HttpClient { source: reqwest::Error },
+
+    #[snafu(display("Invalid header value '{}': {}", header_value, source))]
+    InvalidHeader {
+        header_value: String,
+        source: reqwest::header::InvalidHeaderValue,
+    },
+
+    #[snafu(display("Unable to create HTTP request: {}", source))]
+    RequestBuild { source: reqwest::Error },
+}
+
+impl TransportError {
+    fn from(url: String, e: HttpError) -> Self {
+        match e {
+            HttpError::FetchFileNotFound { .. } => {
+                TransportError::new(TransportErrorKind::FileNotFound, url, e)
+            }
+            _ => TransportError::new(TransportErrorKind::Other, url, e),
+        }
     }
 }

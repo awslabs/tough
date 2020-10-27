@@ -64,11 +64,11 @@ fn targets_path() -> PathBuf {
     test_data().join("tuf-reference-impl").join("targets")
 }
 
-fn load_tuf_reference_impl<'a>(paths: &'a mut RepoPaths) -> Repository<'a, FilesystemTransport> {
+fn load_tuf_reference_impl(paths: &mut RepoPaths) -> Repository {
     Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
-            root: &mut paths.root(),
+            root: paths.root(),
             datastore: None,
             metadata_base_url: paths.metadata_base_url.clone(),
             targets_base_url: paths.targets_base_url.clone(),
@@ -79,7 +79,7 @@ fn load_tuf_reference_impl<'a>(paths: &'a mut RepoPaths) -> Repository<'a, Files
     .unwrap()
 }
 
-fn test_repo_editor() -> RepositoryEditor<'static, FilesystemTransport> {
+fn test_repo_editor() -> RepositoryEditor {
     let root = root_path();
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
@@ -140,7 +140,7 @@ fn create_sign_write_reload_repo() {
 
     let create_dir = TempDir::new().unwrap();
 
-    let mut editor = RepositoryEditor::<FilesystemTransport>::new(&root).unwrap();
+    let mut editor = RepositoryEditor::new(&root).unwrap();
     editor
         .targets_expires(targets_expiration)
         .unwrap()
@@ -235,7 +235,7 @@ fn create_sign_write_reload_repo() {
         .is_ok());
     // Load the repo we just created
     let _new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -272,7 +272,7 @@ fn create_role_flow() {
     signed.write(&metadata_destination).unwrap();
 
     // create new delegated target as "A" and sign with role1_key
-    let new_role = TargetsEditor::<FilesystemTransport>::new("A")
+    let new_role = TargetsEditor::new("A")
         .version(NonZeroU64::new(1).unwrap())
         .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
         .sign(role1_key)
@@ -286,7 +286,7 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -342,7 +342,7 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -358,7 +358,7 @@ fn create_role_flow() {
     // Delegate from A to B
 
     // create new delegated target as "B" and sign with role2_key
-    let new_role = TargetsEditor::<FilesystemTransport>::new("B")
+    let new_role = TargetsEditor::new("B")
         .version(NonZeroU64::new(1).unwrap())
         .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
         .sign(role2_key)
@@ -371,7 +371,7 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -386,7 +386,7 @@ fn create_role_flow() {
     let metadata_base_url_out = dir_url(&metadata_destination_out);
 
     // create a new editor with the repo
-    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
+    let mut editor = TargetsEditor::from_repo(new_repo, "A").unwrap();
 
     // add B metadata to role A (without resigning targets)
     editor
@@ -415,7 +415,7 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -455,7 +455,7 @@ fn create_role_flow() {
     // reload repo and verify that A and B role are included
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -497,7 +497,7 @@ fn update_targets_flow() {
     signed.write(&metadata_destination).unwrap();
 
     // create new delegated target as "A" and sign with role1_key
-    let new_role = TargetsEditor::<FilesystemTransport>::new("A")
+    let new_role = TargetsEditor::new("A")
         .version(NonZeroU64::new(1).unwrap())
         .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
         .sign(role1_key)
@@ -511,7 +511,7 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -567,7 +567,7 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -583,7 +583,7 @@ fn update_targets_flow() {
     // Delegate from A to B
 
     // create new delegated target as "B" and sign with role2_key
-    let new_role = TargetsEditor::<FilesystemTransport>::new("B")
+    let new_role = TargetsEditor::new("B")
         .version(NonZeroU64::new(1).unwrap())
         .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
         .sign(role2_key)
@@ -596,7 +596,7 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -611,7 +611,7 @@ fn update_targets_flow() {
     let metadata_base_url_out = dir_url(&metadata_destination_out);
 
     // create a new editor with the repo
-    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
+    let mut editor = TargetsEditor::from_repo(new_repo, "A").unwrap();
 
     // add B metadata to role A (without resigning targets)
     editor
@@ -640,7 +640,7 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -680,7 +680,7 @@ fn update_targets_flow() {
     // reload repo and verify that A and B role are included
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -701,7 +701,7 @@ fn update_targets_flow() {
     // -------------------------------------------------------
 
     // Add target file1.txt to A
-    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
+    let mut editor = TargetsEditor::from_repo(new_repo, "A").unwrap();
     let file1 = targets_path().join("file1.txt");
     let targets = vec![file1];
     editor
@@ -728,7 +728,7 @@ fn update_targets_flow() {
     // load repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -770,7 +770,7 @@ fn update_targets_flow() {
     //load the updated repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -788,7 +788,7 @@ fn update_targets_flow() {
     );
 
     // Edit target "file1.txt"
-    let mut editor = TargetsEditor::from_repo(&new_repo, "A").unwrap();
+    let mut editor = TargetsEditor::from_repo(new_repo, "A").unwrap();
     File::create(targets_destination_out.join("file1.txt"))
         .unwrap()
         .write_all(b"Updated file1.txt")
@@ -823,7 +823,7 @@ fn update_targets_flow() {
     // load repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,
@@ -866,7 +866,7 @@ fn update_targets_flow() {
     //load the updated repo
     let root = root_path();
     let new_repo = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(&root).unwrap(),
             datastore: None,

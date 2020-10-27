@@ -16,7 +16,7 @@ fn test_tuf_reference_impl() {
     let base = test_data().join("tuf-reference-impl");
 
     let repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: File::open(base.join("metadata").join("1.root.json")).unwrap(),
             datastore: None,

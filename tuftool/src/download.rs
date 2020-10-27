@@ -9,7 +9,7 @@ use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tough::http::HttpTransport;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings, Transport};
+use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -116,20 +116,20 @@ impl DownloadArgs {
             },
         };
         if self.metadata_base_url.scheme() == "file" {
-            let transport = FilesystemTransport;
-            let repository = Repository::load(&transport, settings).context(error::Metadata)?;
+            let repository = Repository::load(Box::new(FilesystemTransport), settings)
+                .context(error::Metadata)?;
             handle_download(&repository, &self.outdir, &self.target_names)?;
         } else {
-            let transport = HttpTransport::new();
-            let repository = Repository::load(&transport, settings).context(error::Metadata)?;
+            let repository = Repository::load(Box::new(HttpTransport::new()), settings)
+                .context(error::Metadata)?;
             handle_download(&repository, &self.outdir, &self.target_names)?;
         };
         Ok(())
     }
 }
 
-fn handle_download<T: Transport>(
-    repository: &Repository<'_, T>,
+fn handle_download(
+    repository: &Repository,
     outdir: &PathBuf,
     target_names: &[String],
 ) -> Result<()> {

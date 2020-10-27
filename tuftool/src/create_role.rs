@@ -15,7 +15,6 @@ use tough::key_source::KeySource;
 use tough::schema::decoded::Decoded;
 use tough::schema::decoded::Hex;
 use tough::schema::key::Key;
-use tough::FilesystemTransport;
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct CreateRoleArgs {
@@ -40,7 +39,7 @@ pub(crate) struct CreateRoleArgs {
 impl CreateRoleArgs {
     pub(crate) fn run(&self, role: &str) -> Result<()> {
         // create the new role
-        let new_role = TargetsEditor::<FilesystemTransport>::new(role)
+        let new_role = TargetsEditor::new(role)
             .version(self.version)
             .expires(self.expires)
             .add_key(key_hash_map(&self.keys), None)

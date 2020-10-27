@@ -13,7 +13,7 @@ use structopt::StructOpt;
 use tough::editor::targets::TargetsEditor;
 use tough::http::HttpTransport;
 use tough::key_source::KeySource;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Transport};
+use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -69,19 +69,19 @@ impl RemoveRoleArgs {
         // different types. This is why we can't assign the `Repository`
         // to a variable with the if statement.
         if self.metadata_base_url.scheme() == "file" {
-            let repository =
-                Repository::load(&FilesystemTransport, settings).context(error::RepoLoad)?;
+            let repository = Repository::load(Box::new(FilesystemTransport), settings)
+                .context(error::RepoLoad)?;
             self.with_targets_editor(
                 role,
-                TargetsEditor::from_repo(&repository, role)
+                TargetsEditor::from_repo(repository, role)
                     .context(error::EditorFromRepo { path: &self.root })?,
             )?;
         } else {
-            let transport = HttpTransport::new();
-            let repository = Repository::load(&transport, settings).context(error::RepoLoad)?;
+            let repository = Repository::load(Box::new(HttpTransport::new()), settings)
+                .context(error::RepoLoad)?;
             self.with_targets_editor(
                 role,
-                TargetsEditor::from_repo(&repository, role)
+                TargetsEditor::from_repo(repository, role)
                     .context(error::EditorFromRepo { path: &self.root })?,
             )?;
         }
@@ -90,10 +90,7 @@ impl RemoveRoleArgs {
     }
 
     /// Removes a delegated role from a `Targets` role using `TargetsEditor`
-    fn with_targets_editor<T>(&self, role: &str, mut editor: TargetsEditor<'_, T>) -> Result<()>
-    where
-        T: Transport,
-    {
+    fn with_targets_editor(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         let updated_role = editor
             .remove_role(&self.delegated_role, self.recursive)
             .context(error::LoadMetadata)?

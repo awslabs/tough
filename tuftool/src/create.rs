@@ -13,7 +13,6 @@ use structopt::StructOpt;
 use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::key_source::KeySource;
-use tough::FilesystemTransport;
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct CreateArgs {
@@ -88,8 +87,8 @@ impl CreateArgs {
         }
 
         let targets = build_targets(&self.targets_indir, self.follow)?;
-        let mut editor = RepositoryEditor::<FilesystemTransport>::new(&self.root)
-            .context(error::EditorCreate { path: &self.root })?;
+        let mut editor =
+            RepositoryEditor::new(&self.root).context(error::EditorCreate { path: &self.root })?;
 
         editor
             .targets_version(self.targets_version)

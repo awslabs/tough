@@ -6,15 +6,15 @@ use ring::digest::{Context, SHA256};
 use std::io::{self, Read};
 use url::Url;
 
-pub(crate) struct DigestAdapter<T> {
+pub(crate) struct DigestAdapter {
     url: Url,
-    reader: T,
+    reader: Box<dyn Read + Send>,
     hash: Vec<u8>,
     digest: Option<Context>,
 }
 
-impl<T: Read> DigestAdapter<T> {
-    pub(crate) fn sha256(reader: T, hash: &[u8], url: Url) -> Self {
+impl DigestAdapter {
+    pub(crate) fn sha256(reader: Box<dyn Read + Send>, hash: &[u8], url: Url) -> Self {
         Self {
             url,
             reader,
@@ -24,7 +24,7 @@ impl<T: Read> DigestAdapter<T> {
     }
 }
 
-impl<T: Read> Read for DigestAdapter<T> {
+impl Read for DigestAdapter {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         assert!(
             self.digest.is_some(),
@@ -52,8 +52,8 @@ impl<T: Read> Read for DigestAdapter<T> {
     }
 }
 
-pub(crate) struct MaxSizeAdapter<T> {
-    reader: T,
+pub(crate) struct MaxSizeAdapter {
+    reader: Box<dyn Read + Send>,
     /// How the `max_size` was specified. For example the max size of `root.json` is specified by
     /// the `max_root_size` argument in `Settings`. `specifier` is used to construct an error
     /// message when the `MaxSizeAdapter` detects that too many bytes have been read.
@@ -62,8 +62,12 @@ pub(crate) struct MaxSizeAdapter<T> {
     counter: u64,
 }
 
-impl<T> MaxSizeAdapter<T> {
-    pub(crate) fn new(reader: T, specifier: &'static str, max_size: u64) -> Self {
+impl MaxSizeAdapter {
+    pub(crate) fn new(
+        reader: Box<dyn Read + Send>,
+        specifier: &'static str,
+        max_size: u64,
+    ) -> Self {
         Self {
             reader,
             specifier,
@@ -73,7 +77,7 @@ impl<T> MaxSizeAdapter<T> {
     }
 }
 
-impl<T: Read> Read for MaxSizeAdapter<T> {
+impl Read for MaxSizeAdapter {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let size = self.reader.read(buf)?;
         self.counter += size as u64;
@@ -97,12 +101,12 @@ mod tests {
 
     #[test]
     fn test_max_size_adapter() {
-        let mut reader = MaxSizeAdapter::new(Cursor::new(b"hello".to_vec()), "test", 5);
+        let mut reader = MaxSizeAdapter::new(Box::new(Cursor::new(b"hello".to_vec())), "test", 5);
         let mut buf = Vec::new();
         assert!(reader.read_to_end(&mut buf).is_ok());
         assert_eq!(buf, b"hello");
 
-        let mut reader = MaxSizeAdapter::new(Cursor::new(b"hello".to_vec()), "test", 4);
+        let mut reader = MaxSizeAdapter::new(Box::new(Cursor::new(b"hello".to_vec())), "test", 4);
         let mut buf = Vec::new();
         assert!(reader.read_to_end(&mut buf).is_err());
     }
@@ -110,7 +114,7 @@ mod tests {
     #[test]
     fn test_digest_adapter() {
         let mut reader = DigestAdapter::sha256(
-            Cursor::new(b"hello".to_vec()),
+            Box::new(Cursor::new(b"hello".to_vec())),
             &hex!("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"),
             Url::parse("file:///").unwrap(),
         );
@@ -119,7 +123,7 @@ mod tests {
         assert_eq!(buf, b"hello");
 
         let mut reader = DigestAdapter::sha256(
-            Cursor::new(b"hello".to_vec()),
+            Box::new(Cursor::new(b"hello".to_vec())),
             &hex!("0ebdc3317b75839f643387d783535adc360ca01f33c75f7c1e7373adcd675c0b"),
             Url::parse("file:///").unwrap(),
         );

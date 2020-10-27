@@ -50,7 +50,7 @@ use crate::fetch::{fetch_max_size, fetch_sha256};
 pub use crate::http::{ClientSettings, HttpTransport, RetryRead};
 use crate::schema::{DelegatedRole, Delegations};
 use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
-pub use crate::transport::{FilesystemTransport, Transport};
+pub use crate::transport::{FilesystemTransport, Transport, TransportError, TransportErrorKind};
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
@@ -178,8 +178,8 @@ impl Default for Limits {
 ///
 /// You can create a `Repository` using the `load` method.
 #[derive(Debug, Clone)]
-pub struct Repository<'a, T: Transport> {
-    transport: &'a T,
+pub struct Repository {
+    transport: Box<dyn Transport>,
     consistent_snapshot: bool,
     datastore: Datastore,
     earliest_expiration: DateTime<Utc>,
@@ -194,7 +194,7 @@ pub struct Repository<'a, T: Transport> {
     expiration_enforcement: ExpirationEnforcement,
 }
 
-impl<'a, T: Transport> Repository<'a, T> {
+impl Repository {
     /// Load and verify TUF repository metadata.
     ///
     /// `root` is a [`Read`]er for the trusted root metadata file, which you must ship with your
@@ -215,7 +215,7 @@ impl<'a, T: Transport> Repository<'a, T> {
     ///
     /// `metadata_base_url` and `targets_base_url` are the HTTP(S) base URLs for where the client
     /// can find metadata (such as root.json) and targets (as listed in targets.json).
-    pub fn load<R: Read>(transport: &'a T, settings: Settings<R>) -> Result<Self> {
+    pub fn load<R: Read>(transport: Box<dyn Transport>, settings: Settings<R>) -> Result<Self> {
         let metadata_base_url = parse_url(settings.metadata_base_url)?;
         let targets_base_url = parse_url(settings.targets_base_url)?;
 
@@ -223,7 +223,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 
         // 0. Load the trusted root metadata file + 1. Update the root metadata file
         let root = load_root(
-            transport,
+            transport.as_ref(),
             settings.root,
             &datastore,
             settings.limits.max_root_size,
@@ -234,7 +234,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 
         // 2. Download the timestamp metadata file
         let timestamp = load_timestamp(
-            transport,
+            transport.as_ref(),
             &root,
             &datastore,
             settings.limits.max_timestamp_size,
@@ -244,7 +244,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 
         // 3. Download the snapshot metadata file
         let snapshot = load_snapshot(
-            transport,
+            transport.as_ref(),
             &root,
             &timestamp,
             &datastore,
@@ -254,7 +254,7 @@ impl<'a, T: Transport> Repository<'a, T> {
 
         // 4. Download the targets metadata file
         let targets = load_targets(
-            transport,
+            transport.as_ref(),
             &root,
             &snapshot,
             &datastore,
@@ -325,7 +325,7 @@ impl<'a, T: Transport> Repository<'a, T> {
     /// before its checksum is validated. If the maximum size is reached or there is a checksum
     /// mismatch, the reader returns a [`std::io::Error`]. **Consumers of this library must not use
     /// data from the reader if it returns an error.**
-    pub fn read_target(&self, name: &str) -> Result<Option<impl Read>> {
+    pub fn read_target(&self, name: &str) -> Result<Option<impl Read + Send>> {
         // Check for repository metadata expiration.
         if self.expiration_enforcement == ExpirationEnforcement::Safe {
             ensure!(
@@ -410,8 +410,8 @@ fn parse_url<S: AsRef<str>>(url: S) -> Result<Url> {
 
 /// Steps 0 and 1 of the client application, which load the current root metadata file based on a
 /// trusted root metadata file.
-fn load_root<R: Read, T: Transport>(
-    transport: &T,
+fn load_root<R: Read>(
+    transport: &dyn Transport,
     root: R,
     datastore: &Datastore,
     max_root_size: u64,
@@ -576,8 +576,8 @@ fn load_root<R: Read, T: Transport>(
 }
 
 /// Step 2 of the client application, which loads the timestamp metadata file.
-fn load_timestamp<T: Transport>(
-    transport: &T,
+fn load_timestamp(
+    transport: &dyn Transport,
     root: &Signed<Root>,
     datastore: &Datastore,
     max_timestamp_size: u64,
@@ -647,8 +647,8 @@ fn load_timestamp<T: Transport>(
 }
 
 /// Step 3 of the client application, which loads the snapshot metadata file.
-fn load_snapshot<T: Transport>(
-    transport: &T,
+fn load_snapshot(
+    transport: &dyn Transport,
     root: &Signed<Root>,
     timestamp: &Signed<Timestamp>,
     datastore: &Datastore,
@@ -781,8 +781,8 @@ fn load_snapshot<T: Transport>(
 }
 
 /// Step 4 of the client application, which loads the targets metadata file.
-fn load_targets<T: Transport>(
-    transport: &T,
+fn load_targets(
+    transport: &dyn Transport,
     root: &Signed<Root>,
     snapshot: &Signed<Snapshot>,
     datastore: &Datastore,
@@ -915,8 +915,8 @@ fn load_targets<T: Transport>(
 }
 
 // Follow the paths of delegations starting with the top level targets.json delegation
-fn load_delegations<T: Transport>(
-    transport: &T,
+fn load_delegations(
+    transport: &dyn Transport,
     snapshot: &Signed<Snapshot>,
     consistent_snapshot: bool,
     metadata_base_url: &Url,

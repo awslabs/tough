@@ -16,7 +16,7 @@ fn test_expiration_enforcement_safe() {
     let base = test_data().join("expired-repository");
 
     let result = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(base.join("metadata").join("1.root.json")).unwrap(),
             datastore: None,
@@ -49,7 +49,7 @@ fn test_expiration_enforcement_safe() {
 fn test_expiration_enforcement_unsafe() {
     let base = test_data().join("expired-repository");
     let result = Repository::load(
-        &FilesystemTransport,
+        Box::new(FilesystemTransport),
         Settings {
             root: File::open(base.join("metadata").join("1.root.json")).unwrap(),
             datastore: None,

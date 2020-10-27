@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use test_utils::{dir_url, test_data};
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings};
+use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 mod test_utils;
 
@@ -31,9 +31,9 @@ impl RepoPaths {
     }
 }
 
-fn load_tuf_reference_impl<'a>(paths: &'a mut RepoPaths) -> Repository<'a, FilesystemTransport> {
+fn load_tuf_reference_impl(paths: &RepoPaths) -> Repository {
     Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: &mut paths.root(),
             datastore: None,
@@ -67,7 +67,7 @@ fn test_repo_cache_all_targets() {
 
     // check that we can load the copied repo.
     let copied_repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: repo_paths.root(),
             datastore: None,
@@ -121,7 +121,7 @@ fn test_repo_cache_list_of_two_targets() {
 
     // check that we can load the copied repo.
     let copied_repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: repo_paths.root(),
             datastore: None,
@@ -175,7 +175,7 @@ fn test_repo_cache_some() {
 
     // check that we can load the copied repo.
     let copied_repo = Repository::load(
-        &tough::FilesystemTransport,
+        Box::new(tough::FilesystemTransport),
         Settings {
             root: repo_paths.root(),
             datastore: None,
