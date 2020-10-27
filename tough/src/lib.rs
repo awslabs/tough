@@ -50,7 +50,9 @@ use crate::fetch::{fetch_max_size, fetch_sha256};
 pub use crate::http::{ClientSettings, HttpTransport, RetryRead};
 use crate::schema::{DelegatedRole, Delegations};
 use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
-pub use crate::transport::{FilesystemTransport, Transport, TransportError, TransportErrorKind};
+pub use crate::transport::{
+    DefaultTransport, FilesystemTransport, Transport, TransportError, TransportErrorKind,
+};
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;

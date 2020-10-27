@@ -7,7 +7,10 @@ mod http_happy {
     use mockito::mock;
     use std::fs::File;
     use std::str::FromStr;
-    use tough::{ExpirationEnforcement, HttpTransport, Limits, Repository, Settings};
+    use tough::{
+        DefaultTransport, ExpirationEnforcement, HttpTransport, Limits, Repository, Settings,
+        Transport,
+    };
     use url::Url;
 
     /// Create a path in a mock HTTP server which serves a file from `tuf-reference-impl`.
@@ -25,6 +28,16 @@ mod http_happy {
     /// Test that `tough` works with a healthy HTTP server.
     #[test]
     fn test_http_transport_happy_case() {
+        run_http_test(Box::new(HttpTransport::new()));
+    }
+
+    /// Test that `DefaultTransport` works over HTTP when the `http` feature is enabled.
+    #[test]
+    fn test_http_default_transport() {
+        run_http_test(Box::new(DefaultTransport::default()));
+    }
+
+    fn run_http_test(transport: Box<dyn Transport>) {
         let repo_dir = test_data().join("tuf-reference-impl");
         let mock_timestamp = create_successful_get_mock("metadata/timestamp.json");
         let mock_snapshot = create_successful_get_mock("metadata/snapshot.json");
@@ -35,7 +48,7 @@ mod http_happy {
         let mock_file2_txt = create_successful_get_mock("targets/file2.txt");
         let base_url = Url::from_str(mockito::server_url().as_str()).unwrap();
         let repo = Repository::load(
-            Box::new(HttpTransport::default()),
+            transport,
             Settings {
                 root: File::open(repo_dir.join("metadata").join("1.root.json")).unwrap(),
                 datastore: None,
