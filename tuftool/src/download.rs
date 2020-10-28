@@ -8,8 +8,7 @@ use std::io::{self};
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use tough::http::HttpTransport;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings};
+use tough::{ExpirationEnforcement, Repository, RepositoryLoader};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -100,31 +99,23 @@ impl DownloadArgs {
         };
 
         // load repository
-        let settings = Settings {
-            root: File::open(&root_path).context(error::OpenRoot { path: &root_path })?,
-            datastore: None,
-            metadata_base_url: self.metadata_base_url.to_string(),
-            targets_base_url: self.targets_base_url.to_string(),
-            limits: Limits {
-                ..tough::Limits::default()
-            },
-            expiration_enforcement: if self.allow_expired_repo {
-                expired_repo_warning(&self.outdir);
-                ExpirationEnforcement::Unsafe
-            } else {
-                ExpirationEnforcement::Safe
-            },
-        };
-        if self.metadata_base_url.scheme() == "file" {
-            let repository = Repository::load(Box::new(FilesystemTransport), settings)
-                .context(error::Metadata)?;
-            handle_download(&repository, &self.outdir, &self.target_names)?;
+        let expiration_enforcement = if self.allow_expired_repo {
+            expired_repo_warning(&self.outdir);
+            ExpirationEnforcement::Unsafe
         } else {
-            let repository = Repository::load(Box::new(HttpTransport::new()), settings)
-                .context(error::Metadata)?;
-            handle_download(&repository, &self.outdir, &self.target_names)?;
+            ExpirationEnforcement::Safe
         };
-        Ok(())
+        let repository = RepositoryLoader::new(
+            File::open(&root_path).context(error::OpenRoot { path: &root_path })?,
+            self.metadata_base_url.clone(),
+            self.targets_base_url.clone(),
+        )
+        .expiration_enforcement(expiration_enforcement)
+        .load()
+        .context(error::RepoLoad)?;
+
+        // download targets
+        handle_download(&repository, &self.outdir, &self.target_names)
     }
 }
 

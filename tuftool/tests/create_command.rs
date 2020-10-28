@@ -8,7 +8,7 @@ use chrono::{Duration, Utc};
 use std::fs::File;
 use tempfile::TempDir;
 use test_utils::dir_url;
-use tough::{ExpirationEnforcement, Limits, Repository, Settings};
+use tough::RepositoryLoader;
 
 #[test]
 // Ensure we can read a repo created by the `tuftool` binary using the `tough` library
@@ -56,17 +56,12 @@ fn create_command() {
         .success();
 
     // Load our newly created repo
-    let repo = Repository::load(
-        Box::new(tough::FilesystemTransport),
-        Settings {
-            root: File::open(root_json).unwrap(),
-            datastore: None,
-            metadata_base_url: dir_url(repo_dir.path().join("metadata")),
-            targets_base_url: dir_url(repo_dir.path().join("targets")),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
+    let repo = RepositoryLoader::new(
+        File::open(root_json).unwrap(),
+        dir_url(repo_dir.path().join("metadata")),
+        dir_url(repo_dir.path().join("targets")),
     )
+    .load()
     .unwrap();
 
     // Ensure we can read the targets

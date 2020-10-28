@@ -2,21 +2,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::build_targets;
+use crate::common::load_metadata_repo;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
 use snafu::ResultExt;
-use std::fs::File;
 use std::num::NonZeroU64;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tough::editor::signed::PathExists;
 use tough::editor::targets::TargetsEditor;
-use tough::http::HttpTransport;
 use tough::key_source::KeySource;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -71,41 +69,14 @@ pub(crate) struct UpdateTargetsArgs {
 
 impl UpdateTargetsArgs {
     pub(crate) fn run(&self, role: &str) -> Result<()> {
-        // load the repo
-        let settings = tough::Settings {
-            root: File::open(&self.root).unwrap(),
-            datastore: None,
-            metadata_base_url: self.metadata_base_url.to_string(),
-            // We don't do anything with targets so we will use metadata url
-            targets_base_url: self.metadata_base_url.to_string(),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        };
-
-        // Load the `Repository` into the `RepositoryEditor`
-        // Loading a `Repository` with different `Transport`s results in
-        // different types. This is why we can't assign the `Repository`
-        // to a variable with the if statement.
-        if self.metadata_base_url.scheme() == "file" {
-            let repository = Repository::load(Box::new(FilesystemTransport), settings)
-                .context(error::RepoLoad)?;
-            self.with_targets_editor(
-                TargetsEditor::from_repo(repository, role)
-                    .context(error::EditorFromRepo { path: &self.root })?,
-            )?;
-        } else {
-            let repository = Repository::load(Box::new(HttpTransport::new()), settings)
-                .context(error::RepoLoad)?;
-            self.with_targets_editor(
-                TargetsEditor::from_repo(repository, role)
-                    .context(error::EditorFromRepo { path: &self.root })?,
-            )?;
-        }
-
-        Ok(())
+        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone())?;
+        self.update_targets(
+            TargetsEditor::from_repo(repository, role)
+                .context(error::EditorFromRepo { path: &self.root })?,
+        )
     }
 
-    fn with_targets_editor(&self, mut editor: TargetsEditor) -> Result<()> {
+    fn update_targets(&self, mut editor: TargetsEditor) -> Result<()> {
         editor.version(self.version).expires(self.expires);
 
         // If the "add-targets" argument was passed, build a list of targets

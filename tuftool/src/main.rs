@@ -13,6 +13,7 @@
 
 mod add_key_role;
 mod add_role;
+mod common;
 mod create;
 mod create_role;
 mod datetime;

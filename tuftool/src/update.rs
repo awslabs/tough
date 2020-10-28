@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::build_targets;
+use crate::common::UNUSED_URL;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
@@ -13,9 +14,8 @@ use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
-use tough::http::HttpTransport;
 use tough::key_source::KeySource;
-use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository};
+use tough::{ExpirationEnforcement, RepositoryLoader};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -107,48 +107,27 @@ WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establis
 
 impl UpdateArgs {
     pub(crate) fn run(&self) -> Result<()> {
-        // Create a temporary directory where the TUF client can store metadata
-        let settings = tough::Settings {
-            root: File::open(&self.root).context(error::FileOpen { path: &self.root })?,
-            datastore: None,
-            metadata_base_url: self.metadata_base_url.to_string(),
-            // We never load any targets here so the real
-            // `targets_base_url` isn't needed. `tough::Settings` requires
-            // a value so we use `metadata_base_url` as a placeholder
-            targets_base_url: self.metadata_base_url.to_string(),
-            limits: Limits::default(),
-            expiration_enforcement: if self.allow_expired_repo {
-                expired_repo_warning(&self.outdir);
-                ExpirationEnforcement::Unsafe
-            } else {
-                ExpirationEnforcement::Safe
-            },
-        };
-
-        // Load the `Repository` into the `RepositoryEditor`
-        // Loading a `Repository` with different `Transport`s results in
-        // different types. This is why we can't assign the `Repository`
-        // to a variable with the if statement.
-        if self.metadata_base_url.scheme() == "file" {
-            let repository = Repository::load(Box::new(FilesystemTransport), settings)
-                .context(error::RepoLoad)?;
-            self.with_editor(
-                RepositoryEditor::from_repo(&self.root, repository)
-                    .context(error::EditorFromRepo { path: &self.root })?,
-            )?;
+        let expiration_enforcement = if self.allow_expired_repo {
+            expired_repo_warning(&self.outdir);
+            ExpirationEnforcement::Unsafe
         } else {
-            let repository = Repository::load(Box::new(HttpTransport::new()), settings)
-                .context(error::RepoLoad)?;
-            self.with_editor(
-                RepositoryEditor::from_repo(&self.root, repository)
-                    .context(error::EditorFromRepo { path: &self.root })?,
-            )?;
-        }
-
-        Ok(())
+            ExpirationEnforcement::Safe
+        };
+        let repository = RepositoryLoader::new(
+            File::open(&self.root).context(error::OpenRoot { path: &self.root })?,
+            self.metadata_base_url.clone(),
+            Url::parse(UNUSED_URL).context(error::UrlParse { url: UNUSED_URL })?,
+        )
+        .expiration_enforcement(expiration_enforcement)
+        .load()
+        .context(error::RepoLoad)?;
+        self.update_metadata(
+            RepositoryEditor::from_repo(&self.root, repository)
+                .context(error::EditorFromRepo { path: &self.root })?,
+        )
     }
 
-    fn with_editor(&self, mut editor: RepositoryEditor) -> Result<()> {
+    fn update_metadata(&self, mut editor: RepositoryEditor) -> Result<()> {
         editor
             .targets_version(self.targets_version)
             .context(error::DelegationStructure)?

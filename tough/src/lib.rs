@@ -55,7 +55,6 @@ pub use crate::transport::{
 };
 use chrono::{DateTime, Utc};
 use snafu::{ensure, OptionExt, ResultExt};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::PathBuf;
@@ -96,45 +95,131 @@ impl From<ExpirationEnforcement> for bool {
     }
 }
 
-/// Repository fetch settings, provided to [`Repository::load`].
+/// A builder for settings with which to load a [`Repository`]. Required settings are provided in
+/// the [`RepositoryLoader::new`] function. Optional parameters can be added after calling new.
+/// Finally, call [`RepositoryLoader::load`] to load the [`Repository`].
+///
+/// # Examples
+///
+/// ## Basic usage:
+///
+/// ```rust
+/// # use std::fs::File;
+/// # use std::path::PathBuf;
+/// # use tough::RepositoryLoader;
+/// # use url::Url;
+/// # let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("data").join("tuf-reference-impl");
+/// # let root = dir.join("metadata").join("1.root.json");
+/// # let metadata_base_url = Url::from_file_path(dir.join("metadata")).unwrap();
+/// # let targets_base_url = Url::from_file_path(dir.join("targets")).unwrap();
+///
+/// let repository = RepositoryLoader::new(
+///     File::open(root).unwrap(),
+///     metadata_base_url,
+///     targets_base_url,
+/// )
+/// .load()
+/// .unwrap();
+///
+/// ```
+///
+/// ## With optional settings:
+///
+/// ```rust
+/// # use std::fs::File;
+/// # use std::path::PathBuf;
+/// # use tough::{RepositoryLoader, FilesystemTransport, ExpirationEnforcement};
+/// # use url::Url;
+/// # let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("data").join("tuf-reference-impl");
+/// # let root = dir.join("metadata").join("1.root.json");
+/// # let metadata_base_url = Url::from_file_path(dir.join("metadata")).unwrap();
+/// # let targets_base_url = Url::from_file_path(dir.join("targets")).unwrap();
+///
+/// let repository = RepositoryLoader::new(
+///     File::open(root).unwrap(),
+///     metadata_base_url,
+///     targets_base_url,
+/// )
+/// .transport(FilesystemTransport)
+/// .expiration_enforcement(ExpirationEnforcement::Unsafe)
+/// .load()
+/// .unwrap();
+///
+/// ```
 #[derive(Debug, Clone)]
-pub struct Settings<R: Read> {
-    /// A [`Read`]er to the trusted root metadata file, which you must ship with your software
-    /// using an out-of-band-process.
-    ///
-    /// This should be a copy of the most recent root.json from your repository. (It's okay if it
-    /// becomes out of date later; the client establishes trust up to the most recent root.json
-    /// file.)
-    pub root: R,
+pub struct RepositoryLoader<R>
+where
+    R: Read,
+{
+    root: R,
+    metadata_base_url: Url,
+    targets_base_url: Url,
+    transport: Option<Box<dyn Transport>>,
+    limits: Option<Limits>,
+    datastore: Option<PathBuf>,
+    expiration_enforcement: Option<ExpirationEnforcement>,
+}
 
-    /// Tough stores the most recently fetched timestamp, snapshot, and targets metadata files here
-    /// to detect version rollback attacks.
+impl<R: Read> RepositoryLoader<R> {
+    /// Create a new `RepositoryLoader`.
     ///
-    /// You may chose to provide a [`PathBuf`] to a directory on a persistent filesystem where
-    /// directory must exist prior to calling [`Repository::load`]. If given `None`, a temporary
+    /// `root` is a [`Read`]er for the trusted root metadata file, which you must ship with your
+    /// software using an out-of-band process. It should be a copy of the most recent root.json
+    /// from your repository. (It's okay if it becomes out of date later; the client establishes
+    /// trust up to the most recent root.json file.)
+    ///
+    /// `metadata_base_url` and `targets_base_url` are the base URLs where the client can find
+    /// metadata (such as root.json) and targets (as listed in targets.json).
+    pub fn new(root: R, metadata_base_url: Url, targets_base_url: Url) -> Self {
+        Self {
+            root,
+            metadata_base_url,
+            targets_base_url,
+            transport: None,
+            limits: None,
+            datastore: None,
+            expiration_enforcement: None,
+        }
+    }
+
+    /// Load and verify TUF repository metadata.
+    pub fn load(self) -> Result<Repository> {
+        Repository::load(self)
+    }
+
+    /// Set the transport. If no transport has been set, [`DefaultTransport`] will be used.
+    pub fn transport<T: Transport + 'static>(mut self, transport: T) -> Self {
+        self.transport = Some(Box::new(transport));
+        self
+    }
+
+    /// Set a the repository [`Limits`].
+    pub fn limits(mut self, limits: Limits) -> Self {
+        self.limits = Some(limits);
+        self
+    }
+
+    /// Set a `datastore` directory path. `datastore` is a directory on a persistent filesystem.
+    /// This directory's contents store the most recently fetched timestamp, snapshot, and targets
+    /// metadata files to detect version rollback attacks.
+    ///
+    /// You may chose to provide a [`PathBuf`] to a directory on a persistent filesystem, which must
+    /// exist prior to calling [`RepositoryLoader::load`]. If no datastore is provided, a temporary
     /// directory will be created and cleaned up for for you.
-    pub datastore: Option<PathBuf>,
+    pub fn datastore<P: Into<PathBuf>>(mut self, datastore: P) -> Self {
+        self.datastore = Some(datastore.into());
+        self
+    }
 
-    /// The URL base for TUF metadata (such as timestamp.json).
-    pub metadata_base_url: String,
-
-    /// The URL base for targets.
-    pub targets_base_url: String,
-
-    /// Limits used when fetching repository metadata.
+    /// Set the [`ExpirationEnforcement`].
     ///
-    /// This parameter implements [`Default`]; see its documentation for details.
-    pub limits: Limits,
-
-    /// Metadata expiration enforcement.
-    ///
-    /// When this parameter is set to `Unsafe`, a `Repository` will succeed in loading even if it
-    /// has expired metadata files.
-    ///
-    /// CAUTION: TUF metadata expiration dates, particularly `timestamp.json`, are designed to
+    /// **CAUTION:** TUF metadata expiration dates, particularly `timestamp.json`, are designed to
     /// limit a replay attack window. By setting `expiration_enforcement` to `Unsafe`, you are
     /// disabling this feature of TUF. Use `Safe` unless you have a good reason to use `Unsafe`.
-    pub expiration_enforcement: ExpirationEnforcement,
+    pub fn expiration_enforcement(mut self, exp: ExpirationEnforcement) -> Self {
+        self.expiration_enforcement = Some(exp);
+        self
+    }
 }
 
 /// Limits used when fetching repository metadata.
@@ -142,6 +227,13 @@ pub struct Settings<R: Read> {
 /// These limits are implemented to prevent endless data attacks. Clients must ensure these values
 /// are set higher than what would reasonably be expected by a repository, but not so high that the
 /// amount of data could interfere with the system.
+///
+/// `max_root_size` and `max_timestamp_size` are the maximum size for the `root.json` and
+/// `timestamp.json` files, respectively, downloaded from the repository. These must be
+/// sufficiently large such that future updates to your repository's key management strategy
+/// will still be supported, but sufficiently small such that you are protected against an
+/// endless data attack (defined by TUF as an attacker responding to clients with extremely
+/// large files that interfere with the client's system).
 ///
 /// The [`Default`] implementation sets the following values:
 /// * `max_root_size`: 1 MiB
@@ -178,7 +270,7 @@ impl Default for Limits {
 
 /// A TUF repository.
 ///
-/// You can create a `Repository` using the `load` method.
+/// You can create a `Repository` using a [`RepositoryLoader`].
 #[derive(Debug, Clone)]
 pub struct Repository {
     transport: Box<dyn Transport>,
@@ -197,41 +289,26 @@ pub struct Repository {
 }
 
 impl Repository {
-    /// Load and verify TUF repository metadata.
-    ///
-    /// `root` is a [`Read`]er for the trusted root metadata file, which you must ship with your
-    /// software using an out-of-band process. It should be a copy of the most recent root.json
-    /// from your repository. (It's okay if it becomes out of date later; the client establishes
-    /// trust up to the most recent root.json file.)
-    ///
-    /// `datastore` is a [`Path`] to a directory on a persistent filesystem. This directory's
-    /// contents store the most recently fetched timestamp, snapshot, and targets metadata files.
-    /// The directory must exist prior to calling this method.
-    ///
-    /// `max_root_size` and `max_timestamp_size` are the maximum size for the root.json and
-    /// timestamp.json files, respectively, downloaded from the repository. These must be
-    /// sufficiently large such that future updates to your repository's key management strategy
-    /// will still be supported, but sufficiently small such that you are protected against an
-    /// endless data attack (defined by TUF as an attacker responding to clients with extremely
-    /// large files that interfere with the client's system).
-    ///
-    /// `metadata_base_url` and `targets_base_url` are the HTTP(S) base URLs for where the client
-    /// can find metadata (such as root.json) and targets (as listed in targets.json).
-    pub fn load<R: Read>(transport: Box<dyn Transport>, settings: Settings<R>) -> Result<Self> {
-        let metadata_base_url = parse_url(settings.metadata_base_url)?;
-        let targets_base_url = parse_url(settings.targets_base_url)?;
-
-        let datastore = Datastore::new(settings.datastore)?;
+    /// Load and verify TUF repository metadata using a [`RepositoryLoader`] for the settings.
+    fn load<R: Read>(loader: RepositoryLoader<R>) -> Result<Self> {
+        let datastore = Datastore::new(loader.datastore)?;
+        let transport = loader
+            .transport
+            .unwrap_or_else(|| Box::new(DefaultTransport::new()));
+        let limits = loader.limits.unwrap_or_default();
+        let expiration_enforcement = loader.expiration_enforcement.unwrap_or_default();
+        let metadata_base_url = parse_url(loader.metadata_base_url)?;
+        let targets_base_url = parse_url(loader.targets_base_url)?;
 
         // 0. Load the trusted root metadata file + 1. Update the root metadata file
         let root = load_root(
             transport.as_ref(),
-            settings.root,
+            loader.root,
             &datastore,
-            settings.limits.max_root_size,
-            settings.limits.max_root_updates,
+            limits.max_root_size,
+            limits.max_root_updates,
             &metadata_base_url,
-            settings.expiration_enforcement,
+            expiration_enforcement,
         )?;
 
         // 2. Download the timestamp metadata file
@@ -239,9 +316,9 @@ impl Repository {
             transport.as_ref(),
             &root,
             &datastore,
-            settings.limits.max_timestamp_size,
+            limits.max_timestamp_size,
             &metadata_base_url,
-            settings.expiration_enforcement,
+            expiration_enforcement,
         )?;
 
         // 3. Download the snapshot metadata file
@@ -251,7 +328,7 @@ impl Repository {
             &timestamp,
             &datastore,
             &metadata_base_url,
-            settings.expiration_enforcement,
+            expiration_enforcement,
         )?;
 
         // 4. Download the targets metadata file
@@ -260,9 +337,9 @@ impl Repository {
             &root,
             &snapshot,
             &datastore,
-            settings.limits.max_targets_size,
+            limits.max_targets_size,
             &metadata_base_url,
-            settings.expiration_enforcement,
+            expiration_enforcement,
         )?;
 
         let expires_iter = [
@@ -284,10 +361,10 @@ impl Repository {
             snapshot,
             timestamp,
             targets,
-            limits: settings.limits,
+            limits,
             metadata_base_url,
             targets_base_url,
-            expiration_enforcement: settings.expiration_enforcement,
+            expiration_enforcement,
         })
     }
 
@@ -402,12 +479,17 @@ fn check_expired<T: Role>(datastore: &Datastore, role: &T) -> Result<()> {
     Ok(())
 }
 
-fn parse_url<S: AsRef<str>>(url: S) -> Result<Url> {
-    let mut url = Cow::from(url.as_ref());
-    if !url.ends_with('/') {
-        url.to_mut().push('/');
+/// Checks to see if the `Url` has a trailing slash and adds one if not. Without a trailing slash,
+/// the last component of a `Url` is considered to be a file. `metadata_url` and `targets_url`
+/// must refer to a base (i.e. directory), so we need them to end with a slash.
+fn parse_url(url: Url) -> Result<Url> {
+    if url.as_str().ends_with('/') {
+        Ok(url)
+    } else {
+        let mut s = url.to_string();
+        s.push('/');
+        Url::parse(&s).context(error::ParseUrl { url: s })
     }
-    Url::parse(&url).context(error::ParseUrl { url })
 }
 
 /// Steps 0 and 1 of the client application, which load the current root metadata file based on a
@@ -1014,8 +1096,10 @@ mod tests {
     // Check if a url with a trailing slash and one without trailing slash can both be parsed
     #[test]
     fn url_missing_trailing_slash() {
-        let parsed_url_without_trailing_slash = parse_url("https://example.org/a/b/c").unwrap();
-        let parsed_url_with_trailing_slash = parse_url("https://example.org/a/b/c/").unwrap();
+        let parsed_url_without_trailing_slash =
+            parse_url(Url::parse("https://example.org/a/b/c").unwrap()).unwrap();
+        let parsed_url_with_trailing_slash =
+            parse_url(Url::parse("https://example.org/a/b/c/").unwrap()).unwrap();
         assert_eq!(
             parsed_url_without_trailing_slash,
             parsed_url_with_trailing_slash

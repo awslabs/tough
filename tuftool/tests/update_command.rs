@@ -10,7 +10,7 @@ use std::fs::File;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
-use tough::{ExpirationEnforcement, Limits, Repository, Settings};
+use tough::RepositoryLoader;
 
 fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(1)).unwrap();
@@ -87,7 +87,7 @@ fn update_command_without_new_targets() {
             "--root",
             root_json.to_str().unwrap(),
             "--metadata-url",
-            metadata_base_url,
+            metadata_base_url.as_str(),
             "--targets-expires",
             new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
@@ -105,17 +105,12 @@ fn update_command_without_new_targets() {
         .success();
 
     // Load the updated repo
-    let repo = Repository::load(
-        Box::new(tough::FilesystemTransport),
-        Settings {
-            root: File::open(root_json).unwrap(),
-            datastore: None,
-            metadata_base_url: dir_url(update_out.path().join("metadata")),
-            targets_base_url: dir_url(update_out.path().join("targets")),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
+    let repo = RepositoryLoader::new(
+        File::open(root_json).unwrap(),
+        dir_url(update_out.path().join("metadata")),
+        dir_url(update_out.path().join("targets")),
     )
+    .load()
     .unwrap();
 
     // Ensure all the existing targets are accounted for
@@ -166,7 +161,7 @@ fn update_command_with_new_targets() {
             "--root",
             root_json.to_str().unwrap(),
             "--metadata-url",
-            metadata_base_url,
+            metadata_base_url.as_str(),
             "--targets-expires",
             new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
@@ -184,17 +179,12 @@ fn update_command_with_new_targets() {
         .success();
 
     // Load the updated repo.
-    let repo = Repository::load(
-        Box::new(tough::FilesystemTransport),
-        Settings {
-            root: File::open(root_json).unwrap(),
-            datastore: None,
-            metadata_base_url: dir_url(update_out.path().join("metadata")),
-            targets_base_url: dir_url(update_out.path().join("targets")),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
+    let repo = RepositoryLoader::new(
+        File::open(root_json).unwrap(),
+        dir_url(update_out.path().join("metadata")),
+        dir_url(update_out.path().join("targets")),
     )
+    .load()
     .unwrap();
 
     // Ensure all the targets (new and existing) are accounted for
@@ -322,7 +312,7 @@ fn updates_expired_repo(
         "--root",
         root_json.to_str().unwrap(),
         "--metadata-url",
-        metadata_base_url,
+        metadata_base_url.as_str(),
         "--targets-expires",
         targets_expiration.to_rfc3339().as_str(),
         "--targets-version",
@@ -376,17 +366,12 @@ fn update_command_expired_repo_allow() {
     update_expected.0.success();
     // Load the updated repo
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
-    let repo = Repository::load(
-        Box::new(tough::FilesystemTransport),
-        Settings {
-            root: File::open(root_json).unwrap(),
-            datastore: None,
-            metadata_base_url: dir_url(outdir.path().join("metadata")),
-            targets_base_url: dir_url(outdir.path().join("targets")),
-            limits: Limits::default(),
-            expiration_enforcement: ExpirationEnforcement::Safe,
-        },
+    let repo = RepositoryLoader::new(
+        File::open(root_json).unwrap(),
+        dir_url(outdir.path().join("metadata")),
+        dir_url(outdir.path().join("targets")),
     )
+    .load()
     .unwrap();
     // Ensure all the existing targets are accounted for
     assert_eq!(repo.targets().signed.targets.len(), 3);

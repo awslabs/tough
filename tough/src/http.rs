@@ -70,7 +70,7 @@ impl Transport for HttpTransport {
         let mut r = RetryState::new(self.settings.initial_backoff);
         Ok(Box::new(
             fetch_with_retries(&mut r, &self.settings, &url)
-                .map_err(|e| TransportError::from(url.to_string(), e))?,
+                .map_err(|e| TransportError::from((url, e)))?,
         ))
     }
 }
@@ -266,10 +266,21 @@ impl From<Result<reqwest::blocking::Response, reqwest::Error>> for HttpResult {
                 // checks the status code of the response for errors
                 parse_response_code(response)
             }
-            Err(err) => {
-                // an error occurred before the HTTP header could be read
-                trace!("retryable error during fetch: {}", err);
-                HttpResult::Retryable(err)
+            Err(e) if e.is_timeout() => {
+                // a connection timeout occurred
+                trace!("timeout error during fetch: {}", e);
+                HttpResult::Retryable(e)
+            }
+            Err(e) if e.is_request() => {
+                // an error occurred while sending the request
+                trace!("error sending request during fetch: {}", e);
+                HttpResult::Retryable(e)
+            }
+            Err(e) => {
+                // the error is not from an HTTP status code or a timeout, retries will not succeed.
+                // these appear to be internal, reqwest errors and are expected to be unlikely.
+                trace!("internal reqwest error during fetch: {}", e);
+                HttpResult::Fatal(e)
             }
         }
     }
@@ -358,8 +369,9 @@ pub enum HttpError {
     RequestBuild { source: reqwest::Error },
 }
 
-impl TransportError {
-    fn from(url: String, e: HttpError) -> Self {
+/// Convert a URL `Url` and an `HttpError` into a `TransportError`
+impl From<(Url, HttpError)> for TransportError {
+    fn from((url, e): (Url, HttpError)) -> Self {
         match e {
             HttpError::FetchFileNotFound { .. } => {
                 TransportError::new(TransportErrorKind::FileNotFound, url, e)
