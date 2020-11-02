@@ -41,6 +41,10 @@ pub(crate) struct DownloadArgs {
 
     /// Output directory of targets
     outdir: PathBuf,
+
+    /// Allow repo download for expired metadata
+    #[structopt(long)]
+    allow_expired_repo: bool,
 }
 
 fn root_warning<P: AsRef<Path>>(path: P) {
@@ -49,6 +53,16 @@ fn root_warning<P: AsRef<Path>>(path: P) {
 =================================================================
 WARNING: Downloading root.json to {}
 This is unsafe and will not establish trust, use only for testing
+=================================================================",
+              path.as_ref().display());
+}
+
+fn expired_repo_warning<P: AsRef<Path>>(path: P) {
+    #[rustfmt::skip]
+    eprintln!("\
+=================================================================
+Downloading repo to {}
+WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establish trust, use only for testing!
 =================================================================",
               path.as_ref().display());
 }
@@ -96,7 +110,12 @@ impl DownloadArgs {
             limits: Limits {
                 ..tough::Limits::default()
             },
-            expiration_enforcement: ExpirationEnforcement::Safe,
+            expiration_enforcement: if self.allow_expired_repo {
+                expired_repo_warning(&self.outdir);
+                ExpirationEnforcement::Unsafe
+            } else {
+                ExpirationEnforcement::Safe
+            },
         };
         if self.metadata_base_url.scheme() == "file" {
             let transport = FilesystemTransport;
