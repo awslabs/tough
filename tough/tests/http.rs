@@ -7,7 +7,6 @@ mod http_happy {
     use mockito::mock;
     use std::fs::File;
     use std::str::FromStr;
-    use tempfile::TempDir;
     use tough::{ExpirationEnforcement, HttpTransport, Limits, Repository, Settings};
     use url::Url;
 
@@ -34,18 +33,15 @@ mod http_happy {
         let mock_role2 = create_successful_get_mock("metadata/role2.json");
         let mock_file1_txt = create_successful_get_mock("targets/file1.txt");
         let mock_file2_txt = create_successful_get_mock("targets/file2.txt");
-        let datastore = TempDir::new().unwrap();
         let base_url = Url::from_str(mockito::server_url().as_str()).unwrap();
-        let metadata_base_url = base_url.join("metadata").unwrap().to_string();
-        let targets_base_url = base_url.join("targets").unwrap().to_string();
         let transport = HttpTransport::default();
         let repo = Repository::load(
             &transport,
             Settings {
                 root: File::open(repo_dir.join("metadata").join("1.root.json")).unwrap(),
-                datastore: datastore.as_ref(),
-                metadata_base_url: metadata_base_url.as_str(),
-                targets_base_url: targets_base_url.as_str(),
+                datastore: None,
+                metadata_base_url: base_url.join("metadata").unwrap().to_string(),
+                targets_base_url: base_url.join("targets").unwrap().to_string(),
                 limits: Limits::default(),
                 expiration_enforcement: ExpirationEnforcement::Safe,
             },
@@ -89,7 +85,6 @@ mod http_integ {
     use std::fs::File;
     use std::path::PathBuf;
     use std::process::{Command, Stdio};
-    use tempfile::TempDir;
     use tough::{
         ClientSettings, ExpirationEnforcement, HttpTransport, Limits, Repository, Settings,
     };
@@ -151,14 +146,13 @@ mod http_integ {
                 backoff_factor: 1.5,
             });
             let root_path = tuf_reference_impl_root_json();
-            let tempdir = TempDir::new().unwrap();
             Repository::load(
                 &transport,
                 Settings {
                     root: File::open(&root_path).unwrap(),
-                    datastore: tempdir.path(),
-                    metadata_base_url: "http://localhost:10103/metadata",
-                    targets_base_url: "http://localhost:10103/targets",
+                    datastore: None,
+                    metadata_base_url: "http://localhost:10103/metadata".into(),
+                    targets_base_url: "http://localhost:10103/targets".into(),
                     limits: Limits::default(),
                     expiration_enforcement: ExpirationEnforcement::Safe,
                 },

@@ -8,7 +8,6 @@ use std::io::{self};
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use tempfile::tempdir;
 use tough::http::HttpTransport;
 use tough::{ExpirationEnforcement, FilesystemTransport, Limits, Repository, Settings, Transport};
 use url::Url;
@@ -101,12 +100,11 @@ impl DownloadArgs {
         };
 
         // load repository
-        let repo_dir = tempdir().context(error::TempDir)?;
         let settings = Settings {
             root: File::open(&root_path).context(error::OpenRoot { path: &root_path })?,
-            datastore: repo_dir.path(),
-            metadata_base_url: self.metadata_base_url.as_str(),
-            targets_base_url: self.targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: self.metadata_base_url.to_string(),
+            targets_base_url: self.targets_base_url.to_string(),
             limits: Limits {
                 ..tough::Limits::default()
             },

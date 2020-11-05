@@ -7,6 +7,7 @@ use chrono::{Duration, Utc};
 use std::env;
 use std::fs::File;
 use tempfile::TempDir;
+use test_utils::dir_url;
 use tough::{ExpirationEnforcement, Limits, Repository, Settings};
 
 // This file include integration tests for KeySources: tough-ssm, tough-kms and local file key.
@@ -125,7 +126,6 @@ fn create_repository(root_key: &str, auto_generate: bool) {
         .join("tuf-reference-impl")
         .join("targets");
     let repo_dir = TempDir::new().unwrap();
-    let load_dir = TempDir::new().unwrap();
     // Create a repo using tuftool and the reference tuf implementation targets
     Command::cargo_bin("tuftool")
         .unwrap()
@@ -156,15 +156,13 @@ fn create_repository(root_key: &str, auto_generate: bool) {
         .success();
 
     // Load our newly created repo
-    let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
-    let targets_base_url = &test_utils::dir_url(repo_dir.path().join("targets"));
     let repo = Repository::load(
         &tough::FilesystemTransport,
         Settings {
             root: File::open(root_json).unwrap(),
-            datastore: load_dir.as_ref(),
-            metadata_base_url,
-            targets_base_url,
+            datastore: None,
+            metadata_base_url: dir_url(repo_dir.path().join("metadata")),
+            targets_base_url: dir_url(repo_dir.path().join("targets")),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },

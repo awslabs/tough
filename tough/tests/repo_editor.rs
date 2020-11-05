@@ -23,7 +23,6 @@ mod test_utils;
 
 struct RepoPaths {
     root_path: PathBuf,
-    datastore: TempDir,
     metadata_base_url: String,
     targets_base_url: String,
 }
@@ -33,7 +32,6 @@ impl RepoPaths {
         let base = test_data().join("tuf-reference-impl");
         RepoPaths {
             root_path: base.join("metadata").join("1.root.json"),
-            datastore: TempDir::new().unwrap(),
             metadata_base_url: dir_url(base.join("metadata")),
             targets_base_url: dir_url(base.join("targets")),
         }
@@ -71,9 +69,9 @@ fn load_tuf_reference_impl<'a>(paths: &'a mut RepoPaths) -> Repository<'a, Files
         &tough::FilesystemTransport,
         Settings {
             root: &mut paths.root(),
-            datastore: paths.datastore.as_ref(),
-            metadata_base_url: paths.metadata_base_url.as_str(),
-            targets_base_url: paths.targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: paths.metadata_base_url.clone(),
+            targets_base_url: paths.targets_base_url.clone(),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -236,15 +234,13 @@ fn create_sign_write_reload_repo() {
         .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
         .is_ok());
     // Load the repo we just created
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let _new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &create_dir.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -289,16 +285,13 @@ fn create_role_flow() {
 
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -348,16 +341,13 @@ fn create_role_flow() {
     // reload repo and verify that A role is included
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -380,16 +370,13 @@ fn create_role_flow() {
 
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -427,16 +414,13 @@ fn create_role_flow() {
     // reload repo and add in A and B metadata and update snapshot
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -470,16 +454,13 @@ fn create_role_flow() {
 
     // reload repo and verify that A and B role are included
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -529,16 +510,13 @@ fn update_targets_flow() {
 
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -588,16 +566,13 @@ fn update_targets_flow() {
     // reload repo and verify that A role is included
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -620,16 +595,13 @@ fn update_targets_flow() {
 
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -667,16 +639,13 @@ fn update_targets_flow() {
     // reload repo and add in A and B metadata and update snapshot
     // reload repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -710,16 +679,13 @@ fn update_targets_flow() {
 
     // reload repo and verify that A and B role are included
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -761,16 +727,13 @@ fn update_targets_flow() {
     // Add in edited A targets and update snapshot (update-repo)
     // load repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -806,16 +769,13 @@ fn update_targets_flow() {
 
     //load the updated repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -862,16 +822,13 @@ fn update_targets_flow() {
     // Add in edited A targets and update snapshot (update-repo)
     // load repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },
@@ -908,16 +865,13 @@ fn update_targets_flow() {
 
     //load the updated repo
     let root = root_path();
-    let datastore = TempDir::new().unwrap();
-    let metadata_base_url = dir_url(&metadata_destination);
-    let targets_base_url = dir_url(&targets_destination);
     let new_repo = Repository::load(
         &FilesystemTransport,
         Settings {
             root: File::open(&root).unwrap(),
-            datastore: &datastore.path(),
-            metadata_base_url: metadata_base_url.as_str(),
-            targets_base_url: targets_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: dir_url(&metadata_destination),
+            targets_base_url: dir_url(&targets_destination),
             limits: Limits::default(),
             expiration_enforcement: ExpirationEnforcement::Safe,
         },

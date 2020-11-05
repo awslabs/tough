@@ -29,6 +29,15 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display(
+        "Failed to create temp directory for the repository datastore: {}",
+        source
+    ))]
+    DatastoreInit {
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
     /// The library failed to create a file in the datastore.
     #[snafu(display("Failed to create file at datastore path {}: {}", path.display(), source))]
     DatastoreCreate {
@@ -215,13 +224,13 @@ pub enum Error {
 
     /// The library failed to parse a metadata file, either because it was not valid JSON or it did
     /// not conform to the expected schema.
-    //
-    // Invalid JSON errors read like:
-    // * EOF while parsing a string at line 1 column 14
-    //
-    // Schema non-conformance errors read like:
-    // * invalid type: integer `2`, expected a string at line 1 column 11
-    // * missing field `sig` at line 1 column 16
+    ///
+    /// Invalid JSON errors read like:
+    /// * EOF while parsing a string at line 1 column 14
+    ///
+    /// Schema non-conformance errors read like:
+    /// * invalid type: integer `2`, expected a string at line 1 column 11
+    /// * missing field `sig` at line 1 column 16
     #[snafu(display("Failed to parse {} metadata: {}", role, source))]
     ParseMetadata {
         role: RoleType,

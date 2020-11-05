@@ -11,7 +11,6 @@ use std::fs::File;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use tempfile::tempdir;
 use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
 use tough::http::HttpTransport;
@@ -109,15 +108,14 @@ WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establis
 impl UpdateArgs {
     pub(crate) fn run(&self) -> Result<()> {
         // Create a temporary directory where the TUF client can store metadata
-        let workdir = tempdir().context(error::TempDir)?;
         let settings = tough::Settings {
             root: File::open(&self.root).context(error::FileOpen { path: &self.root })?,
-            datastore: workdir.path(),
-            metadata_base_url: self.metadata_base_url.as_str(),
+            datastore: None,
+            metadata_base_url: self.metadata_base_url.to_string(),
             // We never load any targets here so the real
             // `targets_base_url` isn't needed. `tough::Settings` requires
             // a value so we use `metadata_base_url` as a placeholder
-            targets_base_url: self.metadata_base_url.as_str(),
+            targets_base_url: self.metadata_base_url.to_string(),
             limits: Limits::default(),
             expiration_enforcement: if self.allow_expired_repo {
                 expired_repo_warning(&self.outdir);
