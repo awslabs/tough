@@ -97,4 +97,38 @@ pub enum Error {
         "Found public key from AWS KMS, but list of supported signing algorithm is missing"
     ))]
     MissingSignAlgorithm,
+
+    #[snafu(display(
+        "Found public key from AWS KMS, but the CustomerMasterKeySpec field is missing"
+    ))]
+    MissingCustomerMasterKeySpec,
+
+    #[snafu(display("Unable to parse the CustomerMasterKeySpec: {}", spec))]
+    BadCustomerMasterKeySpec { spec: String },
+
+    #[snafu(display("Unable to parse the integer in CustomerMasterKeySpec: {}", spec))]
+    BadCustomerMasterKeySpecInt {
+        spec: String,
+        source: std::num::ParseIntError,
+    },
+
+    #[snafu(display(
+        "Signature is too long, modulus_size_bytes: {}, signature_size_bytes: {}",
+        modulus_size_bytes,
+        signature_size_bytes
+    ))]
+    SignatureTooLong {
+        modulus_size_bytes: usize,
+        signature_size_bytes: usize,
+    },
+
+    #[snafu(display(
+        "The modulus bit size is {}, but should be divisible by 8. CustomerMasterKeySpec is {}.",
+        modulus_size_bits,
+        spec
+    ))]
+    UnsupportedModulusSize {
+        modulus_size_bits: usize,
+        spec: String,
+    },
 }
