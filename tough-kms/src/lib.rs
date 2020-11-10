@@ -115,7 +115,13 @@ impl KeySource for KmsKeySource {
             client: Some(kms_client.clone()),
             key_id: self.key_id.clone(),
             public_key: key.parse().context(error::PublicKeyParse)?,
-            signing_algorithm: self.signing_algorithm.value(),
+            signing_algorithm: self.signing_algorithm,
+            modulus_size_bytes: parse_modulus_length_bytes(
+                response
+                    .customer_master_key_spec
+                    .as_ref()
+                    .context(error::MissingCustomerMasterKeySpec)?,
+            )?,
         }))
     }
 
@@ -139,7 +145,9 @@ pub struct KmsRsaKey {
     /// Public Key corresponding to Customer Managed Key
     public_key: Decoded<RsaPem>,
     /// Signing Algorithm to be used for the Customer Managed Key
-    signing_algorithm: String,
+    signing_algorithm: KmsSigningAlgorithm,
+    /// The size of the RSA key modulus in bytes.
+    modulus_size_bytes: usize,
 }
 
 impl fmt::Debug for KmsRsaKey {
@@ -178,7 +186,7 @@ impl Sign for KmsRsaKey {
             key_id: self.key_id.clone(),
             message: digest(&SHA256, msg).as_ref().to_vec().into(),
             message_type: Some(String::from("DIGEST")),
-            signing_algorithm: self.signing_algorithm.clone(),
+            signing_algorithm: self.signing_algorithm.value(),
             ..rusoto_kms::SignRequest::default()
         });
         let response = tokio::runtime::Runtime::new()
@@ -188,7 +196,134 @@ impl Sign for KmsRsaKey {
                 profile: self.profile.clone(),
                 key_id: self.key_id.clone(),
             })?;
-        let signature = response.signature.context(error::SignatureNotFound)?;
-        Ok(signature.to_vec())
+        let signature = response
+            .signature
+            .context(error::SignatureNotFound)?
+            .to_vec();
+
+        // sometimes KMS produces a signature that is shorter than the modulus. in those cases,
+        // we have observed that openssl and KMS will both validate the signature, but ring will
+        // not. if we pad the beginning of the signature with zeros to make the signature exactly
+        // the same length as the modulus, then ring will verify the signature.
+        let signature = match &self.signing_algorithm {
+            KmsSigningAlgorithm::RsassaPssSha256 => {
+                pad_signature(signature, self.modulus_size_bytes)?
+            }
+        };
+        Ok(signature)
     }
+}
+
+/// Parses the `CustomerMasterKeySpec` string returned by KMS, e.g. `RSA_3072` and returns the size
+/// of the modulus in bytes. For example `RSA_3072` has a modulus of 3072 bits, so the function will
+/// return 384 == (3072 / 8). If the parsed number is not divisible by 8, an error is returned.
+fn parse_modulus_length_bytes(spec: &str) -> error::Result<usize> {
+    // only RSA is currently supported
+    ensure!(
+        spec.starts_with("RSA_"),
+        error::BadCustomerMasterKeySpec { spec }
+    );
+    // prevent a panic if the string is precisely "RSA_"
+    ensure!(spec.len() > 4, error::BadCustomerMasterKeySpec { spec });
+    // extract the digits
+    let mod_len_str = &spec[4..];
+    // parse the digits
+    let mod_bits = mod_len_str
+        .parse::<usize>()
+        .context(error::BadCustomerMasterKeySpecInt { spec })?;
+    // make sure the modulus size is compatible with u8 bytes
+    ensure!(
+        mod_bits % 8 == 0,
+        error::UnsupportedModulusSize {
+            modulus_size_bits: mod_bits,
+            spec,
+        }
+    );
+    // convert to 8-bit bytes
+    Ok(mod_bits / 8)
+}
+
+/// * If the length of `signature` is less than `modulus_size_bytes`, this function will prepend the
+///   `signature` with zeros so that `signature.len() == modulus_size_bytes`.
+/// * If the `signature` already the same length as `modulus_size_bytes` then `signature` is
+///   returned unchanged.
+/// * If the `signature` is longer than `modulus_size_bytes`, an error is returned.
+fn pad_signature(mut signature: Vec<u8>, modulus_size_bytes: usize) -> error::Result<Vec<u8>> {
+    ensure!(
+        signature.len() <= modulus_size_bytes,
+        error::SignatureTooLong {
+            modulus_size_bytes,
+            signature_size_bytes: signature.len()
+        },
+    );
+    if signature.len() == modulus_size_bytes {
+        return Ok(signature);
+    }
+    // we now know that the signature is shorter than the modulus
+    let padding_size: usize = modulus_size_bytes - signature.len();
+    signature.splice(..0, [0].repeat(padding_size));
+    Ok(signature)
+}
+
+// =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
+
+#[test]
+fn parse_modulus_length_wrong_alg() {
+    let result = parse_modulus_length_bytes("ECC_SECG_P256K1");
+    assert!(result.is_err())
+}
+
+#[test]
+fn parse_modulus_length_bad_str() {
+    let result = parse_modulus_length_bytes("RSA_");
+    assert!(result.is_err())
+}
+
+#[test]
+fn parse_modulus_length_3072() {
+    let modulus_length = parse_modulus_length_bytes("RSA_3072").unwrap();
+    // 3072 bits is 384 bytes
+    assert_eq!(modulus_length, 384);
+}
+
+#[test]
+fn parse_modulus_length_3073() {
+    // 3073 is not divisible by 8, should error
+    let result = parse_modulus_length_bytes("RSA_3073");
+    assert!(result.is_err());
+}
+
+#[test]
+fn pad_signature_too_long() {
+    let signature: Vec<u8> = vec![1, 2, 3, 4, 5];
+    let modulus_size: usize = 4;
+    let result = pad_signature(signature, modulus_size);
+    assert!(result.is_err());
+}
+
+#[test]
+fn pad_signature_no_change() {
+    let signature: Vec<u8> = vec![1, 2, 3, 4, 5];
+    let expected: Vec<u8> = vec![1, 2, 3, 4, 5];
+    let modulus_size: usize = 5;
+    let actual = pad_signature(signature, modulus_size).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn pad_signature_short_by_one() {
+    let signature: Vec<u8> = vec![1, 2, 3, 4, 5];
+    let expected: Vec<u8> = vec![0, 1, 2, 3, 4, 5];
+    let modulus_size: usize = 6;
+    let actual = pad_signature(signature, modulus_size).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn pad_signature_short_by_two() {
+    let signature: Vec<u8> = vec![1, 2, 3, 4];
+    let expected: Vec<u8> = vec![0, 0, 1, 2, 3, 4];
+    let modulus_size: usize = 6;
+    let actual = pad_signature(signature, modulus_size).unwrap();
+    assert_eq!(expected, actual);
 }
