@@ -44,4 +44,4 @@ walkdir = "2.2.9"
 
 [dev-dependencies]
 assert_cmd = "1.0"
-mockito = "0.26"
+mockito = "0.28"
