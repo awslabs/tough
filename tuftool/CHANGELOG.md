@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0] - 2020-11-10
+## [Unreleased]
 ### Added
 - Support `file://` URLs with the download command [#222]
 - Support download and update of expired repos [#224]
@@ -93,7 +93,7 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[0.6.0]: https://github.com/awslabs/tough/compare/tuftool-v0.5.0...tuftool-v0.6.0
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.5.0...develop
 [0.5.0]: https://github.com/awslabs/tough/compare/tuftool-v0.4.1...tuftool-v0.5.0
 [0.4.1]: https://github.com/awslabs/tough/compare/tuftool-v0.4.0...tuftool-v0.4.1
 [0.4.0]: https://github.com/awslabs/tough/compare/tuftool-v0.3.1...tuftool-v0.4.0
