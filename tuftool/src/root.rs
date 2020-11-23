@@ -342,7 +342,7 @@ impl Command {
             .signed
             .roles
             .get(&RoleType::Root)
-            .ok_or_else(|| error::Error::UnstableRoot {
+            .ok_or(error::Error::UnstableRoot {
                 // The code should never reach this point
                 role: RoleType::Root,
                 threshold: 0,

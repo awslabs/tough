@@ -252,9 +252,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
 
     /// Returns a mutable reference to the targets editor if it exists
     fn targets_editor_mut(&mut self) -> Result<&mut TargetsEditor<'a, T>> {
-        self.targets_editor
-            .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)
+        self.targets_editor.as_mut().ok_or(error::Error::NoTargets)
     }
 
     /// Add a `Target` to the repository

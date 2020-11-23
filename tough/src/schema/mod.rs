@@ -569,7 +569,7 @@ impl Targets {
         self.delegated_role(name)?
             .targets
             .as_ref()
-            .ok_or_else(|| error::Error::NoTargets)
+            .ok_or(error::Error::NoTargets)
     }
 
     /// Returns a mutable `Signed<Targets>` for `name`
@@ -577,7 +577,7 @@ impl Targets {
         self.delegated_role_mut(name)?
             .targets
             .as_mut()
-            .ok_or_else(|| error::Error::NoTargets)
+            .ok_or(error::Error::NoTargets)
     }
 
     /// Returns the `&DelegatedRole` for `name`
@@ -585,7 +585,7 @@ impl Targets {
         for role in &self
             .delegations
             .as_ref()
-            .ok_or_else(|| error::Error::NoDelegations)?
+            .ok_or(error::Error::NoDelegations)?
             .roles
         {
             if role.name == name {
@@ -593,7 +593,7 @@ impl Targets {
             } else if let Ok(role) = role
                 .targets
                 .as_ref()
-                .ok_or_else(|| error::Error::NoTargets)?
+                .ok_or(error::Error::NoTargets)?
                 .signed
                 .delegated_role(name)
             {
@@ -610,7 +610,7 @@ impl Targets {
         for role in &mut self
             .delegations
             .as_mut()
-            .ok_or_else(|| error::Error::NoDelegations)?
+            .ok_or(error::Error::NoDelegations)?
             .roles
         {
             if role.name == name {
@@ -618,7 +618,7 @@ impl Targets {
             } else if let Ok(role) = role
                 .targets
                 .as_mut()
-                .ok_or_else(|| error::Error::NoTargets)?
+                .ok_or(error::Error::NoTargets)?
                 .signed
                 .delegated_role_mut(name)
             {
