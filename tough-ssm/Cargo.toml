@@ -19,7 +19,7 @@ tough = { version = "0.9.0", path = "../tough", features = ["http"] }
 rusoto_core = { version = "0.45", optional = true, default-features = false }
 rusoto_credential = { version = "0.45", optional = true }
 rusoto_ssm = { version = "0.45", optional = true, default-features = false }
-serde = "1.0.105"
+serde = "1.0.118"
 serde_json = "1.0.59"
 snafu = { version = "0.6.6", features = ["backtraces-impl-backtrace-crate"] }
 tokio = "0.2.13"
