@@ -30,7 +30,7 @@ rusoto_credential = { version = "0.45", optional = true }
 rusoto_ssm = { version = "0.45", optional = true, default-features = false }
 rusoto_kms = { version = "0.45", optional = true, default-features = false }
 serde = "1.0.118"
-serde_json = "1.0.59"
+serde_json = "1.0.60"
 simplelog = "0.8.0"
 snafu = { version = "0.6.8", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
