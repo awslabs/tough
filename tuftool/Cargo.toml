@@ -21,7 +21,7 @@ hex = "0.4.2"
 log = "0.4.8"
 maplit = "1.0.1"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
-pem = "0.8.1"
+pem = "0.8.2"
 rayon = "1.2"
 reqwest = { version = "0.10.4", features = ["blocking"] }
 ring = { version = "0.16.16", features = ["std"] }
