@@ -392,9 +392,11 @@ fn system_time(datastore: &Datastore) -> Result<DateTime<Utc>> {
     Ok(sys_time)
 }
 
+/// TUF v1.0.16, 5.2.9, 5.3.3, 5.4.5, 5.5.4, The expiration timestamp in the `[metadata]` file MUST
+/// be higher than the fixed update start time.
 fn check_expired<T: Role>(datastore: &Datastore, role: &T) -> Result<()> {
     ensure!(
-        system_time(datastore)? < role.expires(),
+        system_time(datastore)? <= role.expires(),
         error::ExpiredMetadata { role: T::TYPE }
     );
     Ok(())
@@ -540,10 +542,10 @@ fn load_root<R: Read, T: Transport>(
         }
     }
 
-    // 1.8. Check for a freeze attack. The latest known time should be lower than the expiration
-    //   timestamp in the trusted root metadata file (version N). If the trusted root metadata file
-    //   has expired, abort the update cycle, report the potential freeze attack. On the next
-    //   update cycle, begin at step 0 and version N of the root metadata file.
+    // TUF v1.0.16, 5.2.9. Check for a freeze attack. The expiration timestamp in the trusted root
+    // metadata file MUST be higher than the fixed update start time. If the trusted root metadata
+    // file has expired, abort the update cycle, report the potential freeze attack. On the next
+    // update cycle, begin at step 5.1 and version N of the root metadata file.
     if expiration_enforcement == ExpirationEnforcement::Safe {
         check_expired(datastore, &root.signed)?;
     }
@@ -632,10 +634,10 @@ fn load_timestamp<T: Transport>(
         }
     }
 
-    // 2.3. Check for a freeze attack. The latest known time should be lower than the expiration
-    //   timestamp in the new timestamp metadata file. If so, the new timestamp metadata file
-    //   becomes the trusted timestamp metadata file. If the new timestamp metadata file has
-    //   expired, discard it, abort the update cycle, and report the potential freeze attack.
+    // TUF v1.0.16, 5.3.3. Check for a freeze attack. The expiration timestamp in the new timestamp
+    // metadata file MUST be higher than the fixed update start time. If so, the new timestamp
+    // metadata file becomes the trusted timestamp metadata file. If the new timestamp metadata file
+    // has expired, discard it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
         check_expired(datastore, &timestamp.signed)?;
     }
@@ -766,10 +768,10 @@ fn load_snapshot<T: Transport>(
         }
     }
 
-    // 3.4. Check for a freeze attack. The latest known time should be lower than the expiration
-    //   timestamp in the new snapshot metadata file. If so, the new snapshot metadata file becomes
-    //   the trusted snapshot metadata file. If the new snapshot metadata file is expired, discard
-    //   it, abort the update cycle, and report the potential freeze attack.
+    // TUF v1.0.16, 5.4.5. Check for a freeze attack. The expiration timestamp in the new snapshot
+    // metadata file MUST be higher than the fixed update start time. If so, the new snapshot
+    // metadata file becomes the trusted snapshot metadata file. If the new snapshot metadata file
+    // is expired, discard it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
         check_expired(datastore, &snapshot.signed)?;
     }
@@ -886,10 +888,10 @@ fn load_targets<T: Transport>(
         }
     }
 
-    // 4.4. Check for a freeze attack. The latest known time should be lower than the expiration
-    //   timestamp in the new targets metadata file. If so, the new targets metadata file becomes
-    //   the trusted targets metadata file. If the new targets metadata file is expired, discard
-    //   it, abort the update cycle, and report the potential freeze attack.
+    // TUF v1.0.16, 5.5.4. Check for a freeze attack. The expiration timestamp in the new targets
+    // metadata file MUST be higher than the fixed update start time. If so, the new targets
+    // metadata file becomes the trusted targets metadata file. If the new targets metadata file is
+    // expired, discard it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
         check_expired(datastore, &targets.signed)?;
     }
