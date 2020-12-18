@@ -8,13 +8,4 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - run: rustup update stable
-    - run: cargo fmt -- --check
-    - run: cargo clippy --locked -- -D warnings
-    - run: cargo build --locked -p olpc-cjson
-    - run: cargo build --locked -p tough
-    - run: cargo build --locked -p tough-ssm
-    - run: cargo build --locked -p tough-kms
-    - run: cargo build --locked -p tuftool
-    - run: cargo test --locked
-    - run: cd tough && cargo test --all-features --locked
-    - run: cd tough && cargo test --features '' --locked
+    - run: make ci
