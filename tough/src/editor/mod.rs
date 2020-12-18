@@ -63,7 +63,7 @@ const SPEC_VERSION: &str = "1.0.0";
 ///
 /// To add a new role from metadata to the `Targets` in `TargetsEditor` use `add_role()`.
 #[derive(Debug)]
-pub struct RepositoryEditor<'a, T: Transport> {
+pub struct RepositoryEditor {
     signed_root: SignedRole<Root>,
 
     snapshot_version: Option<NonZeroU64>,
@@ -74,16 +74,16 @@ pub struct RepositoryEditor<'a, T: Transport> {
     timestamp_expires: Option<DateTime<Utc>>,
     timestamp_extra: Option<HashMap<String, Value>>,
 
-    targets_editor: Option<TargetsEditor<'a, T>>,
+    targets_editor: Option<TargetsEditor>,
 
     /// The signed top level targets, will be None if no top level targets have been signed
     signed_targets: Option<Signed<Targets>>,
 
-    transport: Option<&'a T>,
+    transport: Option<Box<dyn Transport>>,
     limits: Option<Limits>,
 }
 
-impl<'a, T: Transport> RepositoryEditor<'a, T> {
+impl RepositoryEditor {
     /// Create a new, bare `RepositoryEditor`
     pub fn new<P>(root_path: P) -> Result<Self>
     where
@@ -140,7 +140,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     /// `RepositoryEditor`. This `RepositoryEditor` will include all of the targets
     /// and bits of _extra metadata from the roles included. It will not, however,
     /// include the versions or expirations and the user is expected to set them.
-    pub fn from_repo<P>(root_path: P, repo: Repository<'a, T>) -> Result<RepositoryEditor<'a, T>>
+    pub fn from_repo<P>(root_path: P, repo: Repository) -> Result<RepositoryEditor>
     where
         P: AsRef<Path>,
     {
@@ -148,7 +148,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
         editor.targets(repo.targets)?;
         editor.snapshot(repo.snapshot.signed)?;
         editor.timestamp(repo.timestamp.signed)?;
-        editor.transport = Some(repo.transport);
+        editor.transport = Some(repo.transport.clone());
         editor.limits = Some(repo.limits);
         Ok(editor)
     }
@@ -251,7 +251,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     }
 
     /// Returns a mutable reference to the targets editor if it exists
-    fn targets_editor_mut(&mut self) -> Result<&mut TargetsEditor<'a, T>> {
+    fn targets_editor_mut(&mut self) -> Result<&mut TargetsEditor> {
         self.targets_editor.as_mut().ok_or(error::Error::NoTargets)
     }
 
@@ -278,7 +278,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
     where
         P: AsRef<Path>,
     {
-        let (target_name, target) = RepositoryEditor::<T>::build_target(target_path)?;
+        let (target_name, target) = RepositoryEditor::build_target(target_path)?;
         self.add_target(&target_name, target)?;
         Ok(self)
     }
@@ -291,7 +291,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
         P: AsRef<Path>,
     {
         for target in targets {
-            let (target_name, target) = RepositoryEditor::<T>::build_target(target)?;
+            let (target_name, target) = RepositoryEditor::build_target(target)?;
             self.add_target(&target_name, target)?;
         }
 
@@ -340,7 +340,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
         version: NonZeroU64,
     ) -> Result<&mut Self> {
         // Create the new targets using targets editor
-        let mut new_targets_editor = TargetsEditor::<'a, T>::new(name);
+        let mut new_targets_editor = TargetsEditor::new(name);
         // Set the version and expiration
         new_targets_editor.version(version).expires(expiration);
         // Sign the new targets
@@ -479,7 +479,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
         metadata_url: &str,
     ) -> Result<&mut Self> {
         let limits = self.limits.context(error::MissingLimits)?;
-        let transport = self.transport.context(error::MissingTransport)?;
+        let transport = self.transport.as_ref().context(error::MissingTransport)?;
         let targets = &mut self
             .signed_targets
             .as_mut()
@@ -495,7 +495,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
                     url: metadata_base_url.to_owned(),
                 })?;
         let reader = Box::new(fetch_max_size(
-            transport,
+            transport.as_ref(),
             role_url,
             limits.max_targets_size,
             "max targets limit",
@@ -556,7 +556,7 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
                         url: metadata_base_url.to_owned(),
                     })?;
             let reader = Box::new(fetch_max_size(
-                transport,
+                transport.as_ref(),
                 role_url,
                 limits.max_targets_size,
                 "max targets limit",
@@ -606,10 +606,13 @@ impl<'a, T: Transport> RepositoryEditor<'a, T> {
         keys: Option<HashMap<Decoded<Hex>, Key>>,
     ) -> Result<&mut Self> {
         let limits = self.limits.context(error::MissingLimits)?;
-        let transport = self.transport.context(error::MissingTransport)?;
-
+        let transport = self
+            .transport
+            .as_ref()
+            .context(error::MissingTransport)?
+            .clone();
         self.targets_editor_mut()?.limits(limits);
-        self.targets_editor_mut()?.transport(transport);
+        self.targets_editor_mut()?.transport(transport.clone());
         self.targets_editor_mut()?
             .add_role(name, metadata_url, paths, threshold, keys)?;
 

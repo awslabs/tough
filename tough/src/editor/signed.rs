@@ -693,7 +693,7 @@ trait TargetsWalker {
             // its contents.
             let f = fs::File::open(&dest).context(error::FileOpen { path: &dest })?;
             let mut reader = DigestAdapter::sha256(
-                f,
+                Box::new(f),
                 &repo_target.hashes.sha256,
                 Url::from_file_path(&dest)
                     .ok() // dump unhelpful `()` error

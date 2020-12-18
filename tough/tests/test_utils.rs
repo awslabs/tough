@@ -17,8 +17,8 @@ pub fn test_data() -> PathBuf {
 
 /// Converts a filepath into a URI formatted string
 #[allow(unused)]
-pub fn dir_url<P: AsRef<Path>>(path: P) -> String {
-    Url::from_directory_path(path).unwrap().to_string()
+pub fn dir_url<P: AsRef<Path>>(path: P) -> Url {
+    Url::from_directory_path(path).unwrap()
 }
 
 /// Gets the goods from a read and makes a Vec

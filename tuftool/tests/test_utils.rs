@@ -19,8 +19,8 @@ pub fn test_data() -> PathBuf {
 
 /// Converts a filepath into a URI formatted string
 #[allow(unused)]
-pub fn dir_url<P: AsRef<Path>>(path: P) -> String {
-    Url::from_directory_path(path).unwrap().to_string()
+pub fn dir_url<P: AsRef<Path>>(path: P) -> Url {
+    Url::from_directory_path(path).unwrap()
 }
 
 /// Returns a vector of bytes from any object with the Read trait

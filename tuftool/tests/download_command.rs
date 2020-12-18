@@ -33,7 +33,7 @@ fn assert_file_match(outdir: &TempDir, filename: &str) {
     assert_eq!(got, want, "{} contents do not match.", filename);
 }
 
-fn download_command(metadata_base_url: String, targets_base_url: String) {
+fn download_command(metadata_base_url: Url, targets_base_url: Url) {
     let outdir = TempDir::new().unwrap();
     let root_json = test_utils::test_data()
         .join("tuf-reference-impl")
@@ -106,8 +106,8 @@ fn download_command_truncates_http() {
     let _file3 = create_successful_get_mock("targets/file3.txt");
     let base_url = Url::from_str(mockito::server_url().as_str()).unwrap();
     base_url.join("metadata").unwrap().to_string();
-    let metadata_base_url = base_url.join("metadata").unwrap().to_string();
-    let targets_base_url = base_url.join("targets").unwrap().to_string();
+    let metadata_base_url = base_url.join("metadata").unwrap();
+    let targets_base_url = base_url.join("targets").unwrap();
     download_command(metadata_base_url, targets_base_url);
 }
 
