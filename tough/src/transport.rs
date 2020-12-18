@@ -135,7 +135,6 @@ impl DefaultTransport {
 #[cfg(feature = "http")]
 impl DefaultTransport {
     /// Create a new `DefaultTransport` using the given HTTP `ClientSettings`.
-    #[allow(dead_code)]
     pub fn from_http_settings(settings: ClientSettings) -> Self {
         Self {
             file: FilesystemTransport,
