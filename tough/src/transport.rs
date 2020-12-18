@@ -11,12 +11,15 @@ use url::Url;
 /// The trait hides the underlying types involved by returning the `Read` object as a
 /// `Box<dyn Read + Send>` and by requiring concrete type [`TransportError`] as the error type.
 ///
+/// Inclusion of the `DynClone` trait means that you will need to implement `Clone` when
+/// implementing a `Transport`.
 pub trait Transport: Debug + DynClone {
     /// Opens a `Read` object for the file specified by `url`.
     fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError>;
 }
 
-// Implement `Clone` for `Transport` trait objects.
+// Implements `Clone` for `Transport` trait objects (i.e. on `Box::<dyn Clone>`). To facilitate
+// this, `Clone` needs to be implemented for any `Transport`s. The compiler will enforce this.
 dyn_clone::clone_trait_object!(Transport);
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
