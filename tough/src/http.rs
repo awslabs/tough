@@ -343,7 +343,6 @@ fn build_request(client: &Client, next_byte: usize, url: &Url) -> Result<Request
 
 /// The error type for the HTTP transport module.
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(super)")]
 #[non_exhaustive]
 #[allow(missing_docs)]
 pub enum HttpError {
