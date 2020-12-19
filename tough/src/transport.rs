@@ -46,7 +46,6 @@ pub enum TransportErrorKind {
 
 /// The error type that [`Transport`] `fetch` returns.
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub")]
 #[snafu(display("{:?} error fetching '{}': {}", kind, url, source))]
 pub struct TransportError {
     /// The kind of error that occurred.
