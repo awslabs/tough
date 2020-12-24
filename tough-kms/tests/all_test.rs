@@ -7,7 +7,7 @@ use self::rusoto_mock::*;
 use ring::rand::SystemRandom;
 use rusoto_core::signature::SignedRequest;
 use rusoto_core::{HttpDispatchError, Region};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::fs::File;
 use std::io::BufReader;
 use tough::key_source::KeySource;
@@ -16,14 +16,20 @@ use tough::schema::key::Key;
 use tough_kms::KmsKeySource;
 use tough_kms::KmsSigningAlgorithm::RsassaPssSha256;
 
+/// Deserialize base64 to `bytes::Bytes`
+fn de_bytes<'de, D>(deserializer: D) -> Result<bytes::Bytes, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = <String>::deserialize(deserializer)?;
+    let b = base64::decode(s).unwrap();
+    Ok(b.into())
+}
+
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 struct PublicKeyResp {
     #[serde(rename = "PublicKey")]
-    #[serde(
-        deserialize_with = "::rusoto_core::serialization::SerdeBlob::deserialize_blob",
-        serialize_with = "::rusoto_core::serialization::SerdeBlob::serialize_blob",
-        default
-    )]
+    #[serde(deserialize_with = "de_bytes", default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     public_key: bytes::Bytes,
 }
@@ -36,11 +42,7 @@ struct ExpectedPublicKey {
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 struct SignResp {
     #[serde(rename = "Signature")]
-    #[serde(
-        deserialize_with = "::rusoto_core::serialization::SerdeBlob::deserialize_blob",
-        serialize_with = "::rusoto_core::serialization::SerdeBlob::serialize_blob",
-        default
-    )]
+    #[serde(deserialize_with = "de_bytes", default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     signature: bytes::Bytes,
 }

@@ -20,12 +20,13 @@ ring = { version = "0.16.16", features = ["std"] }
 rusoto_core = { version = "0.45", optional = true, default-features = false }
 rusoto_credential = { version = "0.45", optional = true }
 rusoto_kms = { version = "0.45", optional = true, default-features = false }
-bytes = "0.5.6"
 snafu = { version = "0.6.10", features = ["backtraces-impl-backtrace-crate"] }
 tokio = "0.2.13"
 pem = "0.8.1"
 
 [dev-dependencies]
+base64 = "0.13"
+bytes = "1"
 rusoto_mock = { version = "0.45", default-features = false }
 serde = "1.0.118"
 serde_json = "1.0.60"
