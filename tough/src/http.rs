@@ -373,9 +373,9 @@ impl From<(Url, HttpError)> for TransportError {
     fn from((url, e): (Url, HttpError)) -> Self {
         match e {
             HttpError::FetchFileNotFound { .. } => {
-                TransportError::new(TransportErrorKind::FileNotFound, url, e)
+                TransportError::new_with_cause(TransportErrorKind::FileNotFound, url, e)
             }
-            _ => TransportError::new(TransportErrorKind::Other, url, e),
+            _ => TransportError::new_with_cause(TransportErrorKind::Other, url, e),
         }
     }
 }

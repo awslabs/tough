@@ -1,8 +1,8 @@
 #[cfg(feature = "http")]
 use crate::{ClientSettings, HttpTransport};
 use dyn_clone::DynClone;
-use snafu::Snafu;
-use std::fmt::Debug;
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 use std::io::{ErrorKind, Read};
 use url::Url;
 
@@ -25,61 +25,110 @@ dyn_clone::clone_trait_object!(Transport);
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
 /// The kind of error that the transport object experienced during `fetch`.
-///
-/// # Why
-///
-/// Some TUF operations need to know if a [`Transport`] failure is a result of a file not being
-/// found. In particular:
-/// > 5.1.2. Try downloading version N+1 of the root metadata file `[...]` If this file is not
-/// > available `[...]` then go to step 5.1.9.
-///
-/// To distinguish this case from other [`Transport`] failures, we use
-/// `TransportErrorKind::FileNotFound`.
-///
 #[derive(Debug, Copy, Clone)]
 #[non_exhaustive]
 pub enum TransportErrorKind {
-    /// The trait does not handle the URL scheme named in `String`. e.g. `file://` or `http://`.
+    /// The [`Transport`] does not handle the URL scheme. e.g. `file://` or `http://`.
     UnsupportedUrlScheme,
     /// The file cannot be found.
+    ///
+    /// Some TUF operations could benefit from knowing whether a [`Transport`] failure is a result
+    /// of a file not existing. In particular:
+    /// > TUF v1.0.16 5.2.2. Try downloading version N+1 of the root metadata file `[...]` If this
+    /// > file is not available `[...]` then go to step 5.1.9.
+    ///
+    /// We want to distinguish cases when a specific file probably doesn't exist from cases where
+    /// the failure to fetch it is due to some other problem (i.e. some fault in the [`Transport`]
+    /// or the machine hosting the file).
+    ///
+    /// For some transports, the distinction is obvious. For example, a local file transport should
+    /// return `FileNotFound` for `std::error::ErrorKind::NotFound` and nothing else. For other
+    /// transports it might be less obvious, but the intent of `FileNotFound` is to indicate that
+    /// the file probably doesn't exist.
     FileNotFound,
     /// The transport failed for any other reason, e.g. IO error, HTTP broken pipe, etc.
     Other,
 }
 
-/// The error type that [`Transport`] `fetch` returns.
-#[derive(Debug, Snafu)]
-#[snafu(display("{:?} error fetching '{}': {}", kind, url, source))]
+impl Display for TransportErrorKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                TransportErrorKind::UnsupportedUrlScheme => "unsupported URL scheme",
+                TransportErrorKind::FileNotFound => "file not found",
+                TransportErrorKind::Other => "other",
+            }
+        )
+    }
+}
+
+/// The error type that [`Transport::fetch`] returns.
+#[derive(Debug)]
 pub struct TransportError {
     /// The kind of error that occurred.
-    pub kind: TransportErrorKind,
+    kind: TransportErrorKind,
     /// The URL that the transport was trying to fetch.
-    pub url: String,
-    /// The underlying error that occurred.
-    pub source: Box<dyn std::error::Error + Send + Sync>,
+    url: String,
+    /// The underlying error that occurred (if any).
+    source: Option<Box<dyn Error + Send + Sync>>,
 }
 
 impl TransportError {
-    /// Creates a new [`TransportError`].
-    pub fn new<S, E>(kind: TransportErrorKind, url: S, source_error: E) -> Self
+    /// Creates a new [`TransportError`]. Use this when there is no underlying error to wrap.
+    pub fn new<S>(kind: TransportErrorKind, url: S) -> Self
     where
-        E: Into<Box<dyn std::error::Error + Send + Sync>>,
         S: AsRef<str>,
     {
         Self {
             kind,
             url: url.as_ref().into(),
-            source: source_error.into(),
+            source: None,
         }
     }
 
-    /// Creates a [`TransportError`] for reporting an unhandled URL type.
-    pub fn unsupported_scheme<S: AsRef<str>>(url: S) -> Self {
-        TransportError::new(
-            TransportErrorKind::UnsupportedUrlScheme,
-            url,
-            "Transport cannot handle the given URL scheme.".to_string(),
-        )
+    /// Creates a new [`TransportError`]. Use this to preserve an underlying error.
+    pub fn new_with_cause<S, E>(kind: TransportErrorKind, url: S, source: E) -> Self
+    where
+        E: Into<Box<dyn Error + Send + Sync>>,
+        S: AsRef<str>,
+    {
+        Self {
+            kind,
+            url: url.as_ref().into(),
+            source: Some(source.into()),
+        }
+    }
+
+    /// The type of [`Transport`] error that occurred.
+    pub fn kind(&self) -> TransportErrorKind {
+        self.kind
+    }
+
+    /// The URL that the [`Transport`] was trying to fetch when the error occurred.
+    pub fn url(&self) -> &str {
+        self.url.as_str()
+    }
+}
+
+impl Display for TransportError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(e) = self.source.as_ref() {
+            write!(
+                f,
+                "Transport '{}' error fetching '{}': {}",
+                self.kind, self.url, e
+            )
+        } else {
+            write!(f, "Transport '{}' error fetching '{}'", self.kind, self.url)
+        }
+    }
+}
+
+impl Error for TransportError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.source.as_ref().map(|e| e.as_ref() as &(dyn Error))
     }
 }
 
@@ -92,7 +141,10 @@ pub struct FilesystemTransport;
 impl Transport for FilesystemTransport {
     fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
         if url.scheme() != "file" {
-            return Err(TransportError::unsupported_scheme(url));
+            return Err(TransportError::new(
+                TransportErrorKind::UnsupportedUrlScheme,
+                url,
+            ));
         }
 
         let f = std::fs::File::open(url.path()).map_err(|e| {
@@ -100,7 +152,7 @@ impl Transport for FilesystemTransport {
                 ErrorKind::NotFound => TransportErrorKind::FileNotFound,
                 _ => TransportErrorKind::Other,
             };
-            TransportError::new(kind, url, e)
+            TransportError::new_with_cause(kind, url, e)
         })?;
         Ok(Box::new(f))
     }
@@ -150,7 +202,10 @@ impl Transport for DefaultTransport {
         match url.scheme() {
             "file" => self.file.fetch(url),
             "http" | "https" => self.handle_http(url),
-            _ => Err(TransportError::unsupported_scheme(url)),
+            _ => Err(TransportError::new(
+                TransportErrorKind::UnsupportedUrlScheme,
+                url,
+            )),
         }
     }
 }
@@ -159,7 +214,7 @@ impl DefaultTransport {
     #[cfg(not(feature = "http"))]
     #[allow(clippy::trivially_copy_pass_by_ref, clippy::unused_self)]
     fn handle_http(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
-        Err(TransportError::new(
+        Err(TransportError::new_with_cause(
             TransportErrorKind::UnsupportedUrlScheme,
             url,
             "The library was not compiled with the http feature enabled.",

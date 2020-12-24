@@ -15,7 +15,7 @@ fn default_transport_error_no_http() {
     let transport = DefaultTransport::new();
     let url = Url::from_str("http://example.com").unwrap();
     let error = transport.fetch(url).err().unwrap();
-    match &error.kind {
+    match error.kind() {
         TransportErrorKind::UnsupportedUrlScheme => {
             let message = format!("{}", error);
             assert!(message.contains("http feature"))
@@ -29,8 +29,8 @@ fn default_transport_error_ftp() {
     let transport = DefaultTransport::new();
     let url = Url::from_str("ftp://example.com").unwrap();
     let error = transport.fetch(url.clone()).err().unwrap();
-    match &error.kind {
-        TransportErrorKind::UnsupportedUrlScheme => assert_eq!(error.url.as_str(), url.as_str()),
+    match error.kind() {
+        TransportErrorKind::UnsupportedUrlScheme => assert_eq!(error.url(), url.as_str()),
         _ => panic!("incorrect error kind, expected UnsupportedUrlScheme"),
     }
 }
