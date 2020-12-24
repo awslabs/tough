@@ -183,7 +183,7 @@ pub(crate) enum Error {
 
     #[snafu(display("Unable to initialize logger: {}", source))]
     Logger {
-        source: simplelog::TermLogError,
+        source: log::SetLoggerError,
         backtrace: Backtrace,
     },
 
