@@ -49,7 +49,7 @@ fn download_command(metadata_base_url: Url, targets_base_url: Url) {
             root_json.to_str().unwrap(),
             "--metadata-url",
             metadata_base_url.as_str(),
-            "--target-url",
+            "--targets-url",
             targets_base_url.as_str(),
             outdir.path().to_str().unwrap(),
         ])
@@ -78,7 +78,7 @@ fn download_command(metadata_base_url: Url, targets_base_url: Url) {
             root_json.to_str().unwrap(),
             "--metadata-url",
             metadata_base_url.as_str(),
-            "--target-url",
+            "--targets-url",
             targets_base_url.as_str(),
             outdir.path().to_str().unwrap(),
         ])
@@ -132,7 +132,7 @@ fn download_expired_repo(outdir: &TempDir, repo_dir: &TempDir, allow_expired_rep
         root_json.to_str().unwrap(),
         "--metadata-url",
         metadata_base_url.as_str(),
-        "--target-url",
+        "--targets-url",
         targets_base_url.as_str(),
         outdir.path().to_str().unwrap(),
     ]);
