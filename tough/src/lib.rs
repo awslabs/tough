@@ -47,7 +47,7 @@ use crate::error::Result;
 use crate::fetch::{fetch_max_size, fetch_sha256};
 /// An HTTP transport that includes retries.
 #[cfg(feature = "http")]
-pub use crate::http::{ClientSettings, HttpTransport, RetryRead};
+pub use crate::http::{HttpTransport, HttpTransportBuilder, RetryRead};
 use crate::schema::{DelegatedRole, Delegations};
 use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
 pub use crate::transport::{

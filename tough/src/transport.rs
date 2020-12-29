@@ -1,5 +1,5 @@
 #[cfg(feature = "http")]
-use crate::{ClientSettings, HttpTransport};
+use crate::{HttpTransport, HttpTransportBuilder};
 use dyn_clone::DynClone;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
@@ -188,11 +188,11 @@ impl DefaultTransport {
 
 #[cfg(feature = "http")]
 impl DefaultTransport {
-    /// Create a new `DefaultTransport` using the given HTTP `ClientSettings`.
-    pub fn from_http_settings(settings: ClientSettings) -> Self {
+    /// Create a new `DefaultTransport` with potentially customized settings.
+    pub fn new_with_http_settings(builder: HttpTransportBuilder) -> Self {
         Self {
             file: FilesystemTransport,
-            http: HttpTransport::from_settings(settings),
+            http: builder.build(),
         }
     }
 }
