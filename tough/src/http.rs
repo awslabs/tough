@@ -35,7 +35,7 @@ impl Default for ClientSettings {
         Self {
             timeout: std::time::Duration::from_secs(30),
             connect_timeout: std::time::Duration::from_secs(10),
-            /// try / 100ms / try / 150ms / try / 220ms / try
+            /// try / 100ms / try / 150ms / try / 225ms / try
             tries: 4,
             initial_backoff: std::time::Duration::from_millis(100),
             max_backoff: std::time::Duration::from_secs(1),
@@ -45,6 +45,11 @@ impl Default for ClientSettings {
 }
 
 /// An HTTP `Transport` with retry logic.
+///
+/// This transport returns `FileNotFound` for the following HTTP response codes:
+/// - 403: Forbidden. (Some services return this code when a file does not exist.)
+/// - 404: Not Found.
+/// - 410: Gone.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HttpTransport {
     settings: ClientSettings,
@@ -306,7 +311,7 @@ fn parse_response_code(response: reqwest::blocking::Response) -> HttpResult {
                 trace!("error is retryable: {}", err);
                 HttpResult::Retryable(err)
             }
-            Some(status) if matches!(status.as_u16(), 403 | 404) => {
+            Some(status) if matches!(status.as_u16(), 403 | 404 | 410) => {
                 trace!("error is file not found: {}", err);
                 HttpResult::FileNotFound(err)
             }
