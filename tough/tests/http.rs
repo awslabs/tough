@@ -25,7 +25,7 @@ mod http_happy {
     /// Test that `tough` works with a healthy HTTP server.
     #[test]
     fn test_http_transport_happy_case() {
-        run_http_test(HttpTransport::new());
+        run_http_test(HttpTransport::default());
     }
 
     /// Test that `DefaultTransport` works over HTTP when the `http` feature is enabled.
@@ -90,7 +90,7 @@ mod http_integ {
     use std::fs::File;
     use std::path::PathBuf;
     use std::process::{Command, Stdio};
-    use tough::{ClientSettings, HttpTransport, RepositoryLoader};
+    use tough::{HttpTransportBuilder, RepositoryLoader};
     use url::Url;
 
     pub fn integ_dir() -> PathBuf {
@@ -139,18 +139,15 @@ mod http_integ {
 
         // load the tuf-reference-impl repo via http repeatedly through faulty proxies
         for i in 0..5 {
-            let transport = HttpTransport::from_settings(ClientSettings {
-                timeout: std::time::Duration::from_secs(30),
-                connect_timeout: std::time::Duration::from_secs(30),
+            let transport = HttpTransportBuilder::new()
                 // the service we have created is very toxic with many failures, so we will do a
                 // large number of retries, enough that we can be reasonably assured that we will
                 // always succeed.
-                tries: 200,
+                .tries(200)
                 // we don't want the test to take forever so we use small pauses
-                initial_backoff: std::time::Duration::from_nanos(100),
-                max_backoff: std::time::Duration::from_millis(1),
-                backoff_factor: 1.5,
-            });
+                .initial_backoff(std::time::Duration::from_nanos(100))
+                .max_backoff(std::time::Duration::from_millis(1))
+                .build();
             let root_path = tuf_reference_impl_root_json();
 
             RepositoryLoader::new(

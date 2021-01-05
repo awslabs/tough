@@ -12,30 +12,34 @@ use std::io::Read;
 use std::time::Duration;
 use url::Url;
 
-/// Settings for the HTTP client including retry strategy and timeouts.
+/// A builder for [`HttpTransport`] which allows settings customization.
+///
+/// # Example
+///
+/// ```
+/// # use tough::HttpTransportBuilder;
+/// let http_transport = HttpTransportBuilder::new()
+/// .tries(3)
+/// .backoff_factor(1.5)
+/// .build();
+/// ```
+///
 #[derive(Clone, Copy, Debug)]
-pub struct ClientSettings {
-    /// Set a timeout for connect, read and write operations.
-    pub timeout: Duration,
-    /// Set a timeout for only the connect phase.
-    pub connect_timeout: Duration,
-    /// The total number of times we will try to get the response.
-    pub tries: u32,
-    /// The pause between the first and second try.
-    pub initial_backoff: Duration,
-    /// The maximum length of a pause between retries.
-    pub max_backoff: Duration,
-    /// The exponential backoff factor, the factor by which the pause time will increase after each
-    /// try until reaching `max_backoff`.
-    pub backoff_factor: f32,
+pub struct HttpTransportBuilder {
+    timeout: Duration,
+    connect_timeout: Duration,
+    tries: u32,
+    initial_backoff: Duration,
+    max_backoff: Duration,
+    backoff_factor: f32,
 }
 
-impl Default for ClientSettings {
+impl Default for HttpTransportBuilder {
     fn default() -> Self {
         Self {
             timeout: std::time::Duration::from_secs(30),
             connect_timeout: std::time::Duration::from_secs(10),
-            /// try / 100ms / try / 150ms / try / 220ms / try
+            /// try / 100ms / try / 150ms / try / 225ms / try
             tries: 4,
             initial_backoff: std::time::Duration::from_millis(100),
             max_backoff: std::time::Duration::from_secs(1),
@@ -44,22 +48,66 @@ impl Default for ClientSettings {
     }
 }
 
-/// An HTTP `Transport` with retry logic.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct HttpTransport {
-    settings: ClientSettings,
-}
-
-impl HttpTransport {
-    /// Create a new `HttpRetryTransport` with default settings.
+impl HttpTransportBuilder {
+    /// Create a new `HttpTransportBuilder` with default settings.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Create a new `HttpRetryTransport` with specific settings.
-    pub fn from_settings(settings: ClientSettings) -> Self {
-        Self { settings }
+    /// Set a timeout for the complete fetch operation.
+    pub fn timeout(mut self, value: Duration) -> Self {
+        self.timeout = value;
+        self
     }
+
+    /// Set a timeout for only the connect phase.
+    pub fn connect_timeout(mut self, value: Duration) -> Self {
+        self.connect_timeout = value;
+        self
+    }
+
+    /// Set the total number of times we will try the fetch operation (in case of retryable
+    /// failures).
+    pub fn tries(mut self, value: u32) -> Self {
+        self.tries = value;
+        self
+    }
+
+    /// Set the pause duration between the first and second try.
+    pub fn initial_backoff(mut self, value: Duration) -> Self {
+        self.initial_backoff = value;
+        self
+    }
+
+    /// Set the maximum duration of a pause between retries.
+    pub fn max_backoff(mut self, value: Duration) -> Self {
+        self.max_backoff = value;
+        self
+    }
+
+    /// Set the exponential backoff factor, the factor by which the pause time will increase after
+    /// each try until reaching `max_backoff`.
+    pub fn backoff_factor(mut self, value: f32) -> Self {
+        self.backoff_factor = value;
+        self
+    }
+
+    /// Construct an [`HttpTransport`] transport from this builder's settings.
+    pub fn build(self) -> HttpTransport {
+        HttpTransport { settings: self }
+    }
+}
+
+/// A [`Transport`] over HTTP with retry logic. Use the [`HttpTransportBuilder`] to construct a
+/// custom `HttpTransport`, or use `HttpTransport::default()`.
+///
+/// This transport returns `FileNotFound` for the following HTTP response codes:
+/// - 403: Forbidden. (Some services return this code when a file does not exist.)
+/// - 404: Not Found.
+/// - 410: Gone.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct HttpTransport {
+    settings: HttpTransportBuilder,
 }
 
 /// Implement the `tough` `Transport` trait for `HttpRetryTransport`
@@ -79,7 +127,7 @@ impl Transport for HttpTransport {
 #[derive(Debug)]
 pub struct RetryRead {
     retry_state: RetryState,
-    settings: ClientSettings,
+    settings: HttpTransportBuilder,
     response: Response,
     url: Url,
 }
@@ -171,7 +219,7 @@ impl RetryState {
 
 impl RetryState {
     /// Increments the count and the wait duration.
-    fn increment(&mut self, settings: &ClientSettings) {
+    fn increment(&mut self, settings: &HttpTransportBuilder) {
         if self.current_try > 0 {
             let new_wait = self.wait.mul_f32(settings.backoff_factor);
             match new_wait.cmp(&settings.max_backoff) {
@@ -191,7 +239,7 @@ impl RetryState {
 /// Sends a `GET` request to the `url`. Retries the request as necessary per the `ClientSettings`.
 fn fetch_with_retries(
     r: &mut RetryState,
-    cs: &ClientSettings,
+    cs: &HttpTransportBuilder,
     url: &Url,
 ) -> Result<RetryRead, HttpError> {
     trace!("beginning fetch for '{}'", url);
@@ -306,7 +354,7 @@ fn parse_response_code(response: reqwest::blocking::Response) -> HttpResult {
                 trace!("error is retryable: {}", err);
                 HttpResult::Retryable(err)
             }
-            Some(status) if matches!(status.as_u16(), 403 | 404) => {
+            Some(status) if matches!(status.as_u16(), 403 | 404 | 410) => {
                 trace!("error is file not found: {}", err);
                 HttpResult::FileNotFound(err)
             }
@@ -373,9 +421,9 @@ impl From<(Url, HttpError)> for TransportError {
     fn from((url, e): (Url, HttpError)) -> Self {
         match e {
             HttpError::FetchFileNotFound { .. } => {
-                TransportError::new(TransportErrorKind::FileNotFound, url, e)
+                TransportError::new_with_cause(TransportErrorKind::FileNotFound, url, e)
             }
-            _ => TransportError::new(TransportErrorKind::Other, url, e),
+            _ => TransportError::new_with_cause(TransportErrorKind::Other, url, e),
         }
     }
 }

@@ -538,7 +538,7 @@ impl Targets {
     }
 
     /// Returns an iterator of all targets delegated
-    pub fn targets_iter<'a>(&'a self) -> impl Iterator + 'a {
+    pub fn targets_iter(&self) -> impl Iterator + '_ {
         self.targets_map().into_iter()
     }
 
