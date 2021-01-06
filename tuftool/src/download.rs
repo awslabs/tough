@@ -25,8 +25,8 @@ pub(crate) struct DownloadArgs {
     #[structopt(short = "m", long = "metadata-url")]
     metadata_base_url: Url,
 
-    /// TUF repository target base URL
-    #[structopt(short = "t", long = "target-url")]
+    /// TUF repository targets base URL
+    #[structopt(short = "t", long = "targets-url")]
     targets_base_url: Url,
 
     /// Allow downloading the root.json file (unsafe)
