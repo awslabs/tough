@@ -1,7 +1,10 @@
 mod test_utils;
 
-/// Instead of guarding every individual thing with `#[cfg(feature = "http")]`, use a module.
-#[cfg(feature = "http")]
+#[cfg(any(
+    feature = "http",
+    feature = "http-rustls-tls",
+    feature = "http-native-tls"
+))]
 mod http_happy {
     use crate::test_utils::{read_to_end, test_data};
     use mockito::mock;
@@ -83,7 +86,11 @@ mod http_happy {
     }
 }
 
-#[cfg(feature = "http")]
+#[cfg(any(
+    feature = "http",
+    feature = "http-rustls-tls",
+    feature = "http-native-tls"
+))]
 #[cfg(feature = "integ")]
 mod http_integ {
     use crate::test_utils::test_data;

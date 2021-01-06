@@ -1,4 +1,8 @@
-#[cfg(feature = "http")]
+#[cfg(any(
+    feature = "http",
+    feature = "http-rustls-tls",
+    feature = "http-native-tls"
+))]
 use crate::{HttpTransport, HttpTransportBuilder};
 use dyn_clone::DynClone;
 use std::error::Error;
@@ -165,7 +169,11 @@ impl Transport for FilesystemTransport {
 #[derive(Debug, Clone, Copy)]
 pub struct DefaultTransport {
     file: FilesystemTransport,
-    #[cfg(feature = "http")]
+    #[cfg(any(
+        feature = "http",
+        feature = "http-rustls-tls",
+        feature = "http-native-tls"
+    ))]
     http: HttpTransport,
 }
 
@@ -173,7 +181,11 @@ impl Default for DefaultTransport {
     fn default() -> Self {
         Self {
             file: FilesystemTransport,
-            #[cfg(feature = "http")]
+            #[cfg(any(
+                feature = "http",
+                feature = "http-rustls-tls",
+                feature = "http-native-tls"
+            ))]
             http: HttpTransport::default(),
         }
     }
@@ -186,7 +198,11 @@ impl DefaultTransport {
     }
 }
 
-#[cfg(feature = "http")]
+#[cfg(any(
+    feature = "http",
+    feature = "http-rustls-tls",
+    feature = "http-native-tls"
+))]
 impl DefaultTransport {
     /// Create a new `DefaultTransport` with potentially customized settings.
     pub fn new_with_http_settings(builder: HttpTransportBuilder) -> Self {
@@ -211,7 +227,11 @@ impl Transport for DefaultTransport {
 }
 
 impl DefaultTransport {
-    #[cfg(not(feature = "http"))]
+    #[cfg(all(
+        not(feature = "http"),
+        not(feature = "http-rustls-tls"),
+        not(feature = "http-native-tls")
+    ))]
     #[allow(clippy::trivially_copy_pass_by_ref, clippy::unused_self)]
     fn handle_http(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
         Err(TransportError::new_with_cause(
@@ -221,7 +241,11 @@ impl DefaultTransport {
         ))
     }
 
-    #[cfg(feature = "http")]
+    #[cfg(any(
+        feature = "http",
+        feature = "http-rustls-tls",
+        feature = "http-native-tls"
+    ))]
     fn handle_http(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
         self.http.fetch(url)
     }

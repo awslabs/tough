@@ -9,7 +9,11 @@ mod test_utils;
 
 /// If the `http` feature is not enabled, we should get an error message indicating that the feature
 /// is not enabled.
-#[cfg(not(feature = "http"))]
+#[cfg(all(
+    not(feature = "http"),
+    not(feature = "http-rustls-tls"),
+    not(feature = "http-native-tls")
+))]
 #[test]
 fn default_transport_error_no_http() {
     let transport = DefaultTransport::new();

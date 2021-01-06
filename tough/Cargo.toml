@@ -32,7 +32,11 @@ hex-literal = "0.3.1"
 mockito = "0.28"
 
 [features]
+# to use HTTP without TLS transport (no HTTPS), use the "http" feature. to enable TLS, enable either
+# "http-rustls-tls" or "http-native-tls".
 http = ["reqwest"]
+http-rustls-tls = ["http", "reqwest/rustls-tls"]
+http-native-tls = ["http", "reqwest/native-tls"]
 
 # The `integ` feature enables integration tests. These tests require docker to be running on the host.
 integ = []
