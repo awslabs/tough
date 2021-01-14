@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2020-02-14
+### Breaking Changes
+
+- Repositories are now loaded with the `RepositoryLoader`. `Repository::load` is no longer available. [#256]
+- The `Repository` and `RepositoryEditor` objects no longer have type and lifetime parameters.
+- Modifying `HttpTransport` behavior now uses `HttpTransportBuilder` instead of `ClientSettings`. [#308]
+
+### Added
+- A `DefaultTransport` that supports both file and http transport. [#256]
+
+[#256]: https://github.com/awslabs/tough/pull/256
+[#308]: https://github.com/awslabs/tough/pull/308
+
 ## [0.9.0] - 2020-07-20
 ### Breaking Changes
 - `RepositoryEditor` requires lifetime and `Transport` type parameters
@@ -91,7 +104,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.9.0...HEAD
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.10.0...HEAD
+[0.10.0]: https://github.com/awslabs/tough/compare/tough-v0.9.0...tough-v0.10.0
 [0.9.0]: https://github.com/awslabs/tough/compare/tough-v0.8.0...tough-v0.9.0
 [0.8.0]: https://github.com/awslabs/tough/compare/tough-v0.7.1...tough-v0.8.0
 [0.7.1]: https://github.com/awslabs/tough/compare/tough-v0.7.0...tough-v0.7.1
