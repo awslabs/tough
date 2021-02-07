@@ -14,6 +14,14 @@ set -eo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 TUF_REFERENCE_REPO="${DIR}/../../tough/tests/data/tuf-reference-impl"
 
+# if we are under cygwin , set a windows style path
+# (docker for windows requires windows style paths to work ,it doesn't understand cygwin-style paths)
+if [[ "$OSTYPE" == "cygwin" ]]; then
+  DIR="$(cygpath --windows ${DIR})"
+  TUF_REFERENCE_REPO="$(cygpath --windows ${TUF_REFERENCE_REPO})"
+fi
+
+
 function waitforit() {
   echo "waiting $1 seconds for $2 to start"
   sleep $1
