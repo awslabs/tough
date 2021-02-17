@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2021-03-01
+### Changed
+- Update various dependencies to use tokio v1. [#330]
+
+[#330]: https://github.com/awslabs/tough/pull/330
+
 ## [0.6.0] - 2021-01-19
 ### Breaking Changes
 - Correct spelling of `tuftool download` argument from `--target-url` to `--targets-url` [#309]
@@ -99,7 +105,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.1...develop
+[0.6.1]: https://github.com/awslabs/tough/compare/tuftool-v0.6.0...tuftool-v0.6.1
 [0.6.0]: https://github.com/awslabs/tough/compare/tuftool-v0.5.0...tuftool-v0.6.0
 [0.5.0]: https://github.com/awslabs/tough/compare/tuftool-v0.4.1...tuftool-v0.5.0
 [0.4.1]: https://github.com/awslabs/tough/compare/tuftool-v0.4.0...tuftool-v0.4.1
