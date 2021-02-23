@@ -1,11 +1,26 @@
 name: Rust
 on:
   pull_request:
+    paths-ignore:
+      - '**.md'
     branches: [develop]
 jobs:
   build:
+    strategy:
+      matrix:
+        make_target: ["build", "integ"]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        # you can edit the .github/cache_bust file if you need to clear the cache
+        key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-
     - run: rustup update stable
-    - run: make ci
+    - run: make ${{ matrix.make_target }}
