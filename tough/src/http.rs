@@ -24,6 +24,8 @@ use url::Url;
 /// .build();
 /// ```
 ///
+/// See [`HttpTransport`] for proxy support and other behavior details.
+///
 #[derive(Clone, Copy, Debug)]
 pub struct HttpTransportBuilder {
     timeout: Duration,
@@ -105,6 +107,12 @@ impl HttpTransportBuilder {
 /// - 403: Forbidden. (Some services return this code when a file does not exist.)
 /// - 404: Not Found.
 /// - 410: Gone.
+///
+/// # Proxy Support
+///
+/// To use the `HttpTransport` with a proxy, specify the `HTTPS_PROXY` environment variable.
+/// The transport will also respect the `NO_PROXY` environment variable.
+///
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HttpTransport {
     settings: HttpTransportBuilder,

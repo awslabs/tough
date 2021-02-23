@@ -125,6 +125,10 @@ tuftool download \
    "${WRK}/tuf-downlaod"
 ```
 
+## HTTP Proxy Support
+
+`tuftool` respects the `HTTPS_PROXY` and `NO_PROXY` environment variables.
+
 ## Testing
 
 Unit tests are run in the usual manner: `cargo test`.
