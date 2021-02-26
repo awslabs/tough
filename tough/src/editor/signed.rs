@@ -21,7 +21,12 @@ use serde_plain::forward_from_str_to_serde;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fs;
+
+#[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::symlink;
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
+
 use std::path::{Path, PathBuf};
 use url::Url;
 use walkdir::WalkDir;

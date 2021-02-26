@@ -96,7 +96,20 @@ mod http_integ {
     pub fn integ_dir() -> PathBuf {
         let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         p.pop();
-        p.join("integ").canonicalize().unwrap()
+        p = p.join("integ");
+        p
+    }
+
+    /// Returns a command object that runs the provided script under BASH , wether we are under cygwin or unix.
+    pub fn bash_base() -> Command {
+        // if under cygwin, run the bash script under cygwin64 bash
+        if cfg!(target_os = "windows") {
+            let mut command = Command::new("c:\\cygwin64\\bin\\bash");
+            command.arg("-l");
+            return command;
+        } else {
+            return Command::new("bash");
+        }
     }
 
     pub fn tuf_reference_impl() -> PathBuf {
@@ -121,18 +134,25 @@ mod http_integ {
     /// triggering retries in the `fetch` loop.
     #[test]
     fn test_retries() {
+        use std::ffi::OsString;
         // run docker images to create a faulty http representation of tuf-reference-impl
-        let output = Command::new("bash")
-            .arg(
-                integ_dir()
-                    .join("failure-server")
-                    .join("run.sh")
-                    .into_os_string(),
-            )
+
+        // Get the "run.sh" path
+        let script_path = integ_dir()
+            .join("failure-server")
+            .join("run.sh")
+            .into_os_string()
+            .into_string()
+            .unwrap();
+
+        // Run it under BASH
+        let output = bash_base()
+            .arg(OsString::from(script_path))
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()
             .expect("failed to start server with docker containers");
+
         if !output.status.success() {
             panic!("Failed to run integration test HTTP servers, is docker running?");
         }
@@ -162,7 +182,7 @@ mod http_integ {
         }
 
         // stop and delete the docker containers, images and network
-        let output = Command::new("bash")
+        let output = bash_base()
             .arg(
                 integ_dir()
                     .join("failure-server")

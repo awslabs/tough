@@ -140,6 +140,7 @@ pub struct FilesystemTransport;
 
 impl Transport for FilesystemTransport {
     fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
+        // If the scheme isn't "file://", reject
         if url.scheme() != "file" {
             return Err(TransportError::new(
                 TransportErrorKind::UnsupportedUrlScheme,
@@ -147,7 +148,17 @@ impl Transport for FilesystemTransport {
             ));
         }
 
-        let f = std::fs::File::open(url.path()).map_err(|e| {
+        // Convert the file URL into a file path
+        let file_path = &url.to_file_path().map_err(|_e| {
+            TransportError::new_with_cause(
+                TransportErrorKind::Other,
+                &url,
+                "unable to get filepath from URL".to_string(),
+            )
+        })?;
+
+        // And open the file
+        let f = std::fs::File::open(file_path).map_err(|e| {
             let kind = match e.kind() {
                 ErrorKind::NotFound => TransportErrorKind::FileNotFound,
                 _ => TransportErrorKind::Other,
