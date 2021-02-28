@@ -20,6 +20,6 @@ rusoto_core = { version = "0.46", optional = true, default-features = false }
 rusoto_credential = { version = "0.46", optional = true }
 rusoto_ssm = { version = "0.46", optional = true, default-features = false }
 serde = "1.0.123"
-serde_json = "1.0.63"
+serde_json = "1.0.64"
 snafu = { version = "0.6.10", features = ["backtraces-impl-backtrace-crate"] }
 tokio = "1"
