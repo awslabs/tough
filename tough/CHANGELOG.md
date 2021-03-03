@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.0] - 2020-02-14
+## [0.11.0] - 2020-03-01
+### Breaking Changes
+- Update tokio to v1, hyper to v0.14 and reqwest to v0.11 [#330]
+
+## Added
+- `tough` now compiles and works on Windows. Thanks @Cytro54! [#342]
+
+[#308]: https://github.com/awslabs/tough/pull/342
+[#330]: https://github.com/awslabs/tough/pull/330
+
+## [0.10.0] - 2020-01-14
 ### Breaking Changes
 
 - Repositories are now loaded with the `RepositoryLoader`. `Repository::load` is no longer available. [#256]
@@ -104,7 +114,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.10.0...HEAD
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.11.0...HEAD
+[0.11.0]: https://github.com/awslabs/tough/compare/tough-v0.10.0...tough-v0.11.0
 [0.10.0]: https://github.com/awslabs/tough/compare/tough-v0.9.0...tough-v0.10.0
 [0.9.0]: https://github.com/awslabs/tough/compare/tough-v0.8.0...tough-v0.9.0
 [0.8.0]: https://github.com/awslabs/tough/compare/tough-v0.7.1...tough-v0.8.0
