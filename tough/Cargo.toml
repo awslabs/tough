@@ -25,7 +25,7 @@ snafu = "0.6.10"
 tempfile = "3.1.0"
 untrusted = "0.7.0"
 url = "2.1.0"
-walkdir = "2.2.9"
+walkdir = "2.3.2"
 
 [dev-dependencies]
 hex-literal = "0.3.1"
