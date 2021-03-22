@@ -28,5 +28,5 @@ pem = "0.8.1"
 base64 = "0.13"
 bytes = "1"
 rusoto_mock = { version = "0.46", default-features = false }
-serde = "1.0.123"
+serde = "1.0.125"
 serde_json = "1.0.63"
