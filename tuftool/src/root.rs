@@ -12,7 +12,7 @@ use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::io::Write;
 use std::num::NonZeroU64;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tempfile::NamedTempFile;
 use tough::editor::signed::SignedRole;
@@ -157,7 +157,7 @@ impl Command {
         }
     }
 
-    fn init(path: &PathBuf) -> Result<()> {
+    fn init(path: &Path) -> Result<()> {
         write_file(
             path,
             &Signed {
@@ -180,7 +180,7 @@ impl Command {
         )
     }
 
-    fn bump_version(path: &PathBuf) -> Result<()> {
+    fn bump_version(path: &Path) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
         root.signed.version = NonZeroU64::new(
             root.signed
@@ -194,14 +194,14 @@ impl Command {
         write_file(path, &root)
     }
 
-    fn expire(path: &PathBuf, time: &DateTime<Utc>) -> Result<()> {
+    fn expire(path: &Path, time: &DateTime<Utc>) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
         root.signed.expires = round_time(*time);
         clear_sigs(&mut root);
         write_file(path, &root)
     }
 
-    fn set_threshold(path: &PathBuf, role: RoleType, threshold: NonZeroU64) -> Result<()> {
+    fn set_threshold(path: &Path, role: RoleType, threshold: NonZeroU64) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
         root.signed
             .roles
@@ -212,7 +212,7 @@ impl Command {
         write_file(path, &root)
     }
 
-    fn set_version(path: &PathBuf, version: NonZeroU64) -> Result<()> {
+    fn set_version(path: &Path, version: NonZeroU64) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
         root.signed.version = version;
         clear_sigs(&mut root);
@@ -220,7 +220,7 @@ impl Command {
     }
 
     #[allow(clippy::borrowed_box)]
-    fn add_key(path: &PathBuf, roles: &[RoleType], key_source: &Box<dyn KeySource>) -> Result<()> {
+    fn add_key(path: &Path, roles: &[RoleType], key_source: &Box<dyn KeySource>) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
         let key_pair = key_source
             .as_sign()
@@ -232,7 +232,7 @@ impl Command {
         write_file(path, &root)
     }
 
-    fn remove_key(path: &PathBuf, key_id: &Decoded<Hex>, role: Option<RoleType>) -> Result<()> {
+    fn remove_key(path: &Path, key_id: &Decoded<Hex>, role: Option<RoleType>) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
         if let Some(role) = role {
             if let Some(role_keys) = root.signed.roles.get_mut(&role) {
@@ -258,7 +258,7 @@ impl Command {
 
     #[allow(clippy::borrowed_box)]
     fn gen_rsa_key(
-        path: &PathBuf,
+        path: &Path,
         roles: &[RoleType],
         key_source: &Box<dyn KeySource>,
         bits: u16,
@@ -299,7 +299,7 @@ impl Command {
     }
 
     fn sign(
-        path: &PathBuf,
+        path: &Path,
         key_source: &[Box<dyn KeySource>],
         cross_sign: Option<PathBuf>,
     ) -> Result<()> {
