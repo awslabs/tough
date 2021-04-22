@@ -125,8 +125,7 @@ fn asn1_encode_len(n: usize) -> Vec<u8> {
 /// Encode an object identifier in ASN.1.
 #[allow(clippy::cast_possible_truncation)]
 fn asn1_encode_oid(oid: &[u64]) -> Vec<u8> {
-    let mut v = Vec::new();
-    v.push((oid.get(0).unwrap_or(&0) * 40 + oid.get(1).unwrap_or(&0)) as u8);
+    let mut v = vec![(oid.get(0).unwrap_or(&0) * 40 + oid.get(1).unwrap_or(&0)) as u8];
     for n in oid.iter().skip(2) {
         v.extend(&to_vlq(*n));
     }
