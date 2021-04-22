@@ -106,6 +106,7 @@ impl Sign for EcdsaKeyPair {
 
 /// Keypair used for signing metadata
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum SignKeyPair {
     /// RSA key pair
     RSA(RsaKeyPair),
