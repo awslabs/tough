@@ -119,11 +119,7 @@ impl DownloadArgs {
     }
 }
 
-fn handle_download(
-    repository: &Repository,
-    outdir: &PathBuf,
-    target_names: &[String],
-) -> Result<()> {
+fn handle_download(repository: &Repository, outdir: &Path, target_names: &[String]) -> Result<()> {
     let download_target = |target: &str| -> Result<()> {
         let path = PathBuf::from(outdir).join(target);
         println!("\t-> {}", &target);
