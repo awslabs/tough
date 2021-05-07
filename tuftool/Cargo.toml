@@ -39,7 +39,7 @@ tokio = "1"
 tough = { version = "0.11.0", path = "../tough", features = ["http"] }
 tough-ssm = { version = "0.6.0", path = "../tough-ssm" }
 tough-kms = { version = "0.3.0", path = "../tough-kms" }
-url = "2.1.0"
+url = "2.2.2"
 walkdir = "2.3.2"
 
 [dev-dependencies]

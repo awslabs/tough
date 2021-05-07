@@ -24,7 +24,7 @@ serde_plain = "0.3.0"
 snafu = "0.6.10"
 tempfile = "3.1.0"
 untrusted = "0.7.0"
-url = "2.1.0"
+url = "2.2.2"
 walkdir = "2.3.2"
 
 [dev-dependencies]
