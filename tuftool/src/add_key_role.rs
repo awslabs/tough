@@ -80,13 +80,7 @@ impl AddKeyArgs {
             );
         }
         let updated_role = editor
-            .add_key(
-                key_pairs,
-                match &self.delegated_role {
-                    Some(role) => Some(role.as_str()),
-                    None => None,
-                },
-            )
+            .add_key(key_pairs, self.delegated_role.as_deref())
             .context(error::LoadMetadata)?
             .version(self.version)
             .expires(self.expires)

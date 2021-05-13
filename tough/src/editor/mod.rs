@@ -492,7 +492,7 @@ impl RepositoryEditor {
                 .join(&format!("{}.json", name))
                 .context(error::JoinUrl {
                     path: name.to_string(),
-                    url: metadata_base_url.to_owned(),
+                    url: metadata_base_url.clone(),
                 })?;
         let reader = Box::new(fetch_max_size(
             transport.as_ref(),
@@ -553,7 +553,7 @@ impl RepositoryEditor {
                     .join(&format!("{}.json", name))
                     .context(error::JoinUrl {
                         path: name.to_string(),
-                        url: metadata_base_url.to_owned(),
+                        url: metadata_base_url.clone(),
                     })?;
             let reader = Box::new(fetch_max_size(
                 transport.as_ref(),
