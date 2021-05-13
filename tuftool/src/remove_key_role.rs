@@ -64,13 +64,7 @@ impl RemoveKeyArgs {
     /// Removes keys from a delegated role using targets Editor
     fn remove_key(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         let updated_role = editor
-            .remove_key(
-                &self.remove,
-                match &self.delegated_role {
-                    Some(role) => Some(role.as_str()),
-                    None => None,
-                },
-            )
+            .remove_key(&self.remove, self.delegated_role.as_deref())
             .context(error::LoadMetadata)?
             .version(self.version)
             .expires(self.expires)

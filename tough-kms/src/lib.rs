@@ -78,7 +78,7 @@ impl KeySource for KmsKeySource {
         &self,
     ) -> std::result::Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>>
     {
-        let kms_client = match self.client.to_owned() {
+        let kms_client = match self.client.clone() {
             Some(value) => value,
             None => client::build_client_kms(self.profile.as_deref())?,
         };
@@ -165,7 +165,7 @@ impl Sign for KmsRsaKey {
         // Create a Key struct for the public key
         Key::Rsa {
             keyval: RsaKey {
-                public: self.public_key.to_owned(),
+                public: self.public_key.clone(),
                 _extra: HashMap::new(),
             },
             scheme: RsaScheme::RsassaPssSha256,
@@ -178,7 +178,7 @@ impl Sign for KmsRsaKey {
         msg: &[u8],
         _rng: &dyn SecureRandom,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let kms_client = match self.client.to_owned() {
+        let kms_client = match self.client.clone() {
             Some(value) => value,
             None => client::build_client_kms(self.profile.as_deref())?,
         };

@@ -143,7 +143,7 @@ impl Repository {
                 .join(filename)
                 .context(error::JoinUrl {
                     path: filename,
-                    url: self.metadata_base_url.to_owned(),
+                    url: self.metadata_base_url.clone(),
                 })?,
             max_size,
             max_size_specifier,
@@ -155,7 +155,7 @@ impl Repository {
         let mut root_file_data = Vec::new();
         read.read_to_end(&mut root_file_data)
             .context(error::CacheFileRead {
-                url: self.metadata_base_url.to_owned(),
+                url: self.metadata_base_url.clone(),
             })?;
         file.write_all(&root_file_data)
             .context(error::CacheFileWrite { path: outpath })
@@ -226,7 +226,7 @@ impl Repository {
                 .join(&filename)
                 .context(error::JoinUrl {
                     path: filename,
-                    url: self.targets_base_url.to_owned(),
+                    url: self.targets_base_url.clone(),
                 })?,
             target.length,
             "targets.json",

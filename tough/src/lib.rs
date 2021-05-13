@@ -355,7 +355,7 @@ impl Repository {
             transport,
             consistent_snapshot: root.signed.consistent_snapshot,
             datastore,
-            earliest_expiration: earliest_expiration.to_owned(),
+            earliest_expiration: *earliest_expiration,
             earliest_expiration_role: *earliest_expiration_role,
             root,
             snapshot,
@@ -555,7 +555,7 @@ fn load_root<R: Read>(
             transport,
             metadata_base_url.join(&path).context(error::JoinUrl {
                 path,
-                url: metadata_base_url.to_owned(),
+                url: metadata_base_url.clone(),
             })?,
             max_root_size,
             "max_root_size argument",
@@ -679,7 +679,7 @@ fn load_timestamp(
         transport,
         metadata_base_url.join(path).context(error::JoinUrl {
             path,
-            url: metadata_base_url.to_owned(),
+            url: metadata_base_url.clone(),
         })?,
         max_timestamp_size,
         "max_timestamp_size argument",
@@ -765,7 +765,7 @@ fn load_snapshot(
         transport,
         metadata_base_url.join(&path).context(error::JoinUrl {
             path,
-            url: metadata_base_url.to_owned(),
+            url: metadata_base_url.clone(),
         })?,
         snapshot_meta.length,
         "timestamp.json",
@@ -900,7 +900,7 @@ fn load_targets(
     };
     let targets_url = metadata_base_url.join(&path).context(error::JoinUrl {
         path,
-        url: metadata_base_url.to_owned(),
+        url: metadata_base_url.clone(),
     })?;
     let (max_targets_size, specifier) = match targets_meta.length {
         Some(length) => (length, "snapshot.json"),
@@ -1029,7 +1029,7 @@ fn load_delegations(
         };
         let role_url = metadata_base_url.join(&path).context(error::JoinUrl {
             path: path.clone(),
-            url: metadata_base_url.to_owned(),
+            url: metadata_base_url.clone(),
         })?;
         let specifier = "max_targets_size parameter";
         // load the role json file
