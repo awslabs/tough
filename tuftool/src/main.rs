@@ -28,7 +28,7 @@ mod update_targets;
 
 use crate::error::Result;
 use rayon::prelude::*;
-use simplelog::{ConfigBuilder, LevelFilter, TermLogger, TerminalMode};
+use simplelog::{ColorChoice, ConfigBuilder, LevelFilter, TermLogger, TerminalMode};
 use snafu::{ErrorCompat, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fs::File;
@@ -65,6 +65,7 @@ impl Program {
                 .add_filter_allow_str("tough")
                 .build(),
             TerminalMode::Mixed,
+            ColorChoice::Auto,
         )
         .context(error::Logger)?;
         self.cmd.run()
