@@ -266,11 +266,10 @@ impl TargetsEditor {
         let mut keyids = Vec::new();
         for (keyid, key) in keys {
             // Check to see if the key is present
-            if delegations
+            if !delegations
                 .keys
-                .iter()
-                .find(|(_, candidate_key)| key.clone().eq(candidate_key))
-                .is_none()
+                .values()
+                .any(|candidate_key| key == *candidate_key)
             {
                 // Key isn't present yet, so we need to add it
                 delegations.keys.insert(keyid.clone(), key);
