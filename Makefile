@@ -1,6 +1,19 @@
+# Use directory-local cargo root to install version-specific executables into.
+export CARGO_HOME = $(shell pwd)/.cargo
+
 # the series of builds, tests and checks that runs for pull requests. requires docker.
 .PHONY: ci
-ci: build integ
+ci: check-licenses build integ
+
+# installs cargo-deny
+.PHONY: cargo-deny
+cargo-deny:
+	cargo install --version 0.6.2 cargo-deny --no-default-features
+
+# checks each crate, and evaluates licenses. requires cargo-deny.
+.PHONY: check-licenses
+check-licenses: cargo-deny
+	cargo deny check --disable-fetch licenses
 
 # builds each crate, runs unit tests at the workspace level, and runs linting tools.
 .PHONY: build

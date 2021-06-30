@@ -8,15 +8,14 @@ jobs:
   build:
     strategy:
       matrix:
-        make_target: ["build", "integ"]
+        make_target: ["check-licenses", "build", "integ"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/cache@v2
       with:
         path: |
-          ~/.cargo/registry
-          ~/.cargo/git
+          .cargo
           target
         # you can edit the .github/cache_bust file if you need to clear the cache
         key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-${{ hashFiles('**/Cargo.lock') }}
