@@ -18,7 +18,7 @@ rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_kms/rustls"]
 tough = { version = "0.11.0", path = "../tough", features = ["http"] }
 ring = { version = "0.16.16", features = ["std"] }
 rusoto_core = { version = "0.46", optional = true, default-features = false }
-rusoto_credential = { version = "0.46", optional = true }
+rusoto_credential = { version = "0.47", optional = true }
 rusoto_kms = { version = "0.46", optional = true, default-features = false }
 snafu = { version = "0.6.10", features = ["backtraces-impl-backtrace-crate"] }
 tokio = "1"
