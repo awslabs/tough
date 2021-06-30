@@ -16,7 +16,7 @@ rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls"]
 
 [dependencies]
 tough = { version = "0.11.0", path = "../tough", features = ["http"] }
-rusoto_core = { version = "0.46", optional = true, default-features = false }
+rusoto_core = { version = "0.47", optional = true, default-features = false }
 rusoto_credential = { version = "0.46", optional = true }
 rusoto_ssm = { version = "0.46", optional = true, default-features = false }
 serde = "1.0.125"
