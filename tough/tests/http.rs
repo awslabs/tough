@@ -4,22 +4,33 @@ mod test_utils;
 #[cfg(feature = "http")]
 mod http_happy {
     use crate::test_utils::{read_to_end, test_data};
-    use mockito::mock;
+    use httptest::{matchers::*, responders::*, Expectation, Server};
     use std::fs::File;
     use std::str::FromStr;
     use tough::{DefaultTransport, HttpTransport, RepositoryLoader, Transport};
     use url::Url;
 
-    /// Create a path in a mock HTTP server which serves a file from `tuf-reference-impl`.
-    fn create_successful_get_mock(relative_path: &str) -> mockito::Mock {
+    /// Set an expectation in a test HTTP server which serves a file from `tuf-reference-impl`.
+    fn create_successful_get(relative_path: &str) -> httptest::Expectation {
         let repo_dir = test_data().join("tuf-reference-impl");
         let file_bytes = std::fs::read(&repo_dir.join(relative_path)).unwrap();
-        mock("GET", ("/".to_owned() + relative_path).as_str())
-            .with_status(200)
-            .with_header("content-type", "application/octet-stream")
-            .with_body(file_bytes.as_slice())
-            .expect(1)
-            .create()
+        Expectation::matching(request::method_path("GET", format!("/{}", relative_path)))
+            .times(1)
+            .respond_with(
+                status_code(200)
+                    .append_header("content-type", "application/octet-stream")
+                    .body(file_bytes),
+            )
+    }
+
+    /// Set an expectation in a test HTTP server to return a `403 Forbidden` status code.
+    /// This is necessary for objects like `x.root.json` as tough will continue to increment
+    /// `x.root.json` until it receives either `403 Forbidden` or `404 NotFound`.
+    /// S3 returns `403 Forbidden` when requesting a file that does not exist.
+    fn create_unsuccessful_get(relative_path: &str) -> httptest::Expectation {
+        Expectation::matching(request::method_path("GET", format!("/{}", relative_path)))
+            .times(1)
+            .respond_with(status_code(403))
     }
 
     /// Test that `tough` works with a healthy HTTP server.
@@ -35,19 +46,22 @@ mod http_happy {
     }
 
     fn run_http_test<T: Transport + 'static>(transport: T) {
+        let server = Server::run();
         let repo_dir = test_data().join("tuf-reference-impl");
-        let mock_timestamp = create_successful_get_mock("metadata/timestamp.json");
-        let mock_snapshot = create_successful_get_mock("metadata/snapshot.json");
-        let mock_targets = create_successful_get_mock("metadata/targets.json");
-        let mock_role1 = create_successful_get_mock("metadata/role1.json");
-        let mock_role2 = create_successful_get_mock("metadata/role2.json");
-        let mock_file1_txt = create_successful_get_mock("targets/file1.txt");
-        let mock_file2_txt = create_successful_get_mock("targets/file2.txt");
-        let base_url = Url::from_str(mockito::server_url().as_str()).unwrap();
+        server.expect(create_successful_get("metadata/timestamp.json"));
+        server.expect(create_successful_get("metadata/snapshot.json"));
+        server.expect(create_successful_get("metadata/targets.json"));
+        server.expect(create_successful_get("metadata/role1.json"));
+        server.expect(create_successful_get("metadata/role2.json"));
+        server.expect(create_successful_get("targets/file1.txt"));
+        server.expect(create_successful_get("targets/file2.txt"));
+        server.expect(create_unsuccessful_get("metadata/2.root.json"));
+        let metadata_base_url = Url::from_str(server.url_str("/metadata").as_str()).unwrap();
+        let targets_base_url = Url::from_str(server.url_str("/targets").as_str()).unwrap();
         let repo = RepositoryLoader::new(
             File::open(repo_dir.join("metadata").join("1.root.json")).unwrap(),
-            base_url.join("metadata").unwrap(),
-            base_url.join("targets").unwrap(),
+            metadata_base_url,
+            targets_base_url,
         )
         .transport(transport)
         .load()
@@ -72,14 +86,6 @@ mod http_happy {
                 .unwrap(),
             "0644"
         );
-
-        mock_timestamp.assert();
-        mock_snapshot.assert();
-        mock_targets.assert();
-        mock_role1.assert();
-        mock_role2.assert();
-        mock_file1_txt.assert();
-        mock_file2_txt.assert();
     }
 }
 

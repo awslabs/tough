@@ -29,7 +29,7 @@ walkdir = "2.3.2"
 
 [dev-dependencies]
 hex-literal = "0.3.1"
-mockito = "0.30"
+httptest = "0.15"
 
 [features]
 http = ["reqwest"]
