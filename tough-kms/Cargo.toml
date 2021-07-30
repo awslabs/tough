@@ -21,7 +21,7 @@ rusoto_core = { version = "0.47", optional = true, default-features = false }
 rusoto_credential = { version = "0.47", optional = true }
 rusoto_kms = { version = "0.47", optional = true, default-features = false }
 snafu = { version = "0.6.10", features = ["backtraces-impl-backtrace-crate"] }
-tokio = "1"
+tokio = "~1.8"  # LTS
 pem = "0.8.1"
 
 [dev-dependencies]
