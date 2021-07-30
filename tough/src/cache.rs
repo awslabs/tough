@@ -171,7 +171,7 @@ impl Repository {
             .context(error::CacheTargetMissing {
                 target_name: name.to_owned(),
             })?;
-        let (sha, filename) = self.target_digest_and_filename(&t, name);
+        let (sha, filename) = self.target_digest_and_filename(t, name);
         let mut reader = self.fetch_target(t, &sha, filename.as_str())?;
         let path = outdir.as_ref().join(filename);
         let mut f = OpenOptions::new()
@@ -223,7 +223,7 @@ impl Repository {
         fetch_sha256(
             self.transport.as_ref(),
             self.targets_base_url
-                .join(&filename)
+                .join(filename)
                 .context(error::JoinUrl {
                     path: filename,
                     url: self.targets_base_url.clone(),

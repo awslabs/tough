@@ -213,6 +213,6 @@ impl<T> Ord for Decoded<T> {
 
 impl<T> Hash for Decoded<T> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        self.bytes.hash(hasher)
+        self.bytes.hash(hasher);
     }
 }

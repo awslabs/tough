@@ -46,8 +46,8 @@ fn load_tuf_reference_impl(paths: &RepoPaths) -> Repository {
 #[test]
 fn test_repo_cache_all_targets() {
     // load the reference_impl repo
-    let mut repo_paths = RepoPaths::new();
-    let repo = load_tuf_reference_impl(&mut repo_paths);
+    let repo_paths = RepoPaths::new();
+    let repo = load_tuf_reference_impl(&repo_paths);
 
     // cache the repo for future use
     let destination = TempDir::new().unwrap();
@@ -94,8 +94,8 @@ fn test_repo_cache_all_targets() {
 #[test]
 fn test_repo_cache_list_of_two_targets() {
     // load the reference_impl repo
-    let mut repo_paths = RepoPaths::new();
-    let repo = load_tuf_reference_impl(&mut repo_paths);
+    let repo_paths = RepoPaths::new();
+    let repo = load_tuf_reference_impl(&repo_paths);
 
     // cache the repo for future use
     let destination = TempDir::new().unwrap();
@@ -143,8 +143,8 @@ fn test_repo_cache_list_of_two_targets() {
 #[test]
 fn test_repo_cache_some() {
     // load the reference_impl repo
-    let mut repo_paths = RepoPaths::new();
-    let repo = load_tuf_reference_impl(&mut repo_paths);
+    let repo_paths = RepoPaths::new();
+    let repo = load_tuf_reference_impl(&repo_paths);
 
     // cache the repo for future use
     let destination = TempDir::new().unwrap();

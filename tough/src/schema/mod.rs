@@ -637,7 +637,7 @@ impl Targets {
             for role in &delelegations.roles {
                 roles.push(&role.name);
                 if let Some(targets) = &role.targets {
-                    roles.append(&mut targets.signed.role_names())
+                    roles.append(&mut targets.signed.role_names());
                 }
             }
         }
@@ -650,7 +650,7 @@ impl Targets {
         if let Some(delegations) = &self.delegations {
             for role in &delegations.roles {
                 if role.name == name {
-                    return Ok(&delegations);
+                    return Ok(delegations);
                 }
                 if let Some(targets) = &role.targets {
                     if let Ok(delegation) = targets.signed.parent_of(name) {
@@ -953,7 +953,7 @@ impl Delegations {
                 PathSet::Paths(paths) | PathSet::PathHashPrefixes(paths) => paths,
             };
             for path in pathset {
-                if !self.target_is_delegated(&path) {
+                if !self.target_is_delegated(path) {
                     return Err(Error::UnmatchedPath {
                         child: path.to_string(),
                     });
@@ -991,7 +991,7 @@ impl DelegatedRole {
             PathSet::Paths(x) | PathSet::PathHashPrefixes(x) => x,
         };
         for path in paths {
-            if !self.paths.matched_target(&path) {
+            if !self.paths.matched_target(path) {
                 return Err(Error::UnmatchedPath {
                     child: path.to_string(),
                 });

@@ -164,11 +164,10 @@ impl UpdateArgs {
                 .sign_targets_editor(&self.keys)
                 .context(error::DelegationStructure)?
                 .update_delegated_targets(
-                    &self.role.as_ref().context(error::Missing {
+                    self.role.as_ref().context(error::Missing {
                         what: "delegated role",
                     })?,
-                    &self
-                        .indir
+                    self.indir
                         .as_ref()
                         .context(error::Missing {
                             what: "delegated role metadata url",

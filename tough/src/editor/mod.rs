@@ -177,7 +177,7 @@ impl RepositoryEditor {
             let mut roles = Vec::new();
             for role in delegated_targets {
                 // Create a `SignedRole<DelegatedTargets>` for each delegated targets
-                roles.push(SignedRole::from_signed(role)?)
+                roles.push(SignedRole::from_signed(role)?);
             }
             // SignedDelegatedTargets is a wrapper for a set of `SignedRole<DelegatedTargets>`
             Some(SignedDelegatedTargets {
@@ -257,7 +257,7 @@ impl RepositoryEditor {
 
     /// Add a `Target` to the repository
     pub fn add_target(&mut self, name: &str, target: Target) -> Result<&mut Self> {
-        self.targets_editor_mut()?.add_target(&name, target);
+        self.targets_editor_mut()?.add_target(name, target);
         Ok(self)
     }
 
@@ -578,7 +578,7 @@ impl RepositoryEditor {
         }
         // Add our new role in place of the old one
         if name == "targets" {
-            self.signed_targets = Some(role)
+            self.signed_targets = Some(role);
         } else {
             self.signed_targets
                 .as_mut()

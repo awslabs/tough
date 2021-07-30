@@ -65,7 +65,7 @@ where
         // the keys provided.
         let valid_keys = root_keys
             .iter()
-            .filter(|(keyid, _signing_key)| role_keys.keyids.contains(&keyid));
+            .filter(|(keyid, _signing_key)| role_keys.keyids.contains(keyid));
 
         // Create the `Signed` struct for this role. This struct will be
         // mutated later to contain the signatures.
