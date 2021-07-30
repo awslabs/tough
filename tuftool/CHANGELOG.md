@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2021-07-30
+### Changes
+- Update dependencies.  [#363], [#364], [#365], [#366], [#367], [#379], [#381], [#382], [#384], [#391], [#393], [#396], [#398]
+- Fix clippy warnings.  [#372], [#378], [#383], [#399]
+- Add license check to CI.  [#385]
+
+[#363]: https://github.com/awslabs/tough/pull/363
+[#364]: https://github.com/awslabs/tough/pull/364
+[#365]: https://github.com/awslabs/tough/pull/365
+[#366]: https://github.com/awslabs/tough/pull/366
+[#367]: https://github.com/awslabs/tough/pull/367
+[#372]: https://github.com/awslabs/tough/pull/372
+[#378]: https://github.com/awslabs/tough/pull/378
+[#379]: https://github.com/awslabs/tough/pull/379
+[#381]: https://github.com/awslabs/tough/pull/381
+[#382]: https://github.com/awslabs/tough/pull/382
+[#383]: https://github.com/awslabs/tough/pull/383
+[#384]: https://github.com/awslabs/tough/pull/384
+[#385]: https://github.com/awslabs/tough/pull/385
+[#391]: https://github.com/awslabs/tough/pull/391
+[#393]: https://github.com/awslabs/tough/pull/393
+[#396]: https://github.com/awslabs/tough/pull/396
+[#398]: https://github.com/awslabs/tough/pull/398
+[#399]: https://github.com/awslabs/tough/pull/399
+
 ## [0.6.1] - 2021-03-01
 ### Changed
 - Update various dependencies to use tokio v1. [#330]
@@ -105,7 +130,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.1...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.2...develop
+[0.6.2]: https://github.com/awslabs/tough/compare/tuftool-v0.6.1...tuftool-v0.6.2
 [0.6.1]: https://github.com/awslabs/tough/compare/tuftool-v0.6.0...tuftool-v0.6.1
 [0.6.0]: https://github.com/awslabs/tough/compare/tuftool-v0.5.0...tuftool-v0.6.0
 [0.5.0]: https://github.com/awslabs/tough/compare/tuftool-v0.4.1...tuftool-v0.5.0

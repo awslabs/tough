@@ -4,7 +4,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.0] - 2020-03-01
+## [0.11.1] - 2021-07-30
+### Changes
+- Update dependencies.  [#363], [#364], [#365], [#366], [#367], [#379], [#381], [#382], [#384], [#391], [#393], [#396], [#398]
+- Fix clippy warnings.  [#372], [#378], [#383], [#399]
+- Add license check to CI.  [#385]
+
+[#363]: https://github.com/awslabs/tough/pull/363
+[#364]: https://github.com/awslabs/tough/pull/364
+[#365]: https://github.com/awslabs/tough/pull/365
+[#366]: https://github.com/awslabs/tough/pull/366
+[#367]: https://github.com/awslabs/tough/pull/367
+[#372]: https://github.com/awslabs/tough/pull/372
+[#378]: https://github.com/awslabs/tough/pull/378
+[#379]: https://github.com/awslabs/tough/pull/379
+[#381]: https://github.com/awslabs/tough/pull/381
+[#382]: https://github.com/awslabs/tough/pull/382
+[#383]: https://github.com/awslabs/tough/pull/383
+[#384]: https://github.com/awslabs/tough/pull/384
+[#385]: https://github.com/awslabs/tough/pull/385
+[#391]: https://github.com/awslabs/tough/pull/391
+[#393]: https://github.com/awslabs/tough/pull/393
+[#396]: https://github.com/awslabs/tough/pull/396
+[#398]: https://github.com/awslabs/tough/pull/398
+[#399]: https://github.com/awslabs/tough/pull/399
+
+## [0.11.0] - 2021-03-01
 ### Breaking Changes
 - Update tokio to v1, hyper to v0.14 and reqwest to v0.11 [#330]
 
@@ -114,7 +139,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.11.0...HEAD
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.11.1...HEAD
+[0.11.1]: https://github.com/awslabs/tough/compare/tough-v0.11.0...tough-v0.11.1
 [0.11.0]: https://github.com/awslabs/tough/compare/tough-v0.10.0...tough-v0.11.0
 [0.10.0]: https://github.com/awslabs/tough/compare/tough-v0.9.0...tough-v0.10.0
 [0.9.0]: https://github.com/awslabs/tough/compare/tough-v0.8.0...tough-v0.9.0
