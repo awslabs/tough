@@ -261,7 +261,7 @@ fn fetch_with_retries(
     // retry loop
     loop {
         // build the request
-        let request = build_request(&client, r.next_byte, &url)?;
+        let request = build_request(&client, r.next_byte, url)?;
 
         // send the GET request, then categories the outcome by converting to an HttpResult.
         let http_result: HttpResult = client.execute(request).into();
@@ -293,7 +293,7 @@ fn fetch_with_retries(
             }
         }
 
-        r.increment(&cs);
+        r.increment(cs);
         std::thread::sleep(r.wait);
     }
 }

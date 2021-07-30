@@ -338,7 +338,7 @@ impl TargetsEditor {
     }
 
     /// Removes a role from delegations
-    /// If `recursive` is `false`, 'role` is only removed if it is directly delegated by this role
+    /// If `recursive` is `false`, `role` is only removed if it is directly delegated by this role
     /// If `true` removes whichever role eventually delegates 'role'
     pub fn remove_role(&mut self, role: &str, recursive: bool) -> Result<&mut Self> {
         let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
@@ -543,7 +543,7 @@ impl TargetsEditor {
                         .targets
                         .context(error::NoTargets)?
                         .delegated_targets(&role.name),
-                )?)
+                )?);
             }
         }
 

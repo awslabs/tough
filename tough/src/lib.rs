@@ -993,7 +993,7 @@ fn load_targets(
             metadata_base_url,
             max_targets_size,
             delegations,
-            &datastore,
+            datastore,
         )?;
     }
 
@@ -1060,7 +1060,7 @@ fn load_delegations(
         );
         {
             if let Some(delegations) = role.signed.delegations.as_ref() {
-                delegations.verify_paths().context(error::InvalidPath {})?
+                delegations.verify_paths().context(error::InvalidPath {})?;
             }
         }
 
@@ -1105,7 +1105,7 @@ mod tests {
         assert_eq!(
             parsed_url_without_trailing_slash,
             parsed_url_with_trailing_slash
-        )
+        );
     }
 
     // Ensure that the `ExpirationEnforcement` traits are not changed by mistake.
