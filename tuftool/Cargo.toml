@@ -43,5 +43,5 @@ url = "2.1.0"
 walkdir = "2.3.2"
 
 [dev-dependencies]
-assert_cmd = "1.0"
+assert_cmd = "2.0"
 httptest = "0.15"
