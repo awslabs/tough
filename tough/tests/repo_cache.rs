@@ -181,3 +181,53 @@ fn test_repo_cache_some() {
         .unwrap();
     assert_eq!(39, file_size);
 }
+
+#[test]
+fn test_repo_cache_metadata() {
+    // Load the reference_impl repo
+    let repo_paths = RepoPaths::new();
+    let repo = load_tuf_reference_impl(&repo_paths);
+
+    // Cache the repo for future use
+    let destination = TempDir::new().unwrap();
+    let metadata_destination = destination.as_ref().join("metadata");
+    repo.cache_metadata(&metadata_destination, true).unwrap();
+
+    // Load the copied repo - this validates we cached the metadata (if we didn't we couldn't load
+    // the repo)
+    let targets_destination = destination.as_ref().join("targets");
+    let copied_repo = RepositoryLoader::new(
+        repo_paths.root(),
+        dir_url(&metadata_destination),
+        dir_url(&targets_destination),
+    )
+    .load()
+    .unwrap();
+
+    // Validate we didn't cache any targets
+    for (target_name, _) in copied_repo.targets().signed.targets_map() {
+        assert!(copied_repo.read_target(&target_name).is_err())
+    }
+
+    // Verify we also loaded the delegated role "role1"
+    let read_delegated_role_option = copied_repo.delegated_role("role1");
+    assert!(read_delegated_role_option.is_some());
+
+    // Verify we cached the root.json
+    assert!(metadata_destination.join("1.root.json").exists());
+}
+
+#[test]
+fn test_repo_cache_metadata_no_root_chain() {
+    // Load the reference_impl repo
+    let repo_paths = RepoPaths::new();
+    let repo = load_tuf_reference_impl(&repo_paths);
+
+    // Cache the repo for future use
+    let destination = TempDir::new().unwrap();
+    let metadata_destination = destination.as_ref().join("metadata");
+    repo.cache_metadata(&metadata_destination, false).unwrap();
+
+    // Verify we did not cache the root.json
+    assert!(!metadata_destination.join("1.root.json").exists());
+}

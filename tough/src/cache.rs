@@ -57,6 +57,28 @@ impl Repository {
         Ok(())
     }
 
+    /// Cache only a repository's metadata files (snapshot, targets, timestamp), including any
+    /// delegated targets metadata.  The cached files will be saved to the local filesystem.
+    ///
+    /// * `metadata_outdir` is the directory where cached metadata files will be saved.
+    /// * `cache_root_chain` specifies whether or not we will cache all versions of `root.json`.
+    pub fn cache_metadata<P>(&self, metadata_outdir: P, cache_root_chain: bool) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        // Create the output directory if it does not exist.
+        std::fs::create_dir_all(metadata_outdir.as_ref()).context(error::CacheDirectoryCreate {
+            path: metadata_outdir.as_ref(),
+        })?;
+
+        self.cache_metadata_impl(&metadata_outdir)?;
+
+        if cache_root_chain {
+            self.cache_root_chain(metadata_outdir)?;
+        }
+        Ok(())
+    }
+
     /// Cache repository metadata files, including delegated targets metadata
     fn cache_metadata_impl<P>(&self, metadata_outdir: P) -> Result<()>
     where
