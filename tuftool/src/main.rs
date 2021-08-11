@@ -18,6 +18,7 @@ mod create;
 mod create_role;
 mod datetime;
 mod download;
+mod download_root;
 mod error;
 mod remove_key_role;
 mod remove_role;
