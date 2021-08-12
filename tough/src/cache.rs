@@ -48,7 +48,42 @@ impl Repository {
             }
         }
 
-        // Save the snapshot, targets and timestamp metadata files, and (optionally) the root files.
+        // Cache all metadata
+        self.cache_metadata_impl(&metadata_outdir)?;
+
+        if cache_root_chain {
+            self.cache_root_chain(&metadata_outdir)?;
+        }
+        Ok(())
+    }
+
+    /// Cache only a repository's metadata files (snapshot, targets, timestamp), including any
+    /// delegated targets metadata.  The cached files will be saved to the local filesystem.
+    ///
+    /// * `metadata_outdir` is the directory where cached metadata files will be saved.
+    /// * `cache_root_chain` specifies whether or not we will cache all versions of `root.json`.
+    pub fn cache_metadata<P>(&self, metadata_outdir: P, cache_root_chain: bool) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        // Create the output directory if it does not exist.
+        std::fs::create_dir_all(metadata_outdir.as_ref()).context(error::CacheDirectoryCreate {
+            path: metadata_outdir.as_ref(),
+        })?;
+
+        self.cache_metadata_impl(&metadata_outdir)?;
+
+        if cache_root_chain {
+            self.cache_root_chain(metadata_outdir)?;
+        }
+        Ok(())
+    }
+
+    /// Cache repository metadata files, including delegated targets metadata
+    fn cache_metadata_impl<P>(&self, metadata_outdir: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
         self.cache_file_from_transport(
             self.snapshot_filename().as_str(),
             self.max_snapshot_size()?,
@@ -79,17 +114,22 @@ impl Repository {
             }
         }
 
-        if cache_root_chain {
-            // Copy all versions of root.json less than or equal to the current version.
-            for ver in (1..=self.root.signed.version.get()).rev() {
-                let root_json_filename = format!("{}.root.json", ver);
-                self.cache_file_from_transport(
-                    root_json_filename.as_str(),
-                    self.limits.max_root_size,
-                    "max_root_size argument",
-                    &metadata_outdir,
-                )?;
-            }
+        Ok(())
+    }
+
+    /// Cache all versions of root.json less than or equal to the current version.
+    fn cache_root_chain<P>(&self, outdir: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        for ver in (1..=self.root.signed.version.get()).rev() {
+            let root_json_filename = format!("{}.root.json", ver);
+            self.cache_file_from_transport(
+                root_json_filename.as_str(),
+                self.limits.max_root_size,
+                "max_root_size argument",
+                &outdir,
+            )?;
         }
         Ok(())
     }
