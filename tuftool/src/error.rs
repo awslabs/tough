@@ -13,6 +13,12 @@ pub(crate) type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub(crate) enum Error {
+    #[snafu(display("Failed to clone repository: {}", source))]
+    CloneRepository {
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Failed to run {}: {}", command_str, source))]
     CommandExec {
         command_str: String,

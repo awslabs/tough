@@ -13,6 +13,7 @@
 
 mod add_key_role;
 mod add_role;
+mod clone;
 mod common;
 mod create;
 mod create_role;
@@ -77,7 +78,7 @@ impl Program {
 enum Command {
     /// Create a TUF repository
     Create(create::CreateArgs),
-    /// Download a TUF repository's resources
+    /// Download a TUF repository's targets
     Download(download::DownloadArgs),
     /// Update a TUF repository's metadata and optionally add targets
     Update(Box<update::UpdateArgs>),
@@ -85,6 +86,8 @@ enum Command {
     Root(root::Command),
     /// Delegation Commands
     Delegation(Delegation),
+    /// Clone a TUF repository, including metadata and some or all targets
+    Clone(clone::CloneArgs),
 }
 
 impl Command {
@@ -95,6 +98,7 @@ impl Command {
             Command::Download(args) => args.run(),
             Command::Update(args) => args.run(),
             Command::Delegation(cmd) => cmd.run(),
+            Command::Clone(cmd) => cmd.run(),
         }
     }
 }
