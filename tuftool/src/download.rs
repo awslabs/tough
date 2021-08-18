@@ -1,10 +1,11 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use crate::download_root::download_root;
 use crate::error::{self, Result};
 use snafu::{OptionExt, ResultExt};
 use std::fs::File;
-use std::io::{self};
+use std::io;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
@@ -18,8 +19,8 @@ pub(crate) struct DownloadArgs {
     root: Option<PathBuf>,
 
     /// Remote root.json version number
-    #[structopt(short = "v", long = "root-version")]
-    root_version: Option<NonZeroU64>,
+    #[structopt(short = "v", long = "root-version", default_value = "1")]
+    root_version: NonZeroU64,
 
     /// TUF repository metadata base URL
     #[structopt(short = "m", long = "metadata-url")]
@@ -45,16 +46,6 @@ pub(crate) struct DownloadArgs {
     allow_expired_repo: bool,
 }
 
-fn root_warning<P: AsRef<Path>>(path: P) {
-    #[rustfmt::skip]
-    eprintln!("\
-=================================================================
-WARNING: Downloading root.json to {}
-This is unsafe and will not establish trust, use only for testing
-=================================================================",
-              path.as_ref().display());
-}
-
 fn expired_repo_warning<P: AsRef<Path>>(path: P) {
     #[rustfmt::skip]
     eprintln!("\
@@ -71,28 +62,8 @@ impl DownloadArgs {
         let root_path = if let Some(path) = &self.root {
             PathBuf::from(path)
         } else if self.allow_root_download {
-            let name = if let Some(version) = self.root_version {
-                format!("{}.root.json", version)
-            } else {
-                String::from("1.root.json")
-            };
-            let path = std::env::current_dir()
-                .context(error::CurrentDir)?
-                .join(&name);
-            let url = self
-                .metadata_base_url
-                .join(&name)
-                .context(error::UrlParse {
-                    url: self.metadata_base_url.as_str(),
-                })?;
-            root_warning(&path);
-
-            let mut f = File::create(&path).context(error::OpenFile { path: &path })?;
-            reqwest::blocking::get(url.as_str())
-                .context(error::ReqwestGet)?
-                .copy_to(&mut f)
-                .context(error::ReqwestCopy)?;
-            path
+            let outdir = std::env::current_dir().context(error::CurrentDir)?;
+            download_root(&self.metadata_base_url, self.root_version, outdir)?
         } else {
             eprintln!("No root.json available");
             std::process::exit(1);

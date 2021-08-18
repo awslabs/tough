@@ -13,6 +13,12 @@ pub(crate) type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility = "pub(crate)")]
 pub(crate) enum Error {
+    #[snafu(display("Failed to clone repository: {}", source))]
+    CloneRepository {
+        source: tough::error::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Failed to run {}: {}", command_str, source))]
     CommandExec {
         command_str: String,
@@ -243,6 +249,13 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Response '{}' from '{}': {}", get_status_code(source), url, source))]
+    BadResponse {
+        url: String,
+        source: reqwest::Error,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Failed to sign repository: {}", source))]
     SignRepo {
         source: tough::error::Error,
@@ -356,4 +369,13 @@ pub(crate) enum Error {
         source: std::io::Error,
         backtrace: Backtrace,
     },
+}
+
+// Extracts the status code from a reqwest::Error and converts it to a string to be displayed
+fn get_status_code(source: &reqwest::Error) -> String {
+    source
+        .status()
+        .as_ref()
+        .map_or("Unknown", |i| i.as_str())
+        .to_string()
 }
