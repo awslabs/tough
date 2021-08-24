@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] - 2021-08-24
+### Changes
+- Add `Repository.cache_metadata` method.  [#403]
+
+[#403]: https://github.com/awslabs/tough/pull/403
+
 ## [0.11.1] - 2021-07-30
 ### Changes
 - Update dependencies.  [#363], [#364], [#365], [#366], [#367], [#379], [#381], [#382], [#384], [#391], [#393], [#396], [#398]
@@ -139,7 +145,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.11.1...HEAD
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.11.2...HEAD
+[0.11.2]: https://github.com/awslabs/tough/compare/tough-v0.11.1...tough-v0.11.2
 [0.11.1]: https://github.com/awslabs/tough/compare/tough-v0.11.0...tough-v0.11.1
 [0.11.0]: https://github.com/awslabs/tough/compare/tough-v0.10.0...tough-v0.11.0
 [0.10.0]: https://github.com/awslabs/tough/compare/tough-v0.9.0...tough-v0.10.0
