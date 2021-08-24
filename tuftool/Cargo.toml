@@ -1,6 +1,6 @@
 [package]
 name = "tuftool"
-version = "0.6.2"
+version = "0.6.3"
 description = "Utility for creating and signing The Update Framework (TUF) repositories"
 authors = ["iliana destroyer of worlds <iweller@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -36,9 +36,9 @@ snafu = { version = "0.6.10", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
 tempfile = "3.1.0"
 tokio = "~1.8"  # LTS
-tough = { version = "0.11.1", path = "../tough", features = ["http"] }
-tough-ssm = { version = "0.6.1", path = "../tough-ssm" }
-tough-kms = { version = "0.3.1", path = "../tough-kms" }
+tough = { version = "0.11.2", path = "../tough", features = ["http"] }
+tough-ssm = { version = "0.6.2", path = "../tough-ssm" }
+tough-kms = { version = "0.3.2", path = "../tough-kms" }
 url = "2.1.0"
 walkdir = "2.3.2"
 

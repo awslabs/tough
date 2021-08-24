@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2021-08-24
+### Changes
+- Update `assert_cmd` dependency.  [#402]
+- Add `clone` subcommand.  [#404]
+
+[#402]: https://github.com/awslabs/tough/pull/402
+[#404]: https://github.com/awslabs/tough/pull/404
+
 ## [0.6.2] - 2021-07-30
 ### Changes
 - Update dependencies.  [#363], [#364], [#365], [#366], [#367], [#379], [#381], [#382], [#384], [#391], [#393], [#396], [#398]
@@ -130,7 +138,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.2...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.3...develop
+[0.6.3]: https://github.com/awslabs/tough/compare/tuftool-v0.6.2...tuftool-v0.6.3
 [0.6.2]: https://github.com/awslabs/tough/compare/tuftool-v0.6.1...tuftool-v0.6.2
 [0.6.1]: https://github.com/awslabs/tough/compare/tuftool-v0.6.0...tuftool-v0.6.1
 [0.6.0]: https://github.com/awslabs/tough/compare/tuftool-v0.5.0...tuftool-v0.6.0
