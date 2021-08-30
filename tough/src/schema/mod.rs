@@ -22,7 +22,7 @@ use olpc_cjson::CanonicalFormatter;
 use ring::digest::{digest, Context, SHA256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use serde_plain::{forward_display_to_serde, forward_from_str_to_serde};
+use serde_plain::{derive_display_from_serialize, derive_fromstr_from_deserialize};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::fs::File;
@@ -51,8 +51,8 @@ pub enum RoleType {
     DelegatedTargets,
 }
 
-forward_display_to_serde!(RoleType);
-forward_from_str_to_serde!(RoleType);
+derive_display_from_serialize!(RoleType);
+derive_fromstr_from_deserialize!(RoleType);
 
 /// A role identifier
 #[derive(Debug, Clone)]
