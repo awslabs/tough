@@ -6,6 +6,7 @@ use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use crate::{load_file, write_file};
 use chrono::{DateTime, Timelike, Utc};
+use log::warn;
 use maplit::hashmap;
 use ring::rand::SystemRandom;
 use snafu::{ensure, OptionExt, ResultExt};
@@ -106,6 +107,9 @@ pub(crate) enum Command {
         ///Optional - Path of older root.json that contains the key-id
         #[structopt(short = "c", long = "cross-sign")]
         cross_sign: Option<PathBuf>,
+        ///Ignore the threshold when signing with fewer keys
+        #[structopt(short = "i", long = "ignore-threshold")]
+        ignore_threshold: bool,
     },
 }
 
@@ -153,7 +157,8 @@ impl Command {
                 path,
                 key_sources,
                 cross_sign,
-            } => Command::sign(&path, &key_sources, cross_sign),
+                ignore_threshold,
+            } => Command::sign(&path, &key_sources, cross_sign, ignore_threshold),
         }
     }
 
@@ -302,6 +307,7 @@ impl Command {
         path: &Path,
         key_source: &[Box<dyn KeySource>],
         cross_sign: Option<PathBuf>,
+        ignore_threshold: bool,
     ) -> Result<()> {
         let root: Signed<Root> = load_file(path)?;
         // get the root based on cross-sign
@@ -309,7 +315,7 @@ impl Command {
             None => root.clone(),
             Some(cross_sign_root) => load_file(&cross_sign_root)?,
         };
-        //sign the root
+        // sign the root
         let mut signed_root = SignedRole::new(
             root.signed.clone(),
             &KeyHolder::Root(loaded_root.signed),
@@ -325,14 +331,27 @@ impl Command {
                 .context(error::SignRoot { path })?;
         }
 
-        // Quick check that root is signed by enough key IDs
+        // Quick check that root is signed by enough key IDs, in all its roles.
         for (roletype, rolekeys) in &signed_root.signed().signed.roles {
-            if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
-                return Err(error::Error::UnstableRoot {
-                    role: *roletype,
-                    threshold: rolekeys.threshold.get(),
-                    actual: rolekeys.keyids.len(),
-                });
+            let threshold = rolekeys.threshold.get();
+            let keyids = rolekeys.keyids.len();
+            if threshold > keyids as u64 {
+                // Return an error when the referenced root.json isn't compliant with the
+                // threshold. The referenced file could be a root.json used for cross signing,
+                // which wasn't signed with enough keys.
+                if !ignore_threshold {
+                    return Err(error::Error::UnstableRoot {
+                        role: *roletype,
+                        threshold,
+                        actual: keyids,
+                    });
+                }
+                // Print out a warning to let the user know that the referenced root.json
+                // file isn't compliant with the threshold specified for the role type.
+                warn!(
+                    "Loaded unstable root, role '{}' contains '{}' keys, expected '{}'",
+                    *roletype, threshold, keyids
+                );
             }
         }
 
@@ -352,10 +371,19 @@ impl Command {
             .get();
         let signature_count = signed_root.signed().signatures.len();
         if threshold > signature_count as u64 {
-            return Err(error::Error::SignatureRoot {
-                threshold,
-                signature_count,
-            });
+            // Return an error when the "ignore-threshold" flag wasn't set
+            if !ignore_threshold {
+                return Err(error::Error::SignatureRoot {
+                    threshold,
+                    signature_count,
+                });
+            }
+            // Print out a warning letting the user know that the target file isn't compliant with
+            // the threshold used for the root role.
+            warn!(
+                "The root.json file requires at least {} signatures, the target file contains {}",
+                threshold, signature_count
+            );
         }
 
         // Use `tempfile::NamedTempFile::persist` to perform an atomic file write.
