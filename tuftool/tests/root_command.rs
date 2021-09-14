@@ -23,7 +23,7 @@ fn initialize_root_json(root_json: &str) {
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "root", "1"])
+        .args(&["root", "set-threshold", root_json, "root", "2"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
@@ -84,9 +84,19 @@ fn add_key_all_roles(key: &str, root_json: &str) {
 fn sign_root_json(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "sign", root_json, "-k", key])
+        // We don't have enough signatures to meet the threshold, so we have to pass `-i`
+        .args(&["root", "sign", root_json, "-i", "-k", key])
         .assert()
         .success();
+}
+
+fn sign_root_json_failure(key: &str, root_json: &str) {
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        // We don't have enough signatures to meet the threshold, so we should fail
+        .args(&["root", "sign", root_json, "-k", key])
+        .assert()
+        .failure();
 }
 
 fn sign_root_json_two_keys(key_1: &str, key_2: &str, root_json: &str) {
@@ -104,6 +114,7 @@ fn cross_sign(old_root: &str, new_root: &str, key: &str) {
             "root",
             "sign",
             new_root,
+            "-i",
             "-k",
             key,
             "--cross-sign",
@@ -308,6 +319,22 @@ fn append_signature_root() {
 
     //validate number of signatures
     assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
+}
+
+#[test]
+fn below_threshold_failure() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_1 = test_utils::test_data().join("snakeoil.pem");
+    let key_2 = test_utils::test_data().join("snakeoil_2.pem");
+    // Create and initialise root.json
+    initialize_root_json(root_json.to_str().unwrap());
+    // Add key_1 for all roles
+    add_key_all_roles(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    // Add key_2 to root
+    add_key_root(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+    // Sign root.json with key_1 fails, when no `--ignore-threshold` is passed
+    sign_root_json_failure(key_1.to_str().unwrap(), root_json.to_str().unwrap());
 }
 
 #[test]
