@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2021-09-15
+### Changes
+- Add ignore threshold flag.  [#412]
+- Update dependencies.
+
+[#412]: https://github.com/awslabs/tough/pull/412
+
 ## [0.6.3] - 2021-08-24
 ### Changes
 - Update `assert_cmd` dependency.  [#402]
@@ -138,7 +145,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.3...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.6.4...develop
+[0.6.4]: https://github.com/awslabs/tough/compare/tuftool-v0.6.3...tuftool-v0.6.4
 [0.6.3]: https://github.com/awslabs/tough/compare/tuftool-v0.6.2...tuftool-v0.6.3
 [0.6.2]: https://github.com/awslabs/tough/compare/tuftool-v0.6.1...tuftool-v0.6.2
 [0.6.1]: https://github.com/awslabs/tough/compare/tuftool-v0.6.0...tuftool-v0.6.1
