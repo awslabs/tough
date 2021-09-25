@@ -10,6 +10,7 @@ pub mod key;
 mod spki;
 mod verify;
 
+use crate::encode_filename;
 use crate::schema::decoded::{Decoded, Hex};
 pub use crate::schema::error::{Error, Result};
 use crate::schema::iter::KeysIter;
@@ -758,9 +759,9 @@ impl Role for DelegatedTargets {
 
     fn filename(&self, consistent_snapshot: bool) -> String {
         if consistent_snapshot {
-            format!("{}.{}.json", self.version(), self.name)
+            format!("{}.{}.json", self.version(), encode_filename(&self.name))
         } else {
-            format!("{}.json", self.name)
+            format!("{}.json", encode_filename(&self.name))
         }
     }
 

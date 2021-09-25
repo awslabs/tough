@@ -1,7 +1,7 @@
 use crate::error::{self, Result};
 use crate::fetch::{fetch_max_size, fetch_sha256};
 use crate::schema::{RoleType, Target};
-use crate::Repository;
+use crate::{encode_filename, Repository};
 use snafu::{OptionExt, ResultExt};
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -162,10 +162,10 @@ impl Repository {
                     .meta
                     .get(&format!("{}.json", name))?
                     .version,
-                name
+                encode_filename(name)
             ))
         } else {
-            Some(format!("{}.json", name))
+            Some(format!("{}.json", encode_filename(name)))
         }
     }
 

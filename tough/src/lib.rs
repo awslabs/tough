@@ -54,6 +54,7 @@ pub use crate::transport::{
     DefaultTransport, FilesystemTransport, Transport, TransportError, TransportErrorKind,
 };
 use chrono::{DateTime, Utc};
+use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::io::Read;
@@ -444,6 +445,29 @@ impl Repository {
     pub fn delegated_role(&self, name: &str) -> Option<&DelegatedRole> {
         self.targets.signed.delegated_role(name).ok()
     }
+}
+
+/// The set of characters that will be escaped when converting a delegated role name into a
+/// filename. This needs to at least include path traversal characters to prevent tough from writing
+/// outside of its datastore.
+///
+/// In order to match the Python TUF implementation, we mimic the Python function
+/// [urllib.parse.quote] (given a 'safe' parameter value of `""`) which follows RFC 3986 and states
+///
+/// > Replace special characters in string using the %xx escape. Letters, digits, and the characters
+/// `_.-~` are never quoted.
+///
+/// [urllib.parse.quote]: https://docs.python.org/3/library/urllib.parse.html#url-quoting
+const CHARACTERS_TO_ESCAPE: AsciiSet = NON_ALPHANUMERIC
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'-')
+    .remove(b'~');
+
+/// Percent encode a potential filename to ensure it is safe and does not have path traversal
+/// characters.
+pub(crate) fn encode_filename<S: AsRef<str>>(name: S) -> String {
+    utf8_percent_encode(name.as_ref(), &CHARACTERS_TO_ESCAPE).to_string()
 }
 
 /// Ensures that system time has not stepped backward since it was last sampled
@@ -1023,9 +1047,13 @@ fn load_delegations(
             })?;
 
         let path = if consistent_snapshot {
-            format!("{}.{}.json", &role_meta.version, &delegated_role.name)
+            format!(
+                "{}.{}.json",
+                &role_meta.version,
+                encode_filename(&delegated_role.name)
+            )
         } else {
-            format!("{}.json", &delegated_role.name)
+            format!("{}.json", encode_filename(&delegated_role.name))
         };
         let role_url = metadata_base_url.join(&path).context(error::JoinUrl {
             path: path.clone(),
@@ -1123,5 +1151,94 @@ mod tests {
         assert!(!non_enforcing);
         let default = ExpirationEnforcement::default();
         assert_eq!(default, ExpirationEnforcement::Safe);
+    }
+
+    #[test]
+    fn encode_filename_1() {
+        let input = "../a";
+        let expected = "..%2Fa";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_2() {
+        let input = "";
+        let expected = "";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_3() {
+        let input = ".";
+        let expected = ".";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_4() {
+        let input = "/";
+        let expected = "%2F";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_5() {
+        let input = "ö";
+        let expected = "%C3%B6";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_6() {
+        let input = "!@#$%^&*()[]|\\~`'\";:.,><?/-_";
+        let expected =
+            "%21%40%23%24%25%5E%26%2A%28%29%5B%5D%7C%5C~%60%27%22%3B%3A.%2C%3E%3C%3F%2F-_";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_7() {
+        let input = "../../strange/role/../name";
+        let expected = "..%2F..%2Fstrange%2Frole%2F..%2Fname";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_8() {
+        let input = "../🍺/( ͡° ͜ʖ ͡°)";
+        let expected = "..%2F%F0%9F%8D%BA%2F%28%20%CD%A1%C2%B0%20%CD%9C%CA%96%20%CD%A1%C2%B0%29";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_9() {
+        let input = "ᚩ os, ᚱ rad, ᚳ cen, ᚷ gyfu, ᚹ ƿynn, ᚻ hægl, ...";
+        let expected = "%E1%9A%A9%20os%2C%20%E1%9A%B1%20rad%2C%20%E1%9A%B3%20cen%2C%20%E1%9A%B7%20gyfu%2C%20%E1%9A%B9%20%C6%BFynn%2C%20%E1%9A%BB%20h%C3%A6gl%2C%20...";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_10() {
+        let input = "../../path/like/dubious";
+        let expected = "..%2F..%2Fpath%2Flike%2Fdubious";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn encode_filename_11() {
+        let input = "🍺/30";
+        let expected = "%F0%9F%8D%BA%2F30";
+        let actual = encode_filename(input);
+        assert_eq!(expected, actual);
     }
 }

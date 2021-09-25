@@ -1771,6 +1771,7 @@ dependencies = [
  "log",
  "olpc-cjson",
  "pem",
+ "percent-encoding",
  "reqwest",
  "ring",
  "serde",

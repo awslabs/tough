@@ -15,8 +15,8 @@ use crate::schema::{
     Targets,
 };
 use crate::transport::Transport;
-use crate::Limits;
 use crate::Repository;
+use crate::{encode_filename, Limits};
 use chrono::{DateTime, Utc};
 use ring::rand::SystemRandom;
 use serde_json::Value;
@@ -377,11 +377,15 @@ impl TargetsEditor {
 
         let metadata_base_url = parse_url(metadata_url)?;
         // path to updated metadata
+        let encoded_name = encode_filename(name);
+        let encoded_filename = format!("{}.json", encoded_name);
         let role_url =
             metadata_base_url
-                .join(&format!("{}.json", name))
-                .context(error::JoinUrl {
-                    path: name.to_string(),
+                .join(&encoded_filename)
+                .with_context(|| error::JoinUrlEncoded {
+                    original: name,
+                    encoded: encoded_name,
+                    filename: encoded_filename,
                     url: metadata_base_url,
                 })?;
         let reader = Box::new(fetch_max_size(

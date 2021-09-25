@@ -150,6 +150,23 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display(
+        "After encoding the name '{}' to '{}', failed to join '{}' to URL '{}': {}",
+        original,
+        encoded,
+        filename,
+        url,
+        source
+    ))]
+    JoinUrlEncoded {
+        original: String,
+        encoded: String,
+        filename: String,
+        url: url::Url,
+        source: url::ParseError,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Unable to parse keypair: {}", source))]
     KeyPairFromKeySource {
         source: Box<dyn std::error::Error + Send + Sync + 'static>,
