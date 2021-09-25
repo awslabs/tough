@@ -80,3 +80,32 @@ fn test_tuf_reference_impl_default_transport() {
     .unwrap();
     assert_tuf_reference_impl(&repo);
 }
+
+/// Test that `tough` can load a repository that has some unusual delegate role names. This ensures
+/// that percent encoded role names are handled correctly and that path traversal characters in a
+/// role name do not cause `tough` to write outside of its datastore.
+#[test]
+fn test_dubious_role_name() {
+    let base = test_data().join("dubious-role-names");
+    let datastore = TempDir::new().unwrap();
+
+    let repo = RepositoryLoader::new(
+        File::open(base.join("metadata").join("1.root.json")).unwrap(),
+        dir_url(base.join("metadata")),
+        dir_url(base.join("targets")),
+    )
+    .datastore(datastore.path())
+    .load()
+    .unwrap();
+
+    // Prove that the role name has path traversal characters.
+    let expected_rolename = "../../path/like/dubious";
+    assert_eq!(
+        repo.delegated_role(expected_rolename).unwrap().name,
+        expected_rolename
+    );
+
+    // Prove that the the role's metadata filename has not been written outside of the datastore.
+    let expected_filename = "..%2F..%2Fpath%2Flike%2Fdubious.json";
+    assert!(datastore.path().join(expected_filename).is_file())
+}
