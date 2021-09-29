@@ -6,7 +6,7 @@
 #![allow(clippy::default_trait_access)]
 
 use crate::schema::RoleType;
-use crate::{schema, TransportError};
+use crate::{schema, TargetName, TransportError};
 use chrono::{DateTime, Utc};
 use snafu::{Backtrace, Snafu};
 use std::io;
@@ -141,6 +141,9 @@ pub enum Error {
     #[snafu(display("Source path for target must be file or symlink - '{}'", path.display()))]
     InvalidFileType { path: PathBuf, backtrace: Backtrace },
 
+    #[snafu(display("Encountered an invalid target name: {}", inner))]
+    InvalidTargetName { inner: String, backtrace: Backtrace },
+
     /// The library failed to create a URL from a base URL and a path.
     #[snafu(display("Failed to join \"{}\" to URL \"{}\": {}", path, url, source))]
     JoinUrl {
@@ -218,6 +221,20 @@ pub enum Error {
     #[snafu(display("Missing '{}' when building repo from RepositoryEditor", field))]
     Missing { field: String, backtrace: Backtrace },
 
+    #[snafu(display("Unable to create NamedTempFile in directory '{}': {}", path.display(), source))]
+    NamedTempFileCreate {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Unable to persist NamedTempFile to '{}': {}", path.display(), source))]
+    NamedTempFilePersist {
+        path: PathBuf,
+        source: tempfile::PersistError,
+        backtrace: Backtrace,
+    },
+
     /// Unable to determine file name (path ends in '..' or is '/')
     #[snafu(display("Unable to determine file name from path: '{}'", path.display()))]
     NoFileName { path: PathBuf, backtrace: Backtrace },
@@ -293,6 +310,52 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to get info about the outdir '{}': {}", path.display(), source))]
+    SaveTargetDirInfo {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("The outdir '{}' either does not exist or is not a directory", path.display()))]
+    SaveTargetOutdir { path: PathBuf, backtrace: Backtrace },
+
+    #[snafu(display("Unable to canonicalize the outdir '{}': {}", path.display(), source))]
+    SaveTargetOutdirCanonicalize {
+        path: PathBuf,
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display(
+        "The path '{}' to which we would save target '{}' has no parent",
+        path.display(),
+        name.raw(),
+    ))]
+    SaveTargetNoParent {
+        path: PathBuf,
+        name: TargetName,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("The target '{}' was not found", name.raw()))]
+    SaveTargetNotFound {
+        name: TargetName,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display(
+        "The target '{}' had an unsafe name. Not writing to '{}' because it is not in the outdir '{}'",
+        name.raw(),
+        filepath.display(),
+        outdir.display()
+    ))]
+    SaveTargetUnsafePath {
+        name: TargetName,
+        outdir: PathBuf,
+        filepath: PathBuf,
+    },
+
     #[snafu(display("Failed to serialize role '{}' for signing: {}", role, source))]
     SerializeRole {
         role: String,
@@ -359,6 +422,21 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Unable to resolve the target name '{}': {}", name, source))]
+    TargetNameResolve {
+        name: String,
+        source: std::io::Error,
+    },
+
+    #[snafu(display(
+        "Unable to resolve target name '{}', a path with no components was produced",
+        name
+    ))]
+    TargetNameComponentsEmpty { name: String },
+
+    #[snafu(display("Unable to resolve target name '{}', expected a rooted path", name))]
+    TargetNameRootMissing { name: String },
+
     /// A transport error occurred while fetching a URL.
     #[snafu(display("Failed to fetch {}: {}", url, source))]
     Transport {
@@ -366,6 +444,24 @@ pub enum Error {
         source: TransportError,
         backtrace: Backtrace,
     },
+
+    #[snafu(display(
+        "The target name '..' is unsafe. Interpreting it as a path could escape from the intended \
+        directory",
+    ))]
+    UnsafeTargetNameDotDot {},
+
+    #[snafu(display(
+        "The target name '{}' is unsafe. Interpreting it as a path would lead to an empty filename",
+        name
+    ))]
+    UnsafeTargetNameEmpty { name: String },
+
+    #[snafu(display(
+        "The target name '{}' is unsafe. Interpreting it as a path would lead to a filename of '/'",
+        name
+    ))]
+    UnsafeTargetNameSlash { name: String },
 
     /// A metadata file could not be verified.
     #[snafu(display("Failed to verify {} metadata: {}", role, source))]
@@ -431,9 +527,9 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("The target '{}' was not found", target_name))]
+    #[snafu(display("The target '{}' was not found", target_name.raw()))]
     CacheTargetMissing {
-        target_name: String,
+        target_name: TargetName,
         source: crate::schema::Error,
         backtrace: Backtrace,
     },
@@ -444,9 +540,6 @@ pub enum Error {
         source: walkdir::Error,
         backtrace: Backtrace,
     },
-
-    #[snafu(display("Target file not delegated: {}", target_url))]
-    TargetNotFound { target_url: String },
 
     #[snafu(display("Delegated role not found: {}", name))]
     DelegateNotFound { name: String },

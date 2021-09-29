@@ -79,6 +79,9 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("The a file or directory already exists at '{}'", path.display()))]
+    DownloadOutdirExists { path: PathBuf, backtrace: Backtrace },
+
     #[snafu(display(
         "Failed to create a Repository Editor with root.json '{}': {}",
         path.display(),
@@ -143,6 +146,9 @@ pub(crate) enum Error {
         source: rayon::ThreadPoolBuildError,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Invalid target name: {}", source))]
+    InvalidTargetName { source: tough::error::Error },
 
     #[snafu(display("Failed to serialize to JSON: {}", source))]
     JsonSerialization {

@@ -7,7 +7,7 @@ mod http_happy {
     use httptest::{matchers::*, responders::*, Expectation, Server};
     use std::fs::File;
     use std::str::FromStr;
-    use tough::{DefaultTransport, HttpTransport, RepositoryLoader, Transport};
+    use tough::{DefaultTransport, HttpTransport, RepositoryLoader, TargetName, Transport};
     use url::Url;
 
     /// Set an expectation in a test HTTP server which serves a file from `tuf-reference-impl`.
@@ -67,19 +67,21 @@ mod http_happy {
         .load()
         .unwrap();
 
+        let file1 = TargetName::new("file1.txt").unwrap();
         assert_eq!(
-            read_to_end(repo.read_target("file1.txt").unwrap().unwrap()),
+            read_to_end(repo.read_target(&file1).unwrap().unwrap()),
             &b"This is an example target file."[..]
         );
+        let file2 = TargetName::new("file2.txt").unwrap();
         assert_eq!(
-            read_to_end(repo.read_target("file2.txt").unwrap().unwrap()),
+            read_to_end(repo.read_target(&file2).unwrap().unwrap()),
             &b"This is an another example target file."[..]
         );
         assert_eq!(
             repo.targets()
                 .signed
                 .targets
-                .get("file1.txt")
+                .get(&file1)
                 .unwrap()
                 .custom
                 .get("file_permissions")

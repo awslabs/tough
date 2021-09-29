@@ -1,9 +1,8 @@
 use crate::error::{self, Result};
 use crate::fetch::{fetch_max_size, fetch_sha256};
 use crate::schema::{RoleType, Target};
-use crate::{encode_filename, Repository};
+use crate::{encode_filename, Prefix, Repository, TargetName};
 use snafu::{OptionExt, ResultExt};
-use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -38,8 +37,9 @@ impl Repository {
 
         // Fetch targets and save them to the outdir
         if let Some(target_list) = targets_subset {
-            for target_name in target_list.iter() {
-                self.cache_target(&targets_outdir, target_name.as_ref())?;
+            for raw_name in target_list.iter() {
+                let target_name = TargetName::new(raw_name.as_ref())?;
+                self.cache_target(&targets_outdir, &target_name)?;
             }
         } else {
             let targets = &self.targets.signed.targets_map();
@@ -203,24 +203,16 @@ impl Repository {
 
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
     /// consistent snapshots are used.
-    fn cache_target<P: AsRef<Path>>(&self, outdir: P, name: &str) -> Result<()> {
-        let t = self
-            .targets
-            .signed
-            .find_target(name)
-            .context(error::CacheTargetMissing {
-                target_name: name.to_owned(),
-            })?;
-        let (sha, filename) = self.target_digest_and_filename(t, name);
-        let mut reader = self.fetch_target(t, &sha, filename.as_str())?;
-        let path = outdir.as_ref().join(filename);
-        let mut f = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(&path)
-            .context(error::CacheTargetWrite { path: path.clone() })?;
-        let _ = std::io::copy(&mut reader, &mut f).context(error::CacheTargetWrite { path })?;
-        Ok(())
+    fn cache_target<P: AsRef<Path>>(&self, outdir: P, name: &TargetName) -> Result<()> {
+        self.save_target(
+            name,
+            outdir,
+            if self.consistent_snapshot {
+                Prefix::Digest
+            } else {
+                Prefix::None
+            },
+        )
     }
 
     /// Gets the max size of the snapshot.json file as specified by the timestamp file.
@@ -242,13 +234,16 @@ impl Repository {
     pub(crate) fn target_digest_and_filename(
         &self,
         target: &Target,
-        name: &str,
+        name: &TargetName,
     ) -> (Vec<u8>, String) {
         let sha256 = &target.hashes.sha256.clone().into_vec();
         if self.consistent_snapshot {
-            (sha256.clone(), format!("{}.{}", hex::encode(sha256), name))
+            (
+                sha256.clone(),
+                format!("{}.{}", hex::encode(sha256), name.resolved()),
+            )
         } else {
-            (sha256.clone(), name.to_owned())
+            (sha256.clone(), name.resolved().to_owned())
         }
     }
 

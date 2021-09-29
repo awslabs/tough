@@ -8,7 +8,7 @@ use std::env;
 use std::fs::File;
 use tempfile::TempDir;
 use test_utils::dir_url;
-use tough::RepositoryLoader;
+use tough::{RepositoryLoader, TargetName};
 
 // This file include integration tests for KeySources: tough-ssm, tough-kms and local file key.
 // Since the tests are run using the actual "AWS SSM and AWS KMS", you would have to configure
@@ -165,16 +165,19 @@ fn create_repository(root_key: &str, auto_generate: bool) {
     .unwrap();
 
     // Ensure we can read the targets
+    let file1 = TargetName::new("file1.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target("file1.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file1).unwrap().unwrap()),
         &b"This is an example target file."[..]
     );
+    let file2 = TargetName::new("file2.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target("file2.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file2).unwrap().unwrap()),
         &b"This is an another example target file."[..]
     );
+    let file3 = TargetName::new("file3.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target("file3.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file3).unwrap().unwrap()),
         &b"This is role1's target file."[..]
     );
 
@@ -182,9 +185,9 @@ fn create_repository(root_key: &str, auto_generate: bool) {
     assert_eq!(repo.targets().signed.version.get(), targets_version);
     assert_eq!(repo.targets().signed.expires, targets_expiration);
     assert_eq!(repo.targets().signed.targets.len(), 3);
-    assert_eq!(repo.targets().signed.targets["file1.txt"].length, 31);
-    assert_eq!(repo.targets().signed.targets["file2.txt"].length, 39);
-    assert_eq!(repo.targets().signed.targets["file3.txt"].length, 28);
+    assert_eq!(repo.targets().signed.targets[&file1].length, 31);
+    assert_eq!(repo.targets().signed.targets[&file2].length, 39);
+    assert_eq!(repo.targets().signed.targets[&file3].length, 28);
     assert_eq!(repo.targets().signatures.len(), 1);
 
     // Ensure the snapshot.json file is correct

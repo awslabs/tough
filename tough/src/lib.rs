@@ -40,6 +40,7 @@ mod io;
 pub mod key_source;
 pub mod schema;
 pub mod sign;
+mod target_name;
 mod transport;
 
 use crate::datastore::Datastore;
@@ -48,17 +49,22 @@ use crate::fetch::{fetch_max_size, fetch_sha256};
 /// An HTTP transport that includes retries.
 #[cfg(feature = "http")]
 pub use crate::http::{HttpTransport, HttpTransportBuilder, RetryRead};
-use crate::schema::{DelegatedRole, Delegations};
-use crate::schema::{Role, RoleType, Root, Signed, Snapshot, Timestamp};
+use crate::schema::{
+    DelegatedRole, Delegations, Role, RoleType, Root, Signed, Snapshot, Timestamp,
+};
+pub use crate::target_name::TargetName;
 pub use crate::transport::{
     DefaultTransport, FilesystemTransport, Transport, TransportError, TransportErrorKind,
 };
 use chrono::{DateTime, Utc};
+use log::warn;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
+use std::fs::create_dir_all;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 use url::Url;
 
 /// Represents whether a Repository should fail to load when metadata is expired (`Safe`) or whether
@@ -269,6 +275,16 @@ impl Default for Limits {
     }
 }
 
+/// Use this enum to specify whether or not we should include a prefix in the target name when
+/// saving a target.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Prefix {
+    /// Do not prepend the target name when saving the target file, e.g. `my-target.txt`.
+    None,
+    /// Prepend the sha digest when saving the target file, e.g. `0123456789abcdef.my-target.txt`.
+    Digest,
+}
+
 /// A TUF repository.
 ///
 /// You can create a `Repository` using a [`RepositoryLoader`].
@@ -405,7 +421,7 @@ impl Repository {
     /// before its checksum is validated. If the maximum size is reached or there is a checksum
     /// mismatch, the reader returns a [`std::io::Error`]. **Consumers of this library must not use
     /// data from the reader if it returns an error.**
-    pub fn read_target(&self, name: &str) -> Result<Option<impl Read + Send>> {
+    pub fn read_target(&self, name: &TargetName) -> Result<Option<impl Read + Send>> {
         // Check for repository metadata expiration.
         if self.expiration_enforcement == ExpirationEnforcement::Safe {
             ensure!(
@@ -439,6 +455,98 @@ impl Repository {
         } else {
             None
         })
+    }
+
+    /// Fetches a target from the repository and saves it to `outdir`. Attempts to do this as safely
+    /// as possible by using `path_clean` to eliminate `../` path traversals from the the target's
+    /// name. Ensures that the resulting filepath is in `outdir` or a child of `outdir`.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: the target name.
+    /// - `outdir`: the directory to save the target in.
+    /// - `prepend`: Whether or not to prepend the sha digest when saving the target file.
+    ///
+    /// # Preconditions and Behavior
+    ///
+    /// - `outdir` must exist. For safety we want to canonicalize the path before we join to it.
+    /// - intermediate directories will be created in `outdir` with `create_dir_all`
+    /// - Will error if the result of path resolution results in a filepath outside of `outdir` or
+    ///   outside of a delegated target's correct path of delegation.
+    ///
+    pub fn save_target<P>(&self, name: &TargetName, outdir: P, prepend: Prefix) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        // Ensure the outdir exists then canonicalize the path.
+        let outdir = outdir.as_ref();
+        let outdir = outdir
+            .canonicalize()
+            .context(error::SaveTargetOutdirCanonicalize { path: outdir })?;
+        ensure!(outdir.is_dir(), error::SaveTargetOutdir { path: outdir });
+
+        if name.resolved() != name.raw() {
+            // Since target names with resolvable path segments are unusual and potentially unsafe,
+            // we warn the user that we have encountered them.
+            warn!(
+                "The target named '{}' had path segments that were resolved to produce the \
+                following name: {}",
+                name.raw(),
+                name.resolved()
+            );
+        }
+
+        let filename = match prepend {
+            Prefix::Digest => {
+                let target = self.targets.signed.find_target(name).with_context(|| {
+                    error::CacheTargetMissing {
+                        target_name: name.clone(),
+                    }
+                })?;
+                let sha256 = target.hashes.sha256.clone().into_vec();
+                format!("{}.{}", hex::encode(sha256), name.resolved())
+            }
+            Prefix::None => name.resolved().to_owned(),
+        };
+
+        let resolved_filepath = outdir.join(filename);
+
+        // Find out what directory we will be writing the target file to.
+        let filepath_dir =
+            resolved_filepath
+                .parent()
+                .with_context(|| error::SaveTargetNoParent {
+                    path: &resolved_filepath,
+                    name: name.clone(),
+                })?;
+
+        // Make sure the filepath we are writing to is in or below outdir.
+        ensure!(
+            filepath_dir.starts_with(&outdir),
+            error::SaveTargetUnsafePath {
+                name: name.clone(),
+                outdir,
+                filepath: &resolved_filepath,
+            }
+        );
+
+        // Fetch and write the target using NamedTempFile for an atomic file creation.
+        let mut reader = self
+            .read_target(name)?
+            .with_context(|| error::SaveTargetNotFound { name: name.clone() })?;
+        create_dir_all(&filepath_dir).context(error::DirCreate {
+            path: &filepath_dir,
+        })?;
+        let mut f = NamedTempFile::new_in(&filepath_dir).context(error::NamedTempFileCreate {
+            path: &filepath_dir,
+        })?;
+        std::io::copy(&mut reader, &mut f).context(error::FileWrite { path: &f.path() })?;
+        f.persist(&resolved_filepath)
+            .context(error::NamedTempFilePersist {
+                path: resolved_filepath,
+            })?;
+
+        Ok(())
     }
 
     /// Return the named `DelegatedRole` if found.
@@ -1021,6 +1129,9 @@ fn load_targets(
         )?;
     }
 
+    // This validation can only be done from the top level targets.json role. This check verifies
+    // that each target's delegate hierarchy is a match (i.e. it's delegate ownership is valid).
+    targets.signed.validate().context(error::InvalidPath)?;
     Ok(targets)
 }
 
@@ -1086,11 +1197,6 @@ fn load_delegations(
                 expected: role_meta.version
             }
         );
-        {
-            if let Some(delegations) = role.signed.delegations.as_ref() {
-                delegations.verify_paths().context(error::InvalidPath {})?;
-            }
-        }
 
         datastore.create(&path, &role)?;
         delegated_roles.insert(delegated_role.name.clone(), Some(role));

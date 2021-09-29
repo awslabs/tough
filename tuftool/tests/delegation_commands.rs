@@ -9,7 +9,7 @@ use std::fs::File;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
-use tough::RepositoryLoader;
+use tough::{RepositoryLoader, TargetName};
 
 fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(1)).unwrap();
@@ -423,8 +423,9 @@ fn update_target_command() {
     .unwrap();
 
     // Make sure we can read new target
+    let file4 = TargetName::new("file4.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target("file4.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file4).unwrap().unwrap()),
         &b"This is an example target file."[..]
     );
 }

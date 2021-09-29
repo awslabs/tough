@@ -15,14 +15,16 @@ use crate::schema::{
     Targets,
 };
 use crate::transport::Transport;
-use crate::Repository;
 use crate::{encode_filename, Limits};
+use crate::{Repository, TargetName};
 use chrono::{DateTime, Utc};
 use ring::rand::SystemRandom;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::convert::TryInto;
+use std::fmt::Display;
 use std::num::NonZeroU64;
 use std::path::Path;
 use url::Url;
@@ -65,9 +67,9 @@ pub struct TargetsEditor {
     /// for "targets" on a repository that doesn't use delegated targets
     delegations: Option<Delegations>,
     /// New targets that were added to `name`
-    new_targets: Option<HashMap<String, Target>>,
+    new_targets: Option<HashMap<TargetName, Target>>,
     /// Targets that were previously in `name`
-    existing_targets: Option<HashMap<String, Target>>,
+    existing_targets: Option<HashMap<TargetName, Target>>,
     /// Version of the `Targets`
     version: Option<NonZeroU64>,
     /// Expiration of the `Targets`
@@ -175,11 +177,21 @@ impl TargetsEditor {
     }
 
     /// Add a `Target` to the `Targets` role
-    pub fn add_target(&mut self, name: &str, target: Target) -> &mut Self {
+    pub fn add_target<T, E>(&mut self, name: T, target: Target) -> Result<&mut Self>
+    where
+        T: TryInto<TargetName, Error = E>,
+        E: Display,
+    {
+        let target_name = name.try_into().map_err(|e| {
+            error::InvalidTargetName {
+                inner: e.to_string(),
+            }
+            .build()
+        })?;
         self.new_targets
             .get_or_insert_with(HashMap::new)
-            .insert(name.to_string(), target);
-        self
+            .insert(target_name, target);
+        Ok(self)
     }
 
     /// Add a target to the repository using its path
@@ -194,19 +206,20 @@ impl TargetsEditor {
     {
         let target_path = target_path.as_ref();
 
+        // Get the file name as a string
+        let target_name = TargetName::new(
+            target_path
+                .file_name()
+                .context(error::NoFileName { path: target_path })?
+                .to_str()
+                .context(error::PathUtf8 { path: target_path })?,
+        )?;
+
         // Build a Target from the path given. If it is not a file, this will fail
         let target =
             Target::from_path(target_path).context(error::TargetFromPath { path: target_path })?;
 
-        // Get the file name as a string
-        let target_name = target_path
-            .file_name()
-            .context(error::NoFileName { path: target_path })?
-            .to_str()
-            .context(error::PathUtf8 { path: target_path })?
-            .to_owned();
-
-        self.add_target(&target_name, target);
+        self.add_target(target_name, target)?;
         Ok(self)
     }
 
@@ -224,7 +237,7 @@ impl TargetsEditor {
     }
 
     /// Remove a `Target` from the targets if it exists
-    pub fn remove_target(&mut self, name: &str) -> &mut Self {
+    pub fn remove_target(&mut self, name: &TargetName) -> &mut Self {
         if let Some(targets) = self.existing_targets.as_mut() {
             targets.remove(name);
         }
@@ -434,7 +447,7 @@ impl TargetsEditor {
         // the most common use case, it's possible this is what a user wants.
         // If it's important to have a non-empty targets, the object can be
         // inspected by the calling code.
-        let mut targets: HashMap<String, Target> = HashMap::new();
+        let mut targets: HashMap<TargetName, Target> = HashMap::new();
         if let Some(ref existing_targets) = self.existing_targets {
             targets.extend(existing_targets.clone());
         }

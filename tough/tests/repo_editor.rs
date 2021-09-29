@@ -16,8 +16,8 @@ use tough::key_source::LocalKeySource;
 use tough::schema::decoded::Decoded;
 use tough::schema::decoded::Hex;
 use tough::schema::key::Key;
-use tough::schema::PathSet;
-use tough::{Repository, RepositoryLoader};
+use tough::schema::{PathPattern, PathSet};
+use tough::{Repository, RepositoryLoader, TargetName};
 use url::Url;
 
 mod test_utils;
@@ -165,7 +165,7 @@ fn create_sign_write_reload_repo() {
         .delegate_role(
             "role1",
             role1_key,
-            PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("file?.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -182,7 +182,7 @@ fn create_sign_write_reload_repo() {
         .delegate_role(
             "role2",
             role2_key,
-            PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -191,7 +191,7 @@ fn create_sign_write_reload_repo() {
         .delegate_role(
             "role3",
             role1_key,
-            PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -209,7 +209,7 @@ fn create_sign_write_reload_repo() {
         .delegate_role(
             "role4",
             role2_key,
-            PathSet::Paths(["file1.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -292,7 +292,7 @@ fn create_role_flow() {
         .add_role(
             "A",
             metadata_base_url_out.as_str(),
-            PathSet::Paths(["*.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("*.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role1_key)),
         )
@@ -369,7 +369,7 @@ fn create_role_flow() {
         .add_role(
             "B",
             metadata_base_url_out.as_str(),
-            PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("file?.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role2_key)),
         )
@@ -492,7 +492,7 @@ fn update_targets_flow() {
         .add_role(
             "A",
             metadata_base_url_out.as_str(),
-            PathSet::Paths(["*.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("*.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role1_key)),
         )
@@ -569,7 +569,7 @@ fn update_targets_flow() {
         .add_role(
             "B",
             metadata_base_url_out.as_str(),
-            PathSet::Paths(["file?.txt".to_string()].to_vec()),
+            PathSet::Paths(vec![PathPattern::new("file?.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role2_key)),
         )
@@ -713,8 +713,9 @@ fn update_targets_flow() {
     .load()
     .unwrap();
 
+    let file1 = TargetName::new("file1.txt").unwrap();
     assert_eq!(
-        read_to_end(new_repo.read_target("file1.txt").unwrap().unwrap()),
+        read_to_end(new_repo.read_target(&file1).unwrap().unwrap()),
         &b"This is an example target file."[..]
     );
 
@@ -799,8 +800,9 @@ fn update_targets_flow() {
     .load()
     .unwrap();
 
+    let file1 = TargetName::new("file1.txt").unwrap();
     assert_eq!(
-        read_to_end(new_repo.read_target("file1.txt").unwrap().unwrap()),
+        read_to_end(new_repo.read_target(&file1).unwrap().unwrap()),
         &b"Updated file1.txt"[..]
     );
 }

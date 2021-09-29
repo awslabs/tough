@@ -5,8 +5,8 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use test_utils::{dir_url, test_data};
-use tough::{Repository, RepositoryLoader};
+use test_utils::{dir_url, read_to_end, test_data, DATA_1, DATA_2};
+use tough::{Repository, RepositoryLoader, TargetName};
 use url::Url;
 
 mod test_utils;
@@ -72,8 +72,9 @@ fn test_repo_cache_all_targets() {
 
     // the copied repo should have file1 and file2 (i.e. all of targets).
     let mut file_data = Vec::new();
+    let file1 = TargetName::new("file1.txt").unwrap();
     let file_size = copied_repo
-        .read_target("file1.txt")
+        .read_target(&file1)
         .unwrap()
         .unwrap()
         .read_to_end(&mut file_data)
@@ -81,8 +82,9 @@ fn test_repo_cache_all_targets() {
     assert_eq!(31, file_size);
 
     let mut file_data = Vec::new();
+    let file2 = TargetName::new("file2.txt").unwrap();
     let file_size = copied_repo
-        .read_target("file2.txt")
+        .read_target(&file2)
         .unwrap()
         .unwrap()
         .read_to_end(&mut file_data)
@@ -121,8 +123,9 @@ fn test_repo_cache_list_of_two_targets() {
 
     // the copied repo should have file1 and file2 (i.e. all of the listed targets).
     let mut file_data = Vec::new();
+    let file1 = TargetName::new("file1.txt").unwrap();
     let file_size = copied_repo
-        .read_target("file1.txt")
+        .read_target(&file1)
         .unwrap()
         .unwrap()
         .read_to_end(&mut file_data)
@@ -130,8 +133,9 @@ fn test_repo_cache_list_of_two_targets() {
     assert_eq!(31, file_size);
 
     let mut file_data = Vec::new();
+    let file2 = TargetName::new("file2.txt").unwrap();
     let file_size = copied_repo
-        .read_target("file2.txt")
+        .read_target(&file2)
         .unwrap()
         .unwrap()
         .read_to_end(&mut file_data)
@@ -169,12 +173,14 @@ fn test_repo_cache_some() {
     .unwrap();
 
     // the copied repo should have file2 but not file1 (i.e. only the listed targets).
-    let read_target_result = copied_repo.read_target("file1.txt");
+    let file1 = TargetName::new("file1.txt").unwrap();
+    let read_target_result = copied_repo.read_target(&file1);
     assert!(read_target_result.is_err());
 
     let mut file_data = Vec::new();
+    let file2 = TargetName::new("file2.txt").unwrap();
     let file_size = copied_repo
-        .read_target("file2.txt")
+        .read_target(&file2)
         .unwrap()
         .unwrap()
         .read_to_end(&mut file_data)
@@ -230,4 +236,66 @@ fn test_repo_cache_metadata_no_root_chain() {
 
     // Verify we did not cache the root.json
     assert!(!metadata_destination.join("1.root.json").exists());
+}
+
+/// Test that the repo.cache() function prepends target names with sha digest.
+#[test]
+fn test_repo_cache_consistent_snapshots() {
+    let repo_name = "consistent-snapshots";
+    let metadata_dir = test_data().join(repo_name).join("metadata");
+    let targets_dir = test_data().join(repo_name).join("targets");
+    let root = metadata_dir.join("1.root.json");
+    let repo = RepositoryLoader::new(
+        File::open(&root).unwrap(),
+        dir_url(metadata_dir),
+        dir_url(targets_dir),
+    )
+    .load()
+    .unwrap();
+
+    // cache the repo for future use
+    let destination = TempDir::new().unwrap();
+    let metadata_destination = destination.as_ref().join("metadata");
+    let targets_destination = destination.as_ref().join("targets");
+    // let targets_subset = vec!["file2.txt".to_string()];
+    repo.cache(
+        &metadata_destination,
+        &targets_destination,
+        Option::<&[&str]>::None,
+        true,
+    )
+    .unwrap();
+
+    // check that we can load the copied repo.
+    let copied_repo = RepositoryLoader::new(
+        File::open(&root).unwrap(),
+        dir_url(&metadata_destination),
+        dir_url(&targets_destination),
+    )
+    .load()
+    .unwrap();
+
+    // the copied repo should have file2 but not file1 (i.e. only the listed targets).
+    let data1 = String::from_utf8(read_to_end(
+        copied_repo
+            .read_target(&TargetName::new("data1.txt").unwrap())
+            .unwrap()
+            .unwrap(),
+    ))
+    .unwrap();
+    assert_eq!(data1, DATA_1);
+
+    let data2 = String::from_utf8(read_to_end(
+        copied_repo
+            .read_target(&TargetName::new("data2.txt").unwrap())
+            .unwrap()
+            .unwrap(),
+    ))
+    .unwrap();
+    assert_eq!(data2, DATA_2);
+
+    // assert that the target has its digest prepended
+    let expected_filepath = targets_destination
+        .join("5aa1d2b3bea034a0f9d0b27a1bc72919b3145a2b092b72ac0415a05e07e2bdd1.data1.txt");
+    assert!(expected_filepath.is_file())
 }

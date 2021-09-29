@@ -6,6 +6,7 @@ mod tests {
     use crate::editor::RepositoryEditor;
     use crate::key_source::LocalKeySource;
     use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp};
+    use crate::TargetName;
     use chrono::{Duration, Utc};
     use std::num::NonZeroU64;
     use std::path::PathBuf;
@@ -73,7 +74,7 @@ mod tests {
         editor
             .targets(targets)
             .unwrap()
-            .add_target("file4.txt", target4)
+            .add_target(TargetName::new("file4.txt").unwrap(), target4)
             .unwrap()
             .add_target_path(target3_path)
             .unwrap();

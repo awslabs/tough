@@ -3,13 +3,12 @@
 
 use crate::download_root::download_root;
 use crate::error::{self, Result};
-use snafu::{OptionExt, ResultExt};
+use snafu::{ensure, ResultExt};
 use std::fs::File;
-use std::io;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use tough::{ExpirationEnforcement, Repository, RepositoryLoader};
+use tough::{ExpirationEnforcement, Prefix, Repository, RepositoryLoader, TargetName};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -38,7 +37,7 @@ pub(crate) struct DownloadArgs {
     #[structopt(short = "n", long = "target-name")]
     target_names: Vec<String>,
 
-    /// Output directory of targets
+    /// Output directory for targets (will be created and must not already exist)
     outdir: PathBuf,
 
     /// Allow repo download for expired metadata
@@ -58,6 +57,12 @@ WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establis
 
 impl DownloadArgs {
     pub(crate) fn run(&self) -> Result<()> {
+        // To help ensure that downloads are safe, we require that the outdir does not exist.
+        ensure!(
+            !self.outdir.exists(),
+            error::DownloadOutdirExists { path: &self.outdir }
+        );
+
         // use local root.json or download from repository
         let root_path = if let Some(path) = &self.root {
             PathBuf::from(path)
@@ -90,21 +95,22 @@ impl DownloadArgs {
     }
 }
 
-fn handle_download(repository: &Repository, outdir: &Path, target_names: &[String]) -> Result<()> {
-    let download_target = |target: &str| -> Result<()> {
-        let path = PathBuf::from(outdir).join(target);
-        println!("\t-> {}", &target);
-        let mut reader = repository
-            .read_target(target)
-            .context(error::Metadata)?
-            .context(error::TargetNotFound { target })?;
-        let mut f = File::create(&path).context(error::OpenFile { path: &path })?;
-        io::copy(&mut reader, &mut f).context(error::WriteTarget)?;
+fn handle_download(repository: &Repository, outdir: &Path, raw_names: &[String]) -> Result<()> {
+    let target_names: Result<Vec<TargetName>> = raw_names
+        .iter()
+        .map(|s| TargetName::new(s).context(error::InvalidTargetName))
+        .collect();
+    let target_names = target_names?;
+    let download_target = |name: &TargetName| -> Result<()> {
+        println!("\t-> {}", name.raw());
+        repository
+            .save_target(name, outdir, Prefix::None)
+            .context(error::Metadata)?;
         Ok(())
     };
 
     // copy requested targets, or all available targets if not specified
-    let targets = if target_names.is_empty() {
+    let targets: Vec<TargetName> = if target_names.is_empty() {
         repository
             .targets()
             .signed
@@ -113,7 +119,7 @@ fn handle_download(repository: &Repository, outdir: &Path, target_names: &[Strin
             .cloned()
             .collect()
     } else {
-        target_names.to_owned()
+        target_names
     };
 
     println!("Downloading targets to {:?}", outdir);
