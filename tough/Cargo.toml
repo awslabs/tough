@@ -1,6 +1,6 @@
 [package]
 name = "tough"
-version = "0.11.3"
+version = "0.12.0"
 description = "The Update Framework (TUF) repository client"
 authors = ["iliana destroyer of worlds <iweller@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,9 @@ globset = { version = "0.4.8" }
 hex = "0.4.2"
 log = "0.4.8"
 olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
+path-absolutize = "3"
 pem = "1.0.0"
+percent-encoding = "2"
 reqwest = { version = "0.11.1", optional = true, default-features = false, features = ["blocking"] }
 ring = { version = "0.16.16", features = ["std"] }
 serde = { version = "1.0.125", features = ["derive"] }
@@ -30,6 +32,7 @@ walkdir = "2.3.2"
 [dev-dependencies]
 hex-literal = "0.3.3"
 httptest = "0.15"
+maplit = "1.0.1"
 
 [features]
 http = ["reqwest"]

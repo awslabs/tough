@@ -100,9 +100,9 @@ impl CreateArgs {
             .timestamp_version(self.timestamp_version)
             .timestamp_expires(self.timestamp_expires);
 
-        for (filename, target) in targets {
+        for (target_name, target) in targets {
             editor
-                .add_target(&filename, target)
+                .add_target(target_name, target)
                 .context(error::DelegationStructure)?;
         }
 

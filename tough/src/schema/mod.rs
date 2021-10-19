@@ -16,11 +16,14 @@ use crate::schema::iter::KeysIter;
 use crate::schema::key::Key;
 use crate::sign::Sign;
 pub use crate::transport::{FilesystemTransport, Transport};
+use crate::{encode_filename, TargetName};
 use chrono::{DateTime, Utc};
-use globset::Glob;
+use globset::{Glob, GlobMatcher};
+use hex::ToHex;
 use olpc_cjson::CanonicalFormatter;
 use ring::digest::{digest, Context, SHA256};
-use serde::{Deserialize, Serialize};
+use serde::de::Error as SerdeDeError;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_plain::{derive_display_from_serialize, derive_fromstr_from_deserialize};
 use snafu::ResultExt;
@@ -30,6 +33,7 @@ use std::io::Read;
 use std::num::NonZeroU64;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
+use std::str::FromStr;
 
 /// The type of metadata role.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash)]
@@ -395,7 +399,7 @@ pub struct Targets {
 
     /// Each key of the TARGETS object is a TARGETPATH. A TARGETPATH is a path to a file that is
     /// relative to a mirror's base URL of targets.
-    pub targets: HashMap<String, Target>,
+    pub targets: HashMap<TargetName, Target>,
 
     /// Delegations describes subsets of the targets for which responsibility is delegated to
     /// another role.
@@ -501,13 +505,22 @@ impl Targets {
         }
     }
 
-    /// Given a target url, returns a reference to the Target struct or error if the target is unreachable
-    pub fn find_target(&self, target_name: &str) -> Result<&Target> {
+    /// Given a target url, returns a reference to the Target struct or error if the target is
+    /// unreachable.
+    ///
+    /// **Caution**: does not imply that delegations in this struct or any child are valid.
+    ///
+    pub fn find_target(&self, target_name: &TargetName) -> Result<&Target> {
         if let Some(target) = self.targets.get(target_name) {
             return Ok(target);
         }
         if let Some(delegations) = &self.delegations {
             for role in &delegations.roles {
+                // If the target cannot match this DelegatedRole, then we do not want to recurse and
+                // check any of its child roles either.
+                if !role.paths.matches_target_name(target_name) {
+                    continue;
+                }
                 if let Some(targets) = &role.targets {
                     if let Ok(target) = targets.signed.find_target(target_name) {
                         return Ok(target);
@@ -515,31 +528,31 @@ impl Targets {
                 }
             }
         }
-        Err(Error::TargetNotFound {
-            target_file: target_name.to_string(),
-        })
+        error::TargetNotFound {
+            name: target_name.clone(),
+        }
+        .fail()
     }
 
     /// Returns a hashmap of all targets and all delegated targets recursively
-    pub fn targets_map(&self) -> HashMap<String, &Target> {
-        let mut targets_map = HashMap::new();
-        for target in &self.targets {
-            targets_map.insert(target.0.clone(), target.1);
-        }
+    pub fn targets_map(&self) -> HashMap<TargetName, &Target> {
+        self.targets_iter()
+            .map(|(target_name, target)| (target_name.clone(), target))
+            .collect()
+    }
+
+    /// Returns an iterator of all targets and all delegated targets recursively
+    pub fn targets_iter(&self) -> impl Iterator<Item = (&TargetName, &Target)> + '_ {
+        let mut iter: Box<dyn Iterator<Item = (&TargetName, &Target)>> =
+            Box::new(self.targets.iter());
         if let Some(delegations) = &self.delegations {
             for role in &delegations.roles {
                 if let Some(targets) = &role.targets {
-                    targets_map.extend(targets.signed.targets_map());
+                    iter = Box::new(iter.chain(targets.signed.targets_iter()));
                 }
             }
         }
-
-        targets_map
-    }
-
-    /// Returns an iterator of all targets delegated
-    pub fn targets_iter(&self) -> impl Iterator + '_ {
-        self.targets_map().into_iter()
+        iter
     }
 
     /// Recursively clears all targets
@@ -555,12 +568,12 @@ impl Targets {
     }
 
     /// Add a target to targets
-    pub fn add_target(&mut self, name: &str, target: Target) {
-        self.targets.insert(name.to_string(), target);
+    pub fn add_target(&mut self, name: TargetName, target: Target) {
+        self.targets.insert(name, target);
     }
 
     /// Remove a target from targets
-    pub fn remove_target(&mut self, name: &str) -> Option<Target> {
+    pub fn remove_target(&mut self, name: &TargetName) -> Option<Target> {
         self.targets.remove(name)
     }
 
@@ -698,6 +711,17 @@ impl Targets {
 
         needed_roles
     }
+
+    /// Calls `find_target` on each target (recursively provided by `targets_iter`). This
+    /// proves that the target is either owned by us, or correctly matches through some hierarchy of
+    /// [`PathSets`] below us. When called on the top level [`Targets`] of a repository, this proves
+    /// that the ownership of each target is valid.
+    pub(crate) fn validate(&self) -> Result<()> {
+        for (target_name, _) in self.targets_iter() {
+            self.find_target(target_name)?;
+        }
+        Ok(())
+    }
 }
 
 impl Role for Targets {
@@ -758,9 +782,9 @@ impl Role for DelegatedTargets {
 
     fn filename(&self, consistent_snapshot: bool) -> String {
         if consistent_snapshot {
-            format!("{}.{}.json", self.version(), self.name)
+            format!("{}.{}.json", self.version(), encode_filename(&self.name))
         } else {
-            format!("{}.json", self.name)
+            format!("{}.json", encode_filename(&self.name))
         }
     }
 
@@ -866,7 +890,7 @@ pub enum PathSet {
     /// PATHPATTERN, it is RECOMMENDED that PATHPATTERN uses the forward slash (/) as directory
     /// separator and does not start with a directory separator, akin to TARGETSPATH.
     #[serde(rename = "paths")]
-    Paths(Vec<String>),
+    Paths(Vec<PathPattern>),
 
     /// The "path_hash_prefixes" list is used to succinctly describe a set of target paths.
     /// Specifically, each HEX_DIGEST in "path_hash_prefixes" describes a set of target paths;
@@ -876,54 +900,144 @@ pub enum PathSet {
     /// prefix as one of the prefixes in "path_hash_prefixes". This is useful to split a large
     /// number of targets into separate bins identified by consistent hashing.
     #[serde(rename = "path_hash_prefixes")]
-    PathHashPrefixes(Vec<String>),
+    PathHashPrefixes(Vec<PathHashPrefix>),
+}
+
+/// A glob-like path pattern for matching delegated targets, e.g. `foo/bar/*`.
+///
+/// `PATHPATTERN` supports the Unix shell pattern matching convention for paths
+/// ([glob](https://man7.org/linux/man-pages/man7/glob.7.html)bing pathnames). Its format may either
+/// indicate a path to a single file, or to multiple files with the use of shell-style wildcards
+/// (`*` or `?`). To avoid surprising behavior when matching targets with `PATHPATTERN` it is
+/// RECOMMENDED that `PATHPATTERN` uses the forward slash (`/`) as directory separator and does
+/// not start with a directory separator, as is also recommended for `TARGETPATH`. A path
+/// separator in a path SHOULD NOT be matched by a wildcard in the `PATHPATTERN`.
+///
+/// Some example `PATHPATTERN`s and expected matches:
+/// * a `PATHPATTERN` of `"targets/*.tgz"` would match file paths `"targets/foo.tgz"` and
+///   `"targets/bar.tgz"`, but not `"targets/foo.txt"`.
+/// * a `PATHPATTERN` of `"foo-version-?.tgz"` matches `"foo-version-2.tgz"` and
+///     `"foo-version-a.tgz"`, but not `"foo-version-alpha.tgz"`.
+/// * a `PATHPATTERN` of `"*.tgz"` would match `"foo.tgz"` and `"bar.tgz"`,
+///   but not `"targets/foo.tgz"`
+/// * a `PATHPATTERN` of `"foo.tgz"` would match only `"foo.tgz"`
+#[derive(Clone, Debug)]
+pub struct PathPattern {
+    value: String,
+    glob: GlobMatcher,
+}
+
+impl PathPattern {
+    /// Create a new, valid `PathPattern`. This will fail if we cannot parse the value as a glob. It is important that
+    /// our implementation stop if it encounters a glob it cannot parse so that we do not load repositories where we
+    /// cannot enforce delegate ownership.
+    pub fn new<S: Into<String>>(value: S) -> Result<Self> {
+        let value = value.into();
+        let glob = Glob::new(&value)
+            .context(error::Glob { pattern: &value })?
+            .compile_matcher();
+        Ok(Self { value, glob })
+    }
+
+    /// Get the inner value of this `PathPattern` as a string.
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    fn matches_target_name(&self, target_name: &TargetName) -> bool {
+        self.glob.is_match(target_name.resolved())
+    }
+}
+
+impl FromStr for PathPattern {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        PathPattern::new(s)
+    }
+}
+
+impl PartialEq for PathPattern {
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.value, &other.value)
+    }
+}
+
+impl Serialize for PathPattern {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.value().as_ref())
+    }
+}
+
+impl<'de> Deserialize<'de> for PathPattern {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = <String>::deserialize(deserializer)?;
+        PathPattern::new(s).map_err(|e| D::Error::custom(format!("{}", e)))
+    }
+}
+
+/// The first characters found in the string representation of a sha256 digest. This can be used for
+/// randomly sharding a repository. See [`PathSet::PathHashDigest`] for the description of how this
+/// is used.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+pub struct PathHashPrefix(String);
+
+impl PathHashPrefix {
+    /// Create a new, valid `PathPattern`.
+    pub fn new<S: Into<String>>(value: S) -> Result<Self> {
+        // In case we choose to reject some of these in the future, we return a result. For now this
+        // will always succeed.
+        Ok(PathHashPrefix(value.into()))
+    }
+
+    /// Get the inner value of this `PathPattern` as a string.
+    pub fn value(&self) -> &str {
+        &self.0
+    }
+
+    fn matches_target_name(&self, target_name: &TargetName) -> bool {
+        let target_name_digest =
+            digest(&SHA256, target_name.resolved().as_bytes()).encode_hex::<String>();
+        target_name_digest.starts_with(self.value())
+    }
+}
+
+impl FromStr for PathHashPrefix {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        PathHashPrefix::new(s)
+    }
 }
 
 impl PathSet {
-    /// Given a target string determines if paths match
-    fn matched_target(&self, target: &str) -> bool {
+    /// Given a `target_name`, returns whether or not this `PathSet` contains a pattern or hash
+    /// prefix that matches.
+    fn matches_target_name(&self, target_name: &TargetName) -> bool {
         match self {
             Self::Paths(paths) => {
                 for path in paths {
-                    if Self::matched_path(path, target) {
+                    if path.matches_target_name(target_name) {
                         return true;
                     }
                 }
             }
 
             Self::PathHashPrefixes(path_prefixes) => {
-                for path in path_prefixes {
-                    if Self::matched_prefix(path, target) {
+                for prefix in path_prefixes {
+                    if prefix.matches_target_name(target_name) {
                         return true;
                     }
                 }
             }
         }
         false
-    }
-
-    /// Given a path hash prefix and a target path determines if target is delegated by prefix
-    fn matched_prefix(prefix: &str, target: &str) -> bool {
-        let temp_target = target.to_string();
-        let hash = digest(&SHA256, temp_target.as_bytes());
-        hash.as_ref().starts_with(prefix.as_bytes())
-    }
-
-    /// Given a shell style wildcard path determines if target matches the path
-    fn matched_path(wildcardpath: &str, target: &str) -> bool {
-        let glob = if let Ok(glob) = Glob::new(wildcardpath) {
-            glob.compile_matcher()
-        } else {
-            return false;
-        };
-        glob.is_match(target)
-    }
-
-    /// Returns a Vec representation of the `PathSet`
-    pub fn vec(&self) -> &Vec<String> {
-        match self {
-            PathSet::Paths(x) | PathSet::PathHashPrefixes(x) => x,
-        }
     }
 }
 
@@ -937,30 +1051,13 @@ impl Delegations {
     }
 
     /// Determines if target passes pathset specific matching
-    pub fn target_is_delegated(&self, target: &str) -> bool {
+    pub fn target_is_delegated(&self, target: &TargetName) -> bool {
         for role in &self.roles {
-            if role.paths.matched_target(target) {
+            if role.paths.matches_target_name(target) {
                 return true;
             }
         }
         false
-    }
-
-    /// Ensures that all delegated paths are allowed to be delegated
-    pub fn verify_paths(&self) -> Result<()> {
-        for sub_role in &self.roles {
-            let pathset = match &sub_role.paths {
-                PathSet::Paths(paths) | PathSet::PathHashPrefixes(paths) => paths,
-            };
-            for path in pathset {
-                if !self.target_is_delegated(path) {
-                    return Err(Error::UnmatchedPath {
-                        child: path.to_string(),
-                    });
-                }
-            }
-        }
-        Ok(())
     }
 
     /// Given an object/key that impls Sign, return the corresponding
@@ -983,21 +1080,6 @@ impl DelegatedRole {
             threshold: self.threshold,
             _extra: HashMap::new(),
         }
-    }
-
-    /// Verify that paths can be delegated by this role
-    pub fn verify_paths(&self, paths: &PathSet) -> Result<()> {
-        let paths = match paths {
-            PathSet::Paths(x) | PathSet::PathHashPrefixes(x) => x,
-        };
-        for path in paths {
-            if !self.paths.matched_target(path) {
-                return Err(Error::UnmatchedPath {
-                    child: path.to_string(),
-                });
-            }
-        }
-        Ok(())
     }
 }
 
@@ -1086,4 +1168,103 @@ impl Role for Timestamp {
     fn filename(&self, _consistent_snapshot: bool) -> String {
         "timestamp.json".to_string()
     }
+}
+
+#[test]
+fn targets_iter_and_map_test() {
+    use maplit::hashmap;
+
+    // Create a dummy Target object.
+    let nothing = Target {
+        length: 0,
+        hashes: Hashes {
+            sha256: [0u8].to_vec().into(),
+            _extra: Default::default(),
+        },
+        custom: Default::default(),
+        _extra: Default::default(),
+    };
+
+    // Create a hierarchy of targets/delegations: a -> b -> c
+    let c_role = DelegatedRole {
+        name: "c-role".to_string(),
+        keyids: vec![],
+        threshold: NonZeroU64::new(1).unwrap(),
+        paths: PathSet::Paths(vec![PathPattern::new("*").unwrap()]),
+        terminating: false,
+        targets: Some(Signed {
+            signed: Targets {
+                spec_version: "".to_string(),
+                version: NonZeroU64::new(1).unwrap(),
+                expires: Utc::now(),
+                targets: hashmap! {
+                    TargetName::new("c.txt").unwrap() => nothing.clone(),
+                },
+                delegations: None,
+                _extra: Default::default(),
+            },
+            signatures: vec![],
+        }),
+    };
+    let b_delegations = Delegations {
+        keys: Default::default(),
+        roles: vec![c_role],
+    };
+    let b_role = DelegatedRole {
+        name: "b-role".to_string(),
+        keyids: vec![],
+        threshold: NonZeroU64::new(1).unwrap(),
+        paths: PathSet::Paths(vec![PathPattern::new("*").unwrap()]),
+        terminating: false,
+        targets: Some(Signed {
+            signed: Targets {
+                spec_version: "".to_string(),
+                version: NonZeroU64::new(1).unwrap(),
+                expires: Utc::now(),
+                targets: hashmap! {
+                    TargetName::new("b.txt").unwrap() => nothing.clone(),
+                },
+                delegations: Some(b_delegations),
+                _extra: Default::default(),
+            },
+            signatures: vec![],
+        }),
+    };
+    let a_delegations = Delegations {
+        keys: Default::default(),
+        roles: vec![b_role],
+    };
+    let a = Targets {
+        spec_version: "".to_string(),
+        version: NonZeroU64::new(1).unwrap(),
+        expires: Utc::now(),
+        targets: hashmap! {
+            TargetName::new("a.txt").unwrap() => nothing.clone(),
+        },
+        delegations: Some(a_delegations),
+        _extra: Default::default(),
+    };
+
+    // Assert that targets_iter is recursive and thus has a.txt, b.txt and c.txt
+    assert!(a
+        .targets_iter()
+        .map(|(key, _)| key)
+        .find(|&item| item.raw() == "a.txt")
+        .is_some());
+    assert!(a
+        .targets_iter()
+        .map(|(key, _)| key)
+        .find(|&item| item.raw() == "b.txt")
+        .is_some());
+    assert!(a
+        .targets_iter()
+        .map(|(key, _)| key)
+        .find(|&item| item.raw() == "c.txt")
+        .is_some());
+
+    // Assert that targets_map is also recursive
+    let map = a.targets_map();
+    assert!(map.contains_key(&TargetName::new("a.txt").unwrap()));
+    assert!(map.contains_key(&TargetName::new("b.txt").unwrap()));
+    assert!(map.contains_key(&TargetName::new("c.txt").unwrap()));
 }

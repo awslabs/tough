@@ -21,8 +21,8 @@ use crate::schema::{
     Targets, Timestamp, TimestampMeta,
 };
 use crate::transport::Transport;
-use crate::Limits;
-use crate::Repository;
+use crate::{encode_filename, Limits};
+use crate::{Repository, TargetName};
 use chrono::{DateTime, Utc};
 use ring::digest::{SHA256, SHA256_OUTPUT_LEN};
 use ring::rand::SystemRandom;
@@ -30,6 +30,8 @@ use serde_json::Value;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::convert::TryInto;
+use std::fmt::Display;
 use std::num::NonZeroU64;
 use std::path::Path;
 use url::Url;
@@ -193,6 +195,14 @@ impl RepositoryEditor {
             .build_timestamp(&signed_snapshot)
             .and_then(|timestamp| SignedRole::new(timestamp, &root, keys, &rng))?;
 
+        // This validation can only be done from the top level targets.json role. This check verifies
+        // that each target's delegate hierarchy is a match (i.e. its delegate ownership is valid).
+        signed_targets
+            .signed
+            .signed
+            .validate()
+            .context(error::InvalidPath)?;
+
         Ok(SignedRepository {
             root: self.signed_root,
             targets: signed_targets,
@@ -256,13 +266,17 @@ impl RepositoryEditor {
     }
 
     /// Add a `Target` to the repository
-    pub fn add_target(&mut self, name: &str, target: Target) -> Result<&mut Self> {
-        self.targets_editor_mut()?.add_target(name, target);
+    pub fn add_target<T, E>(&mut self, name: T, target: Target) -> Result<&mut Self>
+    where
+        T: TryInto<TargetName, Error = E>,
+        E: Display,
+    {
+        self.targets_editor_mut()?.add_target(name, target)?;
         Ok(self)
     }
 
     /// Remove a `Target` from the repository
-    pub fn remove_target(&mut self, name: &str) -> Result<&mut Self> {
+    pub fn remove_target(&mut self, name: &TargetName) -> Result<&mut Self> {
         self.targets_editor_mut()?.remove_target(name);
 
         Ok(self)
@@ -279,7 +293,7 @@ impl RepositoryEditor {
         P: AsRef<Path>,
     {
         let (target_name, target) = RepositoryEditor::build_target(target_path)?;
-        self.add_target(&target_name, target)?;
+        self.add_target(target_name, target)?;
         Ok(self)
     }
 
@@ -292,30 +306,31 @@ impl RepositoryEditor {
     {
         for target in targets {
             let (target_name, target) = RepositoryEditor::build_target(target)?;
-            self.add_target(&target_name, target)?;
+            self.add_target(target_name, target)?;
         }
 
         Ok(self)
     }
 
     /// Builds a target struct for the given path
-    pub fn build_target<P>(target_path: P) -> Result<(String, Target)>
+    pub fn build_target<P>(target_path: P) -> Result<(TargetName, Target)>
     where
         P: AsRef<Path>,
     {
         let target_path = target_path.as_ref();
 
+        // Get the file name as a string
+        let target_name = TargetName::new(
+            target_path
+                .file_name()
+                .context(error::NoFileName { path: target_path })?
+                .to_str()
+                .context(error::PathUtf8 { path: target_path })?,
+        )?;
+
         // Build a Target from the path given. If it is not a file, this will fail
         let target =
             Target::from_path(target_path).context(error::TargetFromPath { path: target_path })?;
-
-        // Get the file name as a string
-        let target_name = target_path
-            .file_name()
-            .context(error::NoFileName { path: target_path })?
-            .to_str()
-            .context(error::PathUtf8 { path: target_path })?
-            .to_owned();
 
         Ok((target_name, target))
     }
@@ -487,11 +502,15 @@ impl RepositoryEditor {
             .signed;
         let metadata_base_url = parse_url(metadata_url)?;
         // path to updated metadata
+        let encoded_name = encode_filename(name);
+        let encoded_filename = format!("{}.json", encoded_name);
         let role_url =
             metadata_base_url
-                .join(&format!("{}.json", name))
-                .context(error::JoinUrl {
-                    path: name.to_string(),
+                .join(&encoded_filename)
+                .with_context(|| error::JoinUrlEncoded {
+                    original: name,
+                    encoded: encoded_name,
+                    filename: encoded_filename,
                     url: metadata_base_url.clone(),
                 })?;
         let reader = Box::new(fetch_max_size(
@@ -548,13 +567,16 @@ impl RepositoryEditor {
         // load the new roles
         for name in new_roles {
             // path to new metadata
-            let role_url =
-                metadata_base_url
-                    .join(&format!("{}.json", name))
-                    .context(error::JoinUrl {
-                        path: name.to_string(),
-                        url: metadata_base_url.clone(),
-                    })?;
+            let encoded_name = encode_filename(&name);
+            let encoded_filename = format!("{}.json", encoded_name);
+            let role_url = metadata_base_url.join(&encoded_filename).with_context(|| {
+                error::JoinUrlEncoded {
+                    original: &name,
+                    encoded: encoded_name,
+                    filename: encoded_filename,
+                    url: metadata_base_url.clone(),
+                }
+            })?;
             let reader = Box::new(fetch_max_size(
                 transport.as_ref(),
                 role_url,

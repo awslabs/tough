@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2021-10-19
+### Breaking Changes
+- Target names are now specified with a struct, `TargetName`, instead of `String`.
+
+### Changes
+- Update dependencies.
+- Fix an issue where delegated role names with path traversal constructs could cause files to be written in unexpected locations.
+- Fix a similar issue with path traversal constructs in target names.
+
 ## [0.11.3] - 2021-09-15
 ### Changes
 - Update dependencies.
@@ -149,7 +158,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.11.3...HEAD
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.0...HEAD
+[0.12.0]: https://github.com/awslabs/tough/compare/tough-v0.11.3...tough-v0.12.0
 [0.11.3]: https://github.com/awslabs/tough/compare/tough-v0.11.2...tough-v0.11.3
 [0.11.2]: https://github.com/awslabs/tough/compare/tough-v0.11.1...tough-v0.11.2
 [0.11.1]: https://github.com/awslabs/tough/compare/tough-v0.11.0...tough-v0.11.1

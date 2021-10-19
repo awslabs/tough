@@ -945,6 +945,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "path-absolutize"
+version = "3.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b288298a7a3a7b42539e3181ba590d32f2d91237b0691ed5f103875c754b3bf5"
+dependencies = [
+ "path-dedot",
+]
+
+[[package]]
+name = "path-dedot"
+version = "3.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bfa72956f6be8524f7f7e2b07972dda393cb0008a6df4451f658b7e1bd1af80"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "pem"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1760,7 +1778,7 @@ dependencies = [
 
 [[package]]
 name = "tough"
-version = "0.11.3"
+version = "0.12.0"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -1769,8 +1787,11 @@ dependencies = [
  "hex-literal",
  "httptest",
  "log",
+ "maplit",
  "olpc-cjson",
+ "path-absolutize",
  "pem",
+ "percent-encoding",
  "reqwest",
  "ring",
  "serde",
@@ -1785,7 +1806,7 @@ dependencies = [
 
 [[package]]
 name = "tough-kms"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "base64",
  "bytes",
@@ -1804,7 +1825,7 @@ dependencies = [
 
 [[package]]
 name = "tough-ssm"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "rusoto_core",
  "rusoto_credential",
@@ -1856,7 +1877,7 @@ checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
 
 [[package]]
 name = "tuftool"
-version = "0.6.4"
+version = "0.7.0"
 dependencies = [
  "assert_cmd",
  "chrono",

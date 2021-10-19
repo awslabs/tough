@@ -10,7 +10,7 @@ use std::fs::File;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
-use tough::RepositoryLoader;
+use tough::{RepositoryLoader, TargetName};
 
 fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(1)).unwrap();
@@ -191,16 +191,19 @@ fn update_command_with_new_targets() {
     assert_eq!(repo.targets().signed.targets.len(), 6);
 
     // Ensure we can read the newly added targets
+    let file4 = TargetName::new("file4.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target("file4.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file4).unwrap().unwrap()),
         &b"This is an example target file."[..]
     );
+    let file5 = TargetName::new("file5.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target("file5.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file5).unwrap().unwrap()),
         &b"This is another example target file."[..]
     );
+    let file6 = TargetName::new("file6.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target("file6.txt").unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file6).unwrap().unwrap()),
         &b"This is yet another example target file."[..]
     );
 

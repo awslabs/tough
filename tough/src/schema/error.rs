@@ -3,6 +3,7 @@
 #![allow(clippy::default_trait_access)]
 
 use crate::schema::RoleType;
+use crate::TargetName;
 use snafu::{Backtrace, Snafu};
 use std::fmt::{self, Debug, Display};
 use std::path::PathBuf;
@@ -37,6 +38,13 @@ pub enum Error {
     FileRead {
         path: PathBuf,
         source: std::io::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Failed to parse path pattern '{}' as a glob: {}", pattern, source))]
+    Glob {
+        pattern: String,
+        source: globset::Error,
         backtrace: Backtrace,
     },
 
@@ -105,8 +113,8 @@ pub enum Error {
     UnmatchedPath { child: String },
 
     /// No valid targets claims `target_file`
-    #[snafu(display("Target file not delegated: {}", target_file))]
-    TargetNotFound { target_file: String },
+    #[snafu(display("Target file not delegated: {}", name.raw()))]
+    TargetNotFound { name: TargetName },
 
     #[snafu(display("Delegation doesn't contain targets field"))]
     NoTargets,

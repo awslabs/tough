@@ -27,6 +27,8 @@ use std::os::unix::fs::symlink;
 #[cfg(target_os = "windows")]
 use std::os::windows::fs::symlink_file as symlink;
 
+use crate::TargetName;
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use url::Url;
 use walkdir::WalkDir;
@@ -310,7 +312,7 @@ impl SignedRepository {
         input_path: &Path,
         outdir: &Path,
         replace_behavior: PathExists,
-        target_filename: Option<&str>,
+        target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
@@ -352,7 +354,7 @@ impl SignedRepository {
         input_path: &Path,
         outdir: &Path,
         replace_behavior: PathExists,
-        target_filename: Option<&str>,
+        target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
@@ -385,7 +387,7 @@ impl SignedRepository {
 }
 
 impl TargetsWalker for SignedRepository {
-    fn targets(&self) -> HashMap<String, &Target> {
+    fn targets(&self) -> HashMap<TargetName, &Target> {
         // Since there is access to `targets.json` metadata, all targets
         // can be found using `targets_map()`
         self.targets.signed.signed.targets_map()
@@ -484,7 +486,7 @@ impl SignedDelegatedTargets {
         input_path: &Path,
         outdir: &Path,
         replace_behavior: PathExists,
-        target_filename: Option<&str>,
+        target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
@@ -526,7 +528,7 @@ impl SignedDelegatedTargets {
         input_path: &Path,
         outdir: &Path,
         replace_behavior: PathExists,
-        target_filename: Option<&str>,
+        target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
@@ -559,7 +561,7 @@ impl SignedDelegatedTargets {
 }
 
 impl TargetsWalker for SignedDelegatedTargets {
-    fn targets(&self) -> HashMap<String, &Target> {
+    fn targets(&self) -> HashMap<TargetName, &Target> {
         // There are multiple `Targets` roles here that may or may not be related,
         // so find all of the `Target`s related to each role and combine them.
         let mut targets_map = HashMap::new();
@@ -580,7 +582,7 @@ impl TargetsWalker for SignedDelegatedTargets {
 /// also determine if a file prefix needs to be used.
 trait TargetsWalker {
     /// Returns a map of all targets this manager is responsible for
-    fn targets(&self) -> HashMap<String, &Target>;
+    fn targets(&self) -> HashMap<TargetName, &Target>;
     /// Determines whether or not consistent snapshot filenames should be used
     fn consistent_snapshot(&self) -> bool;
 
@@ -595,7 +597,7 @@ trait TargetsWalker {
         replace_behavior: PathExists,
     ) -> Result<()>
     where
-        F: Fn(&Self, &Path, &Path, PathExists, Option<&str>) -> Result<()>,
+        F: Fn(&Self, &Path, &Path, PathExists, Option<&TargetName>) -> Result<()>,
     {
         std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
 
@@ -636,20 +638,22 @@ trait TargetsWalker {
         &self,
         input: &Path,
         outdir: &Path,
-        target_filename: Option<&str>,
+        target_filename: Option<&TargetName>,
     ) -> Result<TargetPath> {
         let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
 
         // If the caller requested a specific target filename, use that, otherwise use the filename
         // component of the input path.
-        let file_name = if let Some(target_filename) = target_filename {
-            target_filename
+        let target_name = if let Some(target_filename) = target_filename {
+            Cow::Borrowed(target_filename)
         } else {
-            input
-                .file_name()
-                .context(error::NoFileName { path: input })?
-                .to_str()
-                .context(error::PathUtf8 { path: input })?
+            Cow::Owned(TargetName::new(
+                input
+                    .file_name()
+                    .context(error::NoFileName { path: input })?
+                    .to_str()
+                    .context(error::PathUtf8 { path: input })?,
+            )?)
         };
 
         // create a Target object using the input path.
@@ -660,7 +664,7 @@ trait TargetsWalker {
         // with that name. If so...
         let repo_targets = &self.targets();
         let repo_target = repo_targets
-            .get(file_name)
+            .get(&target_name)
             .context(error::PathIsNotTarget { path: input })?;
         // compare the hashes of the target from the repo and the target we just created.  They
         // should match, or we alert the caller; if target replacement is intended, it should
@@ -678,10 +682,10 @@ trait TargetsWalker {
             outdir.join(format!(
                 "{}.{}",
                 hex::encode(&target_from_path.hashes.sha256),
-                file_name
+                target_name.resolved()
             ))
         } else {
-            outdir.join(&file_name)
+            outdir.join(target_name.resolved())
         };
 
         // Return the target path, using the `TargetPath` enum that represents the type of file

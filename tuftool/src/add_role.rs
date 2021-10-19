@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 use tough::editor::{targets::TargetsEditor, RepositoryEditor};
 use tough::key_source::KeySource;
-use tough::schema::PathSet;
+use tough::schema::{PathHashPrefix, PathPattern, PathSet};
 use url::Url;
 
 #[derive(Debug, StructOpt)]
@@ -56,11 +56,11 @@ pub(crate) struct AddRoleArgs {
 
     /// The delegated paths
     #[structopt(short = "p", long = "paths", conflicts_with = "path-hash-prefixes")]
-    paths: Option<Vec<String>>,
+    paths: Option<Vec<PathPattern>>,
 
     /// The delegated paths hash prefixes
     #[structopt(short = "hp", long = "path-hash-prefixes")]
-    path_hash_prefixes: Option<Vec<String>>,
+    path_hash_prefixes: Option<Vec<PathHashPrefix>>,
 
     /// Determines if entire repo should be signed
     #[structopt(long = "sign-all")]

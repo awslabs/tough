@@ -39,6 +39,7 @@ use std::path::Path;
 use structopt::StructOpt;
 use tempfile::NamedTempFile;
 use tough::schema::Target;
+use tough::TargetName;
 use walkdir::WalkDir;
 
 static SPEC_VERSION: &str = "1.0.0";
@@ -127,7 +128,7 @@ where
 
 // Walk the directory specified, building a map of filename to Target structs.
 // Hashing of the targets is done in parallel
-fn build_targets<P>(indir: P, follow_links: bool) -> Result<HashMap<String, Target>>
+fn build_targets<P>(indir: P, follow_links: bool) -> Result<HashMap<TargetName, Target>>
 where
     P: AsRef<Path>,
 {
@@ -149,17 +150,19 @@ where
         .collect()
 }
 
-fn process_target(path: &Path) -> Result<(String, Target)> {
+fn process_target(path: &Path) -> Result<(TargetName, Target)> {
+    // Get the file name as a TargetName
+    let target_name = TargetName::new(
+        path.file_name()
+            .context(error::NoFileName { path })?
+            .to_str()
+            .context(error::PathUtf8 { path })?,
+    )
+    .context(error::InvalidTargetName)?;
+
     // Build a Target from the path given. If it is not a file, this will fail
     let target = Target::from_path(path).context(error::TargetFromPath { path })?;
 
-    // Get the file name as a string
-    let target_name = path
-        .file_name()
-        .context(error::NoFileName { path })?
-        .to_str()
-        .context(error::PathUtf8 { path })?
-        .to_owned();
     Ok((target_name, target))
 }
 
