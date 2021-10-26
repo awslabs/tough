@@ -22,7 +22,7 @@ rusoto_credential = { version = "0.47", optional = true }
 rusoto_kms = { version = "0.47", optional = true, default-features = false }
 snafu = { version = "0.6.10", features = ["backtraces-impl-backtrace-crate"] }
 tokio = "~1.8"  # LTS
-pem = "1.0.0"
+pem = "1.0.1"
 
 [dev-dependencies]
 base64 = "0.13"
