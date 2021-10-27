@@ -126,6 +126,32 @@ impl Encode for EcdsaPem {
     }
 }
 
+/// [`Decode`]/[`Encode`] implementation for ECDSA public keys.
+/// This is a flexible implementation, it will try to decode the key assuming
+/// it is PEM encoded, if the decode fails it will then try to decode it
+/// assuming it's Hex encoded.
+/// The official TUF specification suggests ECDSA keys to be PEM encoded,
+/// however the go-tuf implementation encodes them as Hex numbers.
+/// This flexible decoder tries to cover both cases in a transparent way.
+#[derive(Debug, Clone, Copy)]
+pub struct EcdsaFlex {}
+
+impl Decode for EcdsaFlex {
+    fn decode(s: &str) -> Result<Vec<u8>, Error> {
+        if s.starts_with("-----BEGIN ") {
+            EcdsaPem::decode(s)
+        } else {
+            Hex::decode(s)
+        }
+    }
+}
+
+impl Encode for EcdsaFlex {
+    fn encode(b: &[u8]) -> String {
+        EcdsaPem::encode(b)
+    }
+}
+
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
 impl<'de, T: Decode> Deserialize<'de> for Decoded<T> {
