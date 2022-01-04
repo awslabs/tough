@@ -74,7 +74,7 @@ impl Sign for RsaKeyPair {
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let mut signature = vec![0; self.public_modulus_len()];
         self.sign(&ring::signature::RSA_PSS_SHA256, rng, msg, &mut signature)
-            .context(error::Sign)?;
+            .context(error::SignSnafu)?;
         Ok(signature)
     }
 }
@@ -99,7 +99,7 @@ impl Sign for EcdsaKeyPair {
         msg: &[u8],
         rng: &dyn SecureRandom,
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let signature = self.sign(rng, msg).context(error::Sign)?;
+        let signature = self.sign(rng, msg).context(error::SignSnafu)?;
         Ok(signature.as_ref().to_vec())
     }
 }
@@ -154,15 +154,15 @@ pub fn parse_keypair(key: &[u8]) -> Result<impl Sign> {
                 if let Ok(rsa_key_pair) = RsaKeyPair::from_pkcs8(&pem.contents) {
                     Ok(SignKeyPair::RSA(rsa_key_pair))
                 } else {
-                    error::KeyUnrecognized.fail()
+                    error::KeyUnrecognizedSnafu.fail()
                 }
             }
             "RSA PRIVATE KEY" => Ok(SignKeyPair::RSA(
-                RsaKeyPair::from_der(&pem.contents).context(error::KeyRejected)?,
+                RsaKeyPair::from_der(&pem.contents).context(error::KeyRejectedSnafu)?,
             )),
-            _ => error::KeyUnrecognized.fail(),
+            _ => error::KeyUnrecognizedSnafu.fail(),
         }
     } else {
-        error::KeyUnrecognized.fail()
+        error::KeyUnrecognizedSnafu.fail()
     }
 }

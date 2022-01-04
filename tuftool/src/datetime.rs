@@ -21,7 +21,7 @@ pub(crate) fn parse_datetime(input: &str) -> Result<DateTime<Utc>> {
     let mut parts: Vec<&str> = input.split_whitespace().collect();
     ensure!(
         parts.len() == 3,
-        error::DateArgInvalid {
+        error::DateArgInvalidSnafu {
             input,
             msg: "expected RFC 3339, or something like 'in 7 days'"
         }
@@ -32,20 +32,22 @@ pub(crate) fn parse_datetime(input: &str) -> Result<DateTime<Utc>> {
 
     ensure!(
         prefix_str == "in",
-        error::DateArgInvalid {
+        error::DateArgInvalidSnafu {
             input,
             msg: "expected RFC 3339, or prefix 'in', something like 'in 7 days'",
         }
     );
 
-    let count: u32 = count_str.parse().context(error::DateArgCount { input })?;
+    let count: u32 = count_str
+        .parse()
+        .context(error::DateArgCountSnafu { input })?;
 
     let duration = match unit_str {
         "hour" | "hours" => Duration::hours(i64::from(count)),
         "day" | "days" => Duration::days(i64::from(count)),
         "week" | "weeks" => Duration::weeks(i64::from(count)),
         _ => {
-            return error::DateArgInvalid {
+            return error::DateArgInvalidSnafu {
                 input,
                 msg: "date argument's unit must be hours/days/weeks",
             }

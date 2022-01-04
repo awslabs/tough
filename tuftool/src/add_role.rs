@@ -94,14 +94,14 @@ impl AddRoleArgs {
             self.with_repo_editor(
                 role,
                 RepositoryEditor::from_repo(&self.root, repository)
-                    .context(error::EditorFromRepo { path: &self.root })?,
+                    .context(error::EditorFromRepoSnafu { path: &self.root })?,
             )
         } else {
             // Add a role using a `TargetsEditor`
             self.add_role(
                 role,
                 TargetsEditor::from_repo(repository, role)
-                    .context(error::EditorFromRepo { path: &self.root })?,
+                    .context(error::EditorFromRepoSnafu { path: &self.root })?,
             )
         }
     }
@@ -125,15 +125,15 @@ impl AddRoleArgs {
                 self.threshold,
                 None,
             )
-            .context(error::LoadMetadata)?
+            .context(error::LoadMetadataSnafu)?
             .version(self.version)
             .expires(self.expires)
             .sign(&self.keys)
-            .context(error::SignRepo)?;
+            .context(error::SignRepoSnafu)?;
         let metadata_destination_out = &self.outdir.join("metadata");
         updated_role
             .write(metadata_destination_out, false)
-            .context(error::WriteRoles {
+            .context(error::WriteRolesSnafu {
                 roles: [self.delegatee.clone(), role.to_string()].to_vec(),
             })?;
 
@@ -145,16 +145,16 @@ impl AddRoleArgs {
     fn with_repo_editor(&self, role: &str, mut editor: RepositoryEditor) -> Result<()> {
         // Since we are using repo editor we will sign snapshot and timestamp
         // Check to make sure all versions and expirations are present
-        let snapshot_version = self.snapshot_version.context(error::Missing {
+        let snapshot_version = self.snapshot_version.context(error::MissingSnafu {
             what: "snapshot version".to_string(),
         })?;
-        let snapshot_expires = self.snapshot_expires.context(error::Missing {
+        let snapshot_expires = self.snapshot_expires.context(error::MissingSnafu {
             what: "snapshot expires".to_string(),
         })?;
-        let timestamp_version = self.timestamp_version.context(error::Missing {
+        let timestamp_version = self.timestamp_version.context(error::MissingSnafu {
             what: "timestamp version".to_string(),
         })?;
-        let timestamp_expires = self.timestamp_expires.context(error::Missing {
+        let timestamp_expires = self.timestamp_expires.context(error::MissingSnafu {
             what: "timestamp expires".to_string(),
         })?;
         let paths = if let Some(paths) = &self.paths {
@@ -168,17 +168,17 @@ impl AddRoleArgs {
         // Sign the top level targets (it's currently the one in targets_editor)
         editor
             .targets_version(self.version)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .targets_expires(self.expires)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .sign_targets_editor(&self.keys)
-            .context(error::DelegateeNotFound {
+            .context(error::DelegateeNotFoundSnafu {
                 role: role.to_string(),
             })?;
         // Change the targets in targets_editor to the one we need to add the new role to
         editor
             .change_delegated_targets(role)
-            .context(error::DelegateeNotFound {
+            .context(error::DelegateeNotFoundSnafu {
                 role: role.to_string(),
             })?;
         // Add the new role to the signing role
@@ -190,21 +190,21 @@ impl AddRoleArgs {
                 self.threshold,
                 None,
             )
-            .context(error::LoadMetadata)?
+            .context(error::LoadMetadataSnafu)?
             .targets_version(self.version)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .targets_expires(self.expires)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .snapshot_version(snapshot_version)
             .snapshot_expires(snapshot_expires)
             .timestamp_version(timestamp_version)
             .timestamp_expires(timestamp_expires);
 
-        let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
+        let signed_repo = editor.sign(&self.keys).context(error::SignRepoSnafu)?;
         let metadata_destination_out = &self.outdir.join("metadata");
         signed_repo
             .write(metadata_destination_out)
-            .context(error::WriteRoles {
+            .context(error::WriteRolesSnafu {
                 roles: [self.delegatee.clone(), role.to_string()].to_vec(),
             })?;
 

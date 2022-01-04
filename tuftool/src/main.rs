@@ -70,7 +70,7 @@ impl Program {
             TerminalMode::Mixed,
             ColorChoice::Auto,
         )
-        .context(error::Logger)?;
+        .context(error::LoggerSnafu)?;
         self.cmd.run()
     }
 }
@@ -108,8 +108,8 @@ fn load_file<T>(path: &Path) -> Result<T>
 where
     for<'de> T: serde::Deserialize<'de>,
 {
-    serde_json::from_reader(File::open(path).context(error::FileOpen { path })?)
-        .context(error::FileParseJson { path })
+    serde_json::from_reader(File::open(path).context(error::FileOpenSnafu { path })?)
+        .context(error::FileParseJsonSnafu { path })
 }
 
 fn write_file<T>(path: &Path, json: &T) -> Result<()>
@@ -117,12 +117,16 @@ where
     T: serde::Serialize,
 {
     // Use `tempfile::NamedTempFile::persist` to perform an atomic file write.
-    let parent = path.parent().context(error::PathParent { path })?;
+    let parent = path.parent().context(error::PathParentSnafu { path })?;
     let mut writer =
-        NamedTempFile::new_in(parent).context(error::FileTempCreate { path: parent })?;
-    serde_json::to_writer_pretty(&mut writer, json).context(error::FileWriteJson { path })?;
-    writer.write_all(b"\n").context(error::FileWrite { path })?;
-    writer.persist(path).context(error::FilePersist { path })?;
+        NamedTempFile::new_in(parent).context(error::FileTempCreateSnafu { path: parent })?;
+    serde_json::to_writer_pretty(&mut writer, json).context(error::FileWriteJsonSnafu { path })?;
+    writer
+        .write_all(b"\n")
+        .context(error::FileWriteSnafu { path })?;
+    writer
+        .persist(path)
+        .context(error::FilePersistSnafu { path })?;
     Ok(())
 }
 
@@ -145,7 +149,7 @@ where
                     None
                 }
             }
-            Err(err) => Some(Err(err).context(error::WalkDir { directory: indir })),
+            Err(err) => Some(Err(err).context(error::WalkDirSnafu { directory: indir })),
         })
         .collect()
 }
@@ -154,14 +158,14 @@ fn process_target(path: &Path) -> Result<(TargetName, Target)> {
     // Get the file name as a TargetName
     let target_name = TargetName::new(
         path.file_name()
-            .context(error::NoFileName { path })?
+            .context(error::NoFileNameSnafu { path })?
             .to_str()
-            .context(error::PathUtf8 { path })?,
+            .context(error::PathUtf8Snafu { path })?,
     )
-    .context(error::InvalidTargetName)?;
+    .context(error::InvalidTargetNameSnafu)?;
 
     // Build a Target from the path given. If it is not a file, this will fail
-    let target = Target::from_path(path).context(error::TargetFromPath { path })?;
+    let target = Target::from_path(path).context(error::TargetFromPathSnafu { path })?;
 
     Ok((target_name, target))
 }

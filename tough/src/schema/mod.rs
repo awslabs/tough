@@ -93,7 +93,7 @@ pub trait Role: Serialize {
         let mut data = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
         self.serialize(&mut ser)
-            .context(error::JsonSerialization { what: "role" })?;
+            .context(error::JsonSerializationSnafu { what: "role" })?;
         Ok(data)
     }
 }
@@ -462,16 +462,16 @@ impl Target {
         // Ensure the given path is a file
         let path = path.as_ref();
         if !path.is_file() {
-            return error::TargetNotAFile { path }.fail();
+            return error::TargetNotAFileSnafu { path }.fail();
         }
 
         // Get the sha256 and length of the target
-        let mut file = File::open(path).context(error::FileOpen { path })?;
+        let mut file = File::open(path).context(error::FileOpenSnafu { path })?;
         let mut digest = Context::new(&SHA256);
         let mut buf = [0; 8 * 1024];
         let mut length = 0;
         loop {
-            match file.read(&mut buf).context(error::FileRead { path })? {
+            match file.read(&mut buf).context(error::FileReadSnafu { path })? {
                 0 => break,
                 n => {
                     digest.update(&buf[..n]);
@@ -528,7 +528,7 @@ impl Targets {
                 }
             }
         }
-        error::TargetNotFound {
+        error::TargetNotFoundSnafu {
             name: target_name.clone(),
         }
         .fail()
@@ -934,7 +934,7 @@ impl PathPattern {
     pub fn new<S: Into<String>>(value: S) -> Result<Self> {
         let value = value.into();
         let glob = Glob::new(&value)
-            .context(error::Glob { pattern: &value })?
+            .context(error::GlobSnafu { pattern: &value })?
             .compile_matcher();
         Ok(Self { value, glob })
     }

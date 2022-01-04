@@ -34,7 +34,7 @@ pub struct LocalKeySource {
 /// Implements the `KeySource` trait for a `LocalKeySource` (file)
 impl KeySource for LocalKeySource {
     fn as_sign(&self) -> Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let data = std::fs::read(&self.path).context(error::FileRead { path: &self.path })?;
+        let data = std::fs::read(&self.path).context(error::FileReadSnafu { path: &self.path })?;
         Ok(Box::new(parse_keypair(&data)?))
     }
 
@@ -44,6 +44,6 @@ impl KeySource for LocalKeySource {
         _key_id_hex: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
         Ok(std::fs::write(&self.path, value.as_bytes())
-            .context(error::FileWrite { path: &self.path })?)
+            .context(error::FileWriteSnafu { path: &self.path })?)
     }
 }

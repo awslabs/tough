@@ -7,7 +7,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// The error type for this library.
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility(pub(crate)))]
 pub enum Error {
     #[snafu(display("Unable to parse keypair: {}", source))]
     KeyPairParse {

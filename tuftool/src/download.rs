@@ -60,14 +60,14 @@ impl DownloadArgs {
         // To help ensure that downloads are safe, we require that the outdir does not exist.
         ensure!(
             !self.outdir.exists(),
-            error::DownloadOutdirExists { path: &self.outdir }
+            error::DownloadOutdirExistsSnafu { path: &self.outdir }
         );
 
         // use local root.json or download from repository
         let root_path = if let Some(path) = &self.root {
             PathBuf::from(path)
         } else if self.allow_root_download {
-            let outdir = std::env::current_dir().context(error::CurrentDir)?;
+            let outdir = std::env::current_dir().context(error::CurrentDirSnafu)?;
             download_root(&self.metadata_base_url, self.root_version, outdir)?
         } else {
             eprintln!("No root.json available");
@@ -82,13 +82,13 @@ impl DownloadArgs {
             ExpirationEnforcement::Safe
         };
         let repository = RepositoryLoader::new(
-            File::open(&root_path).context(error::OpenRoot { path: &root_path })?,
+            File::open(&root_path).context(error::OpenRootSnafu { path: &root_path })?,
             self.metadata_base_url.clone(),
             self.targets_base_url.clone(),
         )
         .expiration_enforcement(expiration_enforcement)
         .load()
-        .context(error::RepoLoad)?;
+        .context(error::RepoLoadSnafu)?;
 
         // download targets
         handle_download(&repository, &self.outdir, &self.target_names)
@@ -98,14 +98,14 @@ impl DownloadArgs {
 fn handle_download(repository: &Repository, outdir: &Path, raw_names: &[String]) -> Result<()> {
     let target_names: Result<Vec<TargetName>> = raw_names
         .iter()
-        .map(|s| TargetName::new(s).context(error::InvalidTargetName))
+        .map(|s| TargetName::new(s).context(error::InvalidTargetNameSnafu))
         .collect();
     let target_names = target_names?;
     let download_target = |name: &TargetName| -> Result<()> {
         println!("\t-> {}", name.raw());
         repository
             .save_target(name, outdir, Prefix::None)
-            .context(error::Metadata)?;
+            .context(error::MetadataSnafu)?;
         Ok(())
     };
 
@@ -123,7 +123,7 @@ fn handle_download(repository: &Repository, outdir: &Path, raw_names: &[String])
     };
 
     println!("Downloading targets to {:?}", outdir);
-    std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
+    std::fs::create_dir_all(outdir).context(error::DirCreateSnafu { path: outdir })?;
     for target in targets {
         download_target(&target)?;
     }

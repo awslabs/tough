@@ -114,25 +114,25 @@ impl UpdateArgs {
             ExpirationEnforcement::Safe
         };
         let repository = RepositoryLoader::new(
-            File::open(&self.root).context(error::OpenRoot { path: &self.root })?,
+            File::open(&self.root).context(error::OpenRootSnafu { path: &self.root })?,
             self.metadata_base_url.clone(),
-            Url::parse(UNUSED_URL).context(error::UrlParse { url: UNUSED_URL })?,
+            Url::parse(UNUSED_URL).context(error::UrlParseSnafu { url: UNUSED_URL })?,
         )
         .expiration_enforcement(expiration_enforcement)
         .load()
-        .context(error::RepoLoad)?;
+        .context(error::RepoLoadSnafu)?;
         self.update_metadata(
             RepositoryEditor::from_repo(&self.root, repository)
-                .context(error::EditorFromRepo { path: &self.root })?,
+                .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
     }
 
     fn update_metadata(&self, mut editor: RepositoryEditor) -> Result<()> {
         editor
             .targets_version(self.targets_version)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .targets_expires(self.targets_expires)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .snapshot_version(self.snapshot_version)
             .snapshot_expires(self.snapshot_expires)
             .timestamp_version(self.timestamp_version)
@@ -146,7 +146,7 @@ impl UpdateArgs {
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(usize::from(jobs))
                     .build_global()
-                    .context(error::InitializeThreadPool)?;
+                    .context(error::InitializeThreadPoolSnafu)?;
             }
 
             let new_targets = build_targets(&targets_indir, self.follow)?;
@@ -154,7 +154,7 @@ impl UpdateArgs {
             for (target_name, target) in new_targets {
                 editor
                     .add_target(target_name, target)
-                    .context(error::DelegationStructure)?;
+                    .context(error::DelegationStructureSnafu)?;
             }
         };
 
@@ -162,32 +162,32 @@ impl UpdateArgs {
         if self.role.is_some() && self.indir.is_some() {
             editor
                 .sign_targets_editor(&self.keys)
-                .context(error::DelegationStructure)?
+                .context(error::DelegationStructureSnafu)?
                 .update_delegated_targets(
-                    self.role.as_ref().context(error::Missing {
+                    self.role.as_ref().context(error::MissingSnafu {
                         what: "delegated role",
                     })?,
                     self.indir
                         .as_ref()
-                        .context(error::Missing {
+                        .context(error::MissingSnafu {
                             what: "delegated role metadata url",
                         })?
                         .as_str(),
                 )
-                .context(error::DelegateeNotFound {
+                .context(error::DelegateeNotFoundSnafu {
                     role: self.role.as_ref().unwrap().clone(),
                 })?;
         }
 
         // Sign the repo
-        let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
+        let signed_repo = editor.sign(&self.keys).context(error::SignRepoSnafu)?;
 
         // Symlink any targets that were added
         if let Some(ref targets_indir) = self.targets_indir {
             let targets_outdir = &self.outdir.join("targets");
             signed_repo
                 .link_targets(&targets_indir, &targets_outdir, self.target_path_exists)
-                .context(error::LinkTargets {
+                .context(error::LinkTargetsSnafu {
                     indir: &targets_indir,
                     outdir: targets_outdir,
                 })?;
@@ -195,9 +195,11 @@ impl UpdateArgs {
 
         // Write the metadata to the outdir
         let metadata_dir = &self.outdir.join("metadata");
-        signed_repo.write(metadata_dir).context(error::WriteRepo {
-            directory: metadata_dir,
-        })?;
+        signed_repo
+            .write(metadata_dir)
+            .context(error::WriteRepoSnafu {
+                directory: metadata_dir,
+            })?;
 
         Ok(())
     }

@@ -74,7 +74,7 @@ pub struct Hex;
 
 impl Decode for Hex {
     fn decode(s: &str) -> Result<Vec<u8>, Error> {
-        hex::decode(s).context(error::HexDecode)
+        hex::decode(s).context(error::HexDecodeSnafu)
     }
 }
 

@@ -58,7 +58,7 @@ impl AddKeyArgs {
         self.add_key(
             role,
             TargetsEditor::from_repo(repository, role)
-                .context(error::EditorFromRepo { path: &self.root })?,
+                .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
     }
 
@@ -69,27 +69,27 @@ impl AddKeyArgs {
         for source in &self.new_keys {
             let key_pair = source
                 .as_sign()
-                .context(error::KeyPairFromKeySource)?
+                .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
             key_pairs.insert(
                 key_pair
                     .key_id()
-                    .context(error::JsonSerialization {})?
+                    .context(error::JsonSerializationSnafu {})?
                     .clone(),
                 key_pair,
             );
         }
         let updated_role = editor
             .add_key(key_pairs, self.delegated_role.as_deref())
-            .context(error::LoadMetadata)?
+            .context(error::LoadMetadataSnafu)?
             .version(self.version)
             .expires(self.expires)
             .sign(&self.keys)
-            .context(error::SignRepo)?;
+            .context(error::SignRepoSnafu)?;
         let metadata_destination_out = &self.outdir.join("metadata");
         updated_role
             .write(metadata_destination_out, false)
-            .context(error::WriteRoles {
+            .context(error::WriteRolesSnafu {
                 roles: [role.to_string()].to_vec(),
             })?;
 

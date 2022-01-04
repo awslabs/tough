@@ -426,7 +426,7 @@ impl Repository {
         if self.expiration_enforcement == ExpirationEnforcement::Safe {
             ensure!(
                 system_time(&self.datastore)? < self.earliest_expiration,
-                error::ExpiredMetadata {
+                error::ExpiredMetadataSnafu {
                     role: self.earliest_expiration_role
                 }
             );
@@ -482,8 +482,11 @@ impl Repository {
         let outdir = outdir.as_ref();
         let outdir = outdir
             .canonicalize()
-            .context(error::SaveTargetOutdirCanonicalize { path: outdir })?;
-        ensure!(outdir.is_dir(), error::SaveTargetOutdir { path: outdir });
+            .context(error::SaveTargetOutdirCanonicalizeSnafu { path: outdir })?;
+        ensure!(
+            outdir.is_dir(),
+            error::SaveTargetOutdirSnafu { path: outdir }
+        );
 
         if name.resolved() != name.raw() {
             // Since target names with resolvable path segments are unusual and potentially unsafe,
@@ -498,8 +501,8 @@ impl Repository {
 
         let filename = match prepend {
             Prefix::Digest => {
-                let target = self.targets.signed.find_target(name).with_context(|| {
-                    error::CacheTargetMissing {
+                let target = self.targets.signed.find_target(name).with_context(|_| {
+                    error::CacheTargetMissingSnafu {
                         target_name: name.clone(),
                     }
                 })?;
@@ -515,7 +518,7 @@ impl Repository {
         let filepath_dir =
             resolved_filepath
                 .parent()
-                .with_context(|| error::SaveTargetNoParent {
+                .with_context(|| error::SaveTargetNoParentSnafu {
                     path: &resolved_filepath,
                     name: name.clone(),
                 })?;
@@ -523,7 +526,7 @@ impl Repository {
         // Make sure the filepath we are writing to is in or below outdir.
         ensure!(
             filepath_dir.starts_with(&outdir),
-            error::SaveTargetUnsafePath {
+            error::SaveTargetUnsafePathSnafu {
                 name: name.clone(),
                 outdir,
                 filepath: &resolved_filepath,
@@ -533,16 +536,17 @@ impl Repository {
         // Fetch and write the target using NamedTempFile for an atomic file creation.
         let mut reader = self
             .read_target(name)?
-            .with_context(|| error::SaveTargetNotFound { name: name.clone() })?;
-        create_dir_all(&filepath_dir).context(error::DirCreate {
+            .with_context(|| error::SaveTargetNotFoundSnafu { name: name.clone() })?;
+        create_dir_all(&filepath_dir).context(error::DirCreateSnafu {
             path: &filepath_dir,
         })?;
-        let mut f = NamedTempFile::new_in(&filepath_dir).context(error::NamedTempFileCreate {
-            path: &filepath_dir,
-        })?;
-        std::io::copy(&mut reader, &mut f).context(error::FileWrite { path: &f.path() })?;
+        let mut f =
+            NamedTempFile::new_in(&filepath_dir).context(error::NamedTempFileCreateSnafu {
+                path: &filepath_dir,
+            })?;
+        std::io::copy(&mut reader, &mut f).context(error::FileWriteSnafu { path: &f.path() })?;
         f.persist(&resolved_filepath)
-            .context(error::NamedTempFilePersist {
+            .context(error::NamedTempFilePersistSnafu {
                 path: resolved_filepath,
             })?;
 
@@ -591,7 +595,7 @@ fn system_time(datastore: &Datastore) -> Result<DateTime<Utc>> {
         // Make sure the sampled system time did not go back in time
         ensure!(
             sys_time >= latest_known_time,
-            error::SystemTimeSteppedBackward {
+            error::SystemTimeSteppedBackwardSnafu {
                 sys_time,
                 latest_known_time
             }
@@ -608,7 +612,7 @@ fn system_time(datastore: &Datastore) -> Result<DateTime<Utc>> {
 fn check_expired<T: Role>(datastore: &Datastore, role: &T) -> Result<()> {
     ensure!(
         system_time(datastore)? <= role.expires(),
-        error::ExpiredMetadata { role: T::TYPE }
+        error::ExpiredMetadataSnafu { role: T::TYPE }
     );
     Ok(())
 }
@@ -622,7 +626,7 @@ fn parse_url(url: Url) -> Result<Url> {
     } else {
         let mut s = url.to_string();
         s.push('/');
-        Url::parse(&s).context(error::ParseUrl { url: s })
+        Url::parse(&s).context(error::ParseUrlSnafu { url: s })
     }
 }
 
@@ -642,10 +646,10 @@ fn load_root<R: Read>(
     //    that the expiration of the trusted root metadata file does not matter, because we will
     //    attempt to update it in the next step.
     let mut root: Signed<Root> =
-        serde_json::from_reader(root).context(error::ParseTrustedMetadata)?;
+        serde_json::from_reader(root).context(error::ParseTrustedMetadataSnafu)?;
     root.signed
         .verify_role(&root)
-        .context(error::VerifyTrustedMetadata)?;
+        .context(error::VerifyTrustedMetadataSnafu)?;
 
     // Used in step 1.2
     let original_root_version = root.signed.version.get();
@@ -680,12 +684,12 @@ fn load_root<R: Read>(
         //   example, Y may be 2^10.
         ensure!(
             root.signed.version.get() < original_root_version + max_root_updates,
-            error::MaxUpdatesExceeded { max_root_updates }
+            error::MaxUpdatesExceededSnafu { max_root_updates }
         );
         let path = format!("{}.root.json", root.signed.version.get() + 1);
         match fetch_max_size(
             transport,
-            metadata_base_url.join(&path).context(error::JoinUrl {
+            metadata_base_url.join(&path).context(error::JoinUrlSnafu {
                 path,
                 url: metadata_base_url.clone(),
             })?,
@@ -695,7 +699,7 @@ fn load_root<R: Read>(
             Err(_) => break, // If this file is not available, then go to step 1.8.
             Ok(reader) => {
                 let new_root: Signed<Root> =
-                    serde_json::from_reader(reader).context(error::ParseMetadata {
+                    serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
                         role: RoleType::Root,
                     })?;
 
@@ -707,13 +711,13 @@ fn load_root<R: Read>(
                 //   next update cycle, begin at step 0 and version N of the root metadata file.
                 root.signed
                     .verify_role(&new_root)
-                    .context(error::VerifyMetadata {
+                    .context(error::VerifyMetadataSnafu {
                         role: RoleType::Root,
                     })?;
                 new_root
                     .signed
                     .verify_role(&new_root)
-                    .context(error::VerifyMetadata {
+                    .context(error::VerifyMetadataSnafu {
                         role: RoleType::Root,
                     })?;
 
@@ -727,7 +731,7 @@ fn load_root<R: Read>(
                 //   file.
                 ensure!(
                     root.signed.version <= new_root.signed.version,
-                    error::OlderMetadata {
+                    error::OlderMetadataSnafu {
                         role: RoleType::Root,
                         current_version: root.signed.version,
                         new_version: new_root.signed.version
@@ -809,7 +813,7 @@ fn load_timestamp(
     let path = "timestamp.json";
     let reader = fetch_max_size(
         transport,
-        metadata_base_url.join(path).context(error::JoinUrl {
+        metadata_base_url.join(path).context(error::JoinUrlSnafu {
             path,
             url: metadata_base_url.clone(),
         })?,
@@ -817,7 +821,7 @@ fn load_timestamp(
         "max_timestamp_size argument",
     )?;
     let timestamp: Signed<Timestamp> =
-        serde_json::from_reader(reader).context(error::ParseMetadata {
+        serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
             role: RoleType::Timestamp,
         })?;
 
@@ -826,7 +830,7 @@ fn load_timestamp(
     //   not properly signed, discard it, abort the update cycle, and report the signature failure.
     root.signed
         .verify_role(&timestamp)
-        .context(error::VerifyMetadata {
+        .context(error::VerifyMetadataSnafu {
             role: RoleType::Timestamp,
         })?;
 
@@ -841,7 +845,7 @@ fn load_timestamp(
         if root.signed.verify_role(&old_timestamp).is_ok() {
             ensure!(
                 old_timestamp.signed.version <= timestamp.signed.version,
-                error::OlderMetadata {
+                error::OlderMetadataSnafu {
                     role: RoleType::Timestamp,
                     current_version: old_timestamp.signed.version,
                     new_version: timestamp.signed.version
@@ -880,14 +884,15 @@ fn load_snapshot(
     //    42.snapshot.json), where VERSION_NUMBER is the version number of the snapshot metadata
     //    file listed in the timestamp metadata file. In either case, the client MUST write the
     //    file to non-volatile storage as FILENAME.EXT.
-    let snapshot_meta = timestamp
-        .signed
-        .meta
-        .get("snapshot.json")
-        .context(error::MetaMissing {
-            file: "snapshot.json",
-            role: RoleType::Timestamp,
-        })?;
+    let snapshot_meta =
+        timestamp
+            .signed
+            .meta
+            .get("snapshot.json")
+            .context(error::MetaMissingSnafu {
+                file: "snapshot.json",
+                role: RoleType::Timestamp,
+            })?;
     let path = if root.signed.consistent_snapshot {
         format!("{}.snapshot.json", snapshot_meta.version)
     } else {
@@ -895,7 +900,7 @@ fn load_snapshot(
     };
     let reader = fetch_sha256(
         transport,
-        metadata_base_url.join(&path).context(error::JoinUrl {
+        metadata_base_url.join(&path).context(error::JoinUrlSnafu {
             path,
             url: metadata_base_url.clone(),
         })?,
@@ -904,7 +909,7 @@ fn load_snapshot(
         &snapshot_meta.hashes.sha256,
     )?;
     let snapshot: Signed<Snapshot> =
-        serde_json::from_reader(reader).context(error::ParseMetadata {
+        serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
             role: RoleType::Snapshot,
         })?;
 
@@ -916,7 +921,7 @@ fn load_snapshot(
     // (We already checked the hash in `fetch_sha256` above.)
     ensure!(
         snapshot.signed.version == snapshot_meta.version,
-        error::VersionMismatch {
+        error::VersionMismatchSnafu {
             role: RoleType::Snapshot,
             fetched: snapshot.signed.version,
             expected: snapshot_meta.version
@@ -929,7 +934,7 @@ fn load_snapshot(
     //   failure.
     root.signed
         .verify_role(&snapshot)
-        .context(error::VerifyMetadata {
+        .context(error::VerifyMetadataSnafu {
             role: RoleType::Snapshot,
         })?;
 
@@ -948,7 +953,7 @@ fn load_snapshot(
         if root.signed.verify_role(&old_snapshot).is_ok() {
             ensure!(
                 old_snapshot.signed.version <= snapshot.signed.version,
-                error::OlderMetadata {
+                error::OlderMetadataSnafu {
                     role: RoleType::Snapshot,
                     current_version: old_snapshot.signed.version,
                     new_version: snapshot.signed.version
@@ -968,13 +973,13 @@ fn load_snapshot(
                         .signed
                         .meta
                         .get("targets.json")
-                        .context(error::MetaMissing {
+                        .context(error::MetaMissingSnafu {
                             file: "targets.json",
                             role: RoleType::Snapshot,
                         })?;
                 ensure!(
                     old_targets_meta.version <= targets_meta.version,
-                    error::OlderMetadata {
+                    error::OlderMetadataSnafu {
                         role: RoleType::Targets,
                         current_version: old_targets_meta.version,
                         new_version: targets_meta.version,
@@ -1017,20 +1022,21 @@ fn load_targets(
     //    VERSION_NUMBER is the version number of the targets metadata file listed in the snapshot
     //    metadata file. In either case, the client MUST write the file to non-volatile storage as
     //    FILENAME.EXT.
-    let targets_meta = snapshot
-        .signed
-        .meta
-        .get("targets.json")
-        .context(error::MetaMissing {
-            file: "targets.json",
-            role: RoleType::Timestamp,
-        })?;
+    let targets_meta =
+        snapshot
+            .signed
+            .meta
+            .get("targets.json")
+            .context(error::MetaMissingSnafu {
+                file: "targets.json",
+                role: RoleType::Timestamp,
+            })?;
     let path = if root.signed.consistent_snapshot {
         format!("{}.targets.json", targets_meta.version)
     } else {
         "targets.json".to_owned()
     };
-    let targets_url = metadata_base_url.join(&path).context(error::JoinUrl {
+    let targets_url = metadata_base_url.join(&path).context(error::JoinUrlSnafu {
         path,
         url: metadata_base_url.clone(),
     })?;
@@ -1055,7 +1061,7 @@ fn load_targets(
         )?)
     };
     let mut targets: Signed<crate::schema::Targets> =
-        serde_json::from_reader(reader).context(error::ParseMetadata {
+        serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
             role: RoleType::Targets,
         })?;
 
@@ -1067,7 +1073,7 @@ fn load_targets(
     // (We already checked the hash in `fetch_sha256` above.)
     ensure!(
         targets.signed.version == targets_meta.version,
-        error::VersionMismatch {
+        error::VersionMismatchSnafu {
             role: RoleType::Targets,
             fetched: targets.signed.version,
             expected: targets_meta.version
@@ -1080,7 +1086,7 @@ fn load_targets(
     //   report the failure.
     root.signed
         .verify_role(&targets)
-        .context(error::VerifyMetadata {
+        .context(error::VerifyMetadataSnafu {
             role: RoleType::Targets,
         })?;
 
@@ -1095,7 +1101,7 @@ fn load_targets(
         if root.signed.verify_role(&old_targets).is_ok() {
             ensure!(
                 old_targets.signed.version <= targets.signed.version,
-                error::OlderMetadata {
+                error::OlderMetadataSnafu {
                     role: RoleType::Targets,
                     current_version: old_targets.signed.version,
                     new_version: targets.signed.version
@@ -1131,7 +1137,7 @@ fn load_targets(
 
     // This validation can only be done from the top level targets.json role. This check verifies
     // that each target's delegate hierarchy is a match (i.e. it's delegate ownership is valid).
-    targets.signed.validate().context(error::InvalidPath)?;
+    targets.signed.validate().context(error::InvalidPathSnafu)?;
     Ok(targets)
 }
 
@@ -1153,7 +1159,7 @@ fn load_delegations(
             .signed
             .meta
             .get(&format!("{}.json", &delegated_role.name))
-            .context(error::RoleNotInMeta {
+            .context(error::RoleNotInMetaSnafu {
                 name: delegated_role.name.clone(),
             })?;
 
@@ -1166,7 +1172,7 @@ fn load_delegations(
         } else {
             format!("{}.json", encode_filename(&delegated_role.name))
         };
-        let role_url = metadata_base_url.join(&path).context(error::JoinUrl {
+        let role_url = metadata_base_url.join(&path).context(error::JoinUrlSnafu {
             path: path.clone(),
             url: metadata_base_url.clone(),
         })?;
@@ -1180,18 +1186,18 @@ fn load_delegations(
         )?);
         // since each role is a targets, we load them as such
         let role: Signed<crate::schema::Targets> =
-            serde_json::from_reader(reader).context(error::ParseMetadata {
+            serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
                 role: RoleType::Targets,
             })?;
         // verify each role with the delegation
         delegation
             .verify_role(&role, &delegated_role.name)
-            .context(error::VerifyMetadata {
+            .context(error::VerifyMetadataSnafu {
                 role: RoleType::Targets,
             })?;
         ensure!(
             role.signed.version == role_meta.version,
-            error::VersionMismatch {
+            error::VersionMismatchSnafu {
                 role: RoleType::Targets,
                 fetched: role.signed.version,
                 expected: role_meta.version
@@ -1204,7 +1210,7 @@ fn load_delegations(
     // load all roles delegated by this role
     for delegated_role in &mut delegation.roles {
         delegated_role.targets = delegated_roles.remove(&delegated_role.name).context(
-            error::DelegatedRolesNotConsistent {
+            error::DelegatedRolesNotConsistentSnafu {
                 name: delegated_role.name.clone(),
             },
         )?;

@@ -256,7 +256,7 @@ fn fetch_with_retries(
         .timeout(cs.timeout)
         .connect_timeout(cs.connect_timeout)
         .build()
-        .context(HttpClient)?;
+        .context(HttpClientSnafu)?;
 
     // retry loop
     loop {
@@ -278,17 +278,17 @@ fn fetch_with_retries(
             }
             HttpResult::Fatal(err) => {
                 trace!("{:?} - returning fatal error from fetch: {}", r, err);
-                return Err(err).context(FetchFatal);
+                return Err(err).context(FetchFatalSnafu);
             }
             HttpResult::FileNotFound(err) => {
                 trace!("{:?} - returning file not found from fetch: {}", r, err);
-                return Err(err).context(FetchFileNotFound);
+                return Err(err).context(FetchFileNotFoundSnafu);
             }
             HttpResult::Retryable(err) => {
                 trace!("{:?} - retryable error: {}", r, err);
                 if r.current_try >= cs.tries - 1 {
                     debug!("{:?} - returning failure, no more retries: {}", r, err);
-                    return Err(err).context(FetchNoMoreRetries { tries: cs.tries });
+                    return Err(err).context(FetchNoMoreRetriesSnafu { tries: cs.tries });
                 }
             }
         }
@@ -380,19 +380,19 @@ fn build_request(client: &Client, next_byte: usize, url: &Url) -> Result<Request
         let request = client
             .request(Method::GET, url.as_str())
             .build()
-            .context(RequestBuild)?;
+            .context(RequestBuildSnafu)?;
         Ok(request)
     } else {
         let header_value_string = format!("bytes={}-", next_byte);
         let header_value =
-            HeaderValue::from_str(header_value_string.as_str()).context(InvalidHeader {
+            HeaderValue::from_str(header_value_string.as_str()).context(InvalidHeaderSnafu {
                 header_value: &header_value_string,
             })?;
         let request = client
             .request(Method::GET, url.as_str())
             .header(header::RANGE, header_value)
             .build()
-            .context(RequestBuild)?;
+            .context(RequestBuildSnafu)?;
         Ok(request)
     }
 }

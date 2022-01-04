@@ -192,9 +192,9 @@ impl Command {
                 .version
                 .get()
                 .checked_add(1)
-                .context(error::VersionOverflow)?,
+                .context(error::VersionOverflowSnafu)?,
         )
-        .context(error::VersionZero)?;
+        .context(error::VersionZeroSnafu)?;
         clear_sigs(&mut root);
         write_file(path, &root)
     }
@@ -229,7 +229,7 @@ impl Command {
         let mut root: Signed<Root> = load_file(path)?;
         let key_pair = key_source
             .as_sign()
-            .context(error::KeyPairFromKeySource)?
+            .context(error::KeyPairFromKeySourceSnafu)?
             .tuf_key();
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair)?);
         clear_sigs(&mut root);
@@ -280,24 +280,24 @@ impl Command {
         command.arg(format!("rsa_keygen_pubexp:{}", exponent));
 
         let command_str = format!("{:?}", command);
-        let output = command.output().context(error::CommandExec {
+        let output = command.output().context(error::CommandExecSnafu {
             command_str: &command_str,
         })?;
         ensure!(
             output.status.success(),
-            error::CommandStatus {
+            error::CommandStatusSnafu {
                 command_str: &command_str,
                 status: output.status
             }
         );
         let stdout =
-            String::from_utf8(output.stdout).context(error::CommandUtf8 { command_str })?;
+            String::from_utf8(output.stdout).context(error::CommandUtf8Snafu { command_str })?;
 
-        let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParse)?;
+        let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParseSnafu)?;
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
         key_source
             .write(&stdout, &key_id)
-            .context(error::WriteKeySource)?;
+            .context(error::WriteKeySourceSnafu)?;
         clear_sigs(&mut root);
         println!("{}", key_id);
         write_file(path, &root)
@@ -322,13 +322,13 @@ impl Command {
             key_source,
             &SystemRandom::new(),
         )
-        .context(error::SignRoot { path })?;
+        .context(error::SignRootSnafu { path })?;
 
         // append the existing signatures if present
         if !root.signatures.is_empty() {
             signed_root = signed_root
                 .add_old_signatures(root.signatures)
-                .context(error::SignRoot { path })?;
+                .context(error::SignRootSnafu { path })?;
         }
 
         // Quick check that root is signed by enough key IDs, in all its roles.
@@ -387,13 +387,15 @@ impl Command {
         }
 
         // Use `tempfile::NamedTempFile::persist` to perform an atomic file write.
-        let parent = path.parent().context(error::PathParent { path })?;
+        let parent = path.parent().context(error::PathParentSnafu { path })?;
         let mut writer =
-            NamedTempFile::new_in(parent).context(error::FileTempCreate { path: parent })?;
+            NamedTempFile::new_in(parent).context(error::FileTempCreateSnafu { path: parent })?;
         writer
             .write_all(signed_root.buffer())
-            .context(error::FileWrite { path })?;
-        writer.persist(path).context(error::FilePersist { path })?;
+            .context(error::FileWriteSnafu { path })?;
+        writer
+            .persist(path)
+            .context(error::FilePersistSnafu { path })?;
         Ok(())
     }
 }
@@ -418,10 +420,10 @@ fn add_key(root: &mut Root, role: &[RoleType], key: Key) -> Result<Decoded<Hex>>
         key_id.clone()
     } else {
         // Key isn't present yet, so we need to add it
-        let key_id = key.key_id().context(error::KeyId)?;
+        let key_id = key.key_id().context(error::KeyIdSnafu)?;
         ensure!(
             !root.keys.contains_key(&key_id),
-            error::KeyDuplicate {
+            error::KeyDuplicateSnafu {
                 key_id: hex::encode(&key_id)
             }
         );

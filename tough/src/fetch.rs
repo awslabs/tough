@@ -17,7 +17,7 @@ pub(crate) fn fetch_max_size(
     Ok(MaxSizeAdapter::new(
         transport
             .fetch(url.clone())
-            .context(error::Transport { url })?,
+            .context(error::TransportSnafu { url })?,
         specifier,
         max_size,
     ))
@@ -34,7 +34,7 @@ pub(crate) fn fetch_sha256(
         Box::new(MaxSizeAdapter::new(
             transport
                 .fetch(url.clone())
-                .context(error::Transport { url: url.clone() })?,
+                .context(error::TransportSnafu { url: url.clone() })?,
             specifier,
             size,
         )),

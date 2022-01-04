@@ -83,18 +83,18 @@ impl CreateArgs {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(usize::from(jobs))
                 .build_global()
-                .context(error::InitializeThreadPool)?;
+                .context(error::InitializeThreadPoolSnafu)?;
         }
 
         let targets = build_targets(&self.targets_indir, self.follow)?;
-        let mut editor =
-            RepositoryEditor::new(&self.root).context(error::EditorCreate { path: &self.root })?;
+        let mut editor = RepositoryEditor::new(&self.root)
+            .context(error::EditorCreateSnafu { path: &self.root })?;
 
         editor
             .targets_version(self.targets_version)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .targets_expires(self.targets_expires)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .snapshot_version(self.snapshot_version)
             .snapshot_expires(self.snapshot_expires)
             .timestamp_version(self.timestamp_version)
@@ -103,22 +103,24 @@ impl CreateArgs {
         for (target_name, target) in targets {
             editor
                 .add_target(target_name, target)
-                .context(error::DelegationStructure)?;
+                .context(error::DelegationStructureSnafu)?;
         }
 
-        let signed_repo = editor.sign(&self.keys).context(error::SignRepo)?;
+        let signed_repo = editor.sign(&self.keys).context(error::SignRepoSnafu)?;
 
         let metadata_dir = &self.outdir.join("metadata");
         let targets_outdir = &self.outdir.join("targets");
         signed_repo
             .link_targets(&self.targets_indir, targets_outdir, self.target_path_exists)
-            .context(error::LinkTargets {
+            .context(error::LinkTargetsSnafu {
                 indir: &self.targets_indir,
                 outdir: targets_outdir,
             })?;
-        signed_repo.write(metadata_dir).context(error::WriteRepo {
-            directory: metadata_dir,
-        })?;
+        signed_repo
+            .write(metadata_dir)
+            .context(error::WriteRepoSnafu {
+                directory: metadata_dir,
+            })?;
 
         Ok(())
     }

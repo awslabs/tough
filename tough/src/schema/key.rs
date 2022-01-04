@@ -133,9 +133,10 @@ impl Key {
     pub fn key_id(&self) -> Result<Decoded<Hex>> {
         let mut buf = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut buf, CanonicalFormatter::new());
-        self.serialize(&mut ser).context(error::JsonSerialization {
-            what: "key".to_owned(),
-        })?;
+        self.serialize(&mut ser)
+            .context(error::JsonSerializationSnafu {
+                what: "key".to_owned(),
+            })?;
         Ok(digest(&SHA256, &buf).as_ref().to_vec().into())
     }
 

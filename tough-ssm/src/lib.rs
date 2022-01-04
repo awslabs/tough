@@ -29,26 +29,26 @@ impl KeySource for SsmKeySource {
             with_decryption: Some(true),
         });
         let response = tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreation)?
+            .context(error::RuntimeCreationSnafu)?
             .block_on(fut)
-            .context(error::SsmGetParameter {
+            .context(error::SsmGetParameterSnafu {
                 profile: self.profile.clone(),
                 parameter_name: &self.parameter_name,
             })?;
         let data = response
             .parameter
-            .context(error::SsmMissingField {
+            .context(error::SsmMissingFieldSnafu {
                 parameter_name: &self.parameter_name,
                 field: "parameter",
             })?
             .value
-            .context(error::SsmMissingField {
+            .context(error::SsmMissingFieldSnafu {
                 parameter_name: &self.parameter_name,
                 field: "parameter.value",
             })?
             .as_bytes()
             .to_vec();
-        let sign = Box::new(parse_keypair(&data).context(error::KeyPairParse)?);
+        let sign = Box::new(parse_keypair(&data).context(error::KeyPairParseSnafu)?);
         Ok(sign)
     }
 
@@ -68,9 +68,9 @@ impl KeySource for SsmKeySource {
             ..rusoto_ssm::PutParameterRequest::default()
         });
         tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreation)?
+            .context(error::RuntimeCreationSnafu)?
             .block_on(fut)
-            .context(error::SsmPutParameter {
+            .context(error::SsmPutParameterSnafu {
                 profile: self.profile.clone(),
                 parameter_name: &self.parameter_name,
             })?;

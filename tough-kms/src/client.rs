@@ -11,18 +11,18 @@ use std::str::FromStr;
 /// Builds a KMS client for a given profile name.
 pub(crate) fn build_client_kms(profile: Option<&str>) -> Result<KmsClient> {
     Ok(if let Some(profile) = profile {
-        let mut provider = ProfileProvider::new().context(error::RusotoCreds)?;
+        let mut provider = ProfileProvider::new().context(error::RusotoCredsSnafu)?;
         provider.set_profile(profile);
         let region = provider
             .region_from_profile()
-            .context(error::RusotoRegionFromProfile { profile })?;
+            .context(error::RusotoRegionFromProfileSnafu { profile })?;
 
         KmsClient::new_with(
-            HttpClient::new().context(error::RusotoTls)?,
+            HttpClient::new().context(error::RusotoTlsSnafu)?,
             provider,
             match region {
                 Some(region) => {
-                    Region::from_str(&region).context(error::RusotoRegion { region })?
+                    Region::from_str(&region).context(error::RusotoRegionSnafu { region })?
                 }
                 None => Region::default(),
             },

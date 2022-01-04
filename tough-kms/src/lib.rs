@@ -88,16 +88,19 @@ impl KeySource for KmsKeySource {
             ..rusoto_kms::GetPublicKeyRequest::default()
         });
         let response = tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreation)?
+            .context(error::RuntimeCreationSnafu)?
             .block_on(fut)
-            .context(error::KmsGetPublicKey {
+            .context(error::KmsGetPublicKeySnafu {
                 profile: self.profile.clone(),
                 key_id: self.key_id.clone(),
             })?;
         let key = pem::encode_config(
             &pem::Pem {
                 tag: String::from("PUBLIC KEY"),
-                contents: response.public_key.context(error::PublicKeyNone)?.to_vec(),
+                contents: response
+                    .public_key
+                    .context(error::PublicKeyNoneSnafu)?
+                    .to_vec(),
             },
             pem::EncodeConfig {
                 line_ending: pem::LineEnding::LF,
@@ -106,21 +109,21 @@ impl KeySource for KmsKeySource {
         ensure!(
             response
                 .signing_algorithms
-                .context(error::MissingSignAlgorithm)?
+                .context(error::MissingSignAlgorithmSnafu)?
                 .contains(&self.signing_algorithm.value()),
-            error::ValidSignAlgorithm
+            error::ValidSignAlgorithmSnafu
         );
         Ok(Box::new(KmsRsaKey {
             profile: self.profile.clone(),
             client: Some(kms_client.clone()),
             key_id: self.key_id.clone(),
-            public_key: key.parse().context(error::PublicKeyParse)?,
+            public_key: key.parse().context(error::PublicKeyParseSnafu)?,
             signing_algorithm: self.signing_algorithm,
             modulus_size_bytes: parse_modulus_length_bytes(
                 response
                     .customer_master_key_spec
                     .as_ref()
-                    .context(error::MissingCustomerMasterKeySpec)?,
+                    .context(error::MissingCustomerMasterKeySpecSnafu)?,
             )?,
         }))
     }
@@ -190,15 +193,15 @@ impl Sign for KmsRsaKey {
             ..rusoto_kms::SignRequest::default()
         });
         let response = tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreation)?
+            .context(error::RuntimeCreationSnafu)?
             .block_on(sign_fut)
-            .context(error::KmsSignMessage {
+            .context(error::KmsSignMessageSnafu {
                 profile: self.profile.clone(),
                 key_id: self.key_id.clone(),
             })?;
         let signature = response
             .signature
-            .context(error::SignatureNotFound)?
+            .context(error::SignatureNotFoundSnafu)?
             .to_vec();
 
         // sometimes KMS produces a signature that is shorter than the modulus. in those cases,
@@ -221,20 +224,23 @@ fn parse_modulus_length_bytes(spec: &str) -> error::Result<usize> {
     // only RSA is currently supported
     ensure!(
         spec.starts_with("RSA_"),
-        error::BadCustomerMasterKeySpec { spec }
+        error::BadCustomerMasterKeySpecSnafu { spec }
     );
     // prevent a panic if the string is precisely "RSA_"
-    ensure!(spec.len() > 4, error::BadCustomerMasterKeySpec { spec });
+    ensure!(
+        spec.len() > 4,
+        error::BadCustomerMasterKeySpecSnafu { spec }
+    );
     // extract the digits
     let mod_len_str = &spec[4..];
     // parse the digits
     let mod_bits = mod_len_str
         .parse::<usize>()
-        .context(error::BadCustomerMasterKeySpecInt { spec })?;
+        .context(error::BadCustomerMasterKeySpecIntSnafu { spec })?;
     // make sure the modulus size is compatible with u8 bytes
     ensure!(
         mod_bits % 8 == 0,
-        error::UnsupportedModulusSize {
+        error::UnsupportedModulusSizeSnafu {
             modulus_size_bits: mod_bits,
             spec,
         }
@@ -251,7 +257,7 @@ fn parse_modulus_length_bytes(spec: &str) -> error::Result<usize> {
 fn pad_signature(mut signature: Vec<u8>, modulus_size_bytes: usize) -> error::Result<Vec<u8>> {
     ensure!(
         signature.len() <= modulus_size_bytes,
-        error::SignatureTooLong {
+        error::SignatureTooLongSnafu {
             modulus_size_bytes,
             signature_size_bytes: signature.len()
         },
