@@ -382,6 +382,6 @@ fn get_status_code(source: &reqwest::Error) -> String {
     source
         .status()
         .as_ref()
-        .map_or("Unknown", |i| i.as_str())
+        .map_or("Unknown", reqwest::StatusCode::as_str)
         .to_string()
 }
