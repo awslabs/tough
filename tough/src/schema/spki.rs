@@ -64,7 +64,7 @@ pub(super) fn decode(
 ) -> Result<Vec<u8>> {
     let pem = pem::parse(input)
         .map_err(Compat)
-        .context(error::PemDecode)?;
+        .context(error::PemDecodeSnafu)?;
     Ok(untrusted::Input::from(&pem.contents)
         .read_all(ring::error::Unspecified, |input| {
             der::expect_tag_and_get_value(input, der::Tag::Sequence).and_then(|spki| {
@@ -95,7 +95,7 @@ pub(super) fn decode(
             })
         })
         .ok()
-        .context(error::SpkiDecode)?
+        .context(error::SpkiDecodeSnafu)?
         .as_slice_less_safe()
         .to_owned())
 }

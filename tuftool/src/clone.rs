@@ -73,7 +73,7 @@ impl CloneArgs {
         let root_path = if let Some(path) = &self.root {
             PathBuf::from(path)
         } else if self.allow_root_download {
-            let outdir = std::env::current_dir().context(error::CurrentDir)?;
+            let outdir = std::env::current_dir().context(error::CurrentDirSnafu)?;
             download_root(&self.metadata_base_url, self.root_version, outdir)?
         } else {
             eprintln!("No root.json available");
@@ -87,7 +87,7 @@ impl CloneArgs {
         let targets_base_url = self
             .targets_base_url
             .as_ref()
-            .unwrap_or(&Url::parse(UNUSED_URL).context(error::UrlParse {
+            .unwrap_or(&Url::parse(UNUSED_URL).context(error::UrlParseSnafu {
                 url: UNUSED_URL.to_owned(),
             })?)
             .clone();
@@ -100,20 +100,20 @@ impl CloneArgs {
             ExpirationEnforcement::Safe
         };
         let repository = RepositoryLoader::new(
-            File::open(&root_path).context(error::OpenRoot { path: &root_path })?,
+            File::open(&root_path).context(error::OpenRootSnafu { path: &root_path })?,
             self.metadata_base_url.clone(),
             targets_base_url,
         )
         .expiration_enforcement(expiration_enforcement)
         .load()
-        .context(error::RepoLoad)?;
+        .context(error::RepoLoadSnafu)?;
 
         // Clone the repository, downloading none, all, or a subset of targets
         if self.metadata_only {
             println!("Cloning repository metadata to {:?}", self.metadata_dir);
             repository
                 .cache_metadata(&self.metadata_dir, true)
-                .context(error::CloneRepository)?;
+                .context(error::CloneRepositorySnafu)?;
         } else {
             // Similar to `targets_base_url, structopt's guard rails won't let us have a
             // `targets_dir` that is None when the argument is required.  We only require the user
@@ -129,7 +129,7 @@ impl CloneArgs {
             if self.target_names.is_empty() {
                 repository
                     .cache(&self.metadata_dir, &targets_dir, None::<&[&str]>, true)
-                    .context(error::CloneRepository)?;
+                    .context(error::CloneRepositorySnafu)?;
             } else {
                 repository
                     .cache(
@@ -138,7 +138,7 @@ impl CloneArgs {
                         Some(self.target_names.as_slice()),
                         true,
                     )
-                    .context(error::CloneRepository)?;
+                    .context(error::CloneRepositorySnafu)?;
             }
         };
 

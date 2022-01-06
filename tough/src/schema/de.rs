@@ -26,14 +26,14 @@ where
         let keyid_hex = hex::encode(&keyid);
         ensure!(
             keyid == calculated,
-            error::InvalidKeyId {
+            error::InvalidKeyIdSnafu {
                 keyid: &keyid_hex,
                 calculated: hex::encode(&calculated),
             }
         );
         ensure!(
             map.insert(keyid, key).is_none(),
-            error::DuplicateKeyId { keyid: keyid_hex }
+            error::DuplicateKeyIdSnafu { keyid: keyid_hex }
         );
         Ok(())
     }

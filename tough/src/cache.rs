@@ -28,12 +28,16 @@ impl Repository {
         S: AsRef<str>,
     {
         // Create the output directories if the do not exist.
-        std::fs::create_dir_all(metadata_outdir.as_ref()).context(error::CacheDirectoryCreate {
-            path: metadata_outdir.as_ref(),
-        })?;
-        std::fs::create_dir_all(targets_outdir.as_ref()).context(error::CacheDirectoryCreate {
-            path: targets_outdir.as_ref(),
-        })?;
+        std::fs::create_dir_all(metadata_outdir.as_ref()).context(
+            error::CacheDirectoryCreateSnafu {
+                path: metadata_outdir.as_ref(),
+            },
+        )?;
+        std::fs::create_dir_all(targets_outdir.as_ref()).context(
+            error::CacheDirectoryCreateSnafu {
+                path: targets_outdir.as_ref(),
+            },
+        )?;
 
         // Fetch targets and save them to the outdir
         if let Some(target_list) = targets_subset {
@@ -67,9 +71,11 @@ impl Repository {
         P: AsRef<Path>,
     {
         // Create the output directory if it does not exist.
-        std::fs::create_dir_all(metadata_outdir.as_ref()).context(error::CacheDirectoryCreate {
-            path: metadata_outdir.as_ref(),
-        })?;
+        std::fs::create_dir_all(metadata_outdir.as_ref()).context(
+            error::CacheDirectoryCreateSnafu {
+                path: metadata_outdir.as_ref(),
+            },
+        )?;
 
         self.cache_metadata_impl(&metadata_outdir)?;
 
@@ -181,7 +187,7 @@ impl Repository {
             self.transport.as_ref(),
             self.metadata_base_url
                 .join(filename)
-                .context(error::JoinUrl {
+                .context(error::JoinUrlSnafu {
                     path: filename,
                     url: self.metadata_base_url.clone(),
                 })?,
@@ -189,16 +195,16 @@ impl Repository {
             max_size_specifier,
         )?;
         let outpath = outdir.as_ref().join(&filename);
-        let mut file = std::fs::File::create(&outpath).context(error::CacheFileWrite {
+        let mut file = std::fs::File::create(&outpath).context(error::CacheFileWriteSnafu {
             path: outpath.clone(),
         })?;
         let mut root_file_data = Vec::new();
         read.read_to_end(&mut root_file_data)
-            .context(error::CacheFileRead {
+            .context(error::CacheFileReadSnafu {
                 url: self.metadata_base_url.clone(),
             })?;
         file.write_all(&root_file_data)
-            .context(error::CacheFileWrite { path: outpath })
+            .context(error::CacheFileWriteSnafu { path: outpath })
     }
 
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
@@ -222,7 +228,7 @@ impl Repository {
                 .signed
                 .meta
                 .get("snapshot.json")
-                .context(error::MetaMissing {
+                .context(error::MetaMissingSnafu {
                     file: "snapshot.json",
                     role: RoleType::Timestamp,
                 })?;
@@ -259,7 +265,7 @@ impl Repository {
             self.transport.as_ref(),
             self.targets_base_url
                 .join(filename)
-                .context(error::JoinUrl {
+                .context(error::JoinUrlSnafu {
                     path: filename,
                     url: self.targets_base_url.clone(),
                 })?,

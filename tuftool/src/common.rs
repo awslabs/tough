@@ -23,13 +23,13 @@ where
 {
     let root = root.as_ref();
     RepositoryLoader::new(
-        File::open(root).context(error::OpenRoot { path: root })?,
+        File::open(root).context(error::OpenRootSnafu { path: root })?,
         metadata_url,
         // we don't do anything with the targets url for metadata operations
-        Url::parse(UNUSED_URL).with_context(|| error::UrlParse {
+        Url::parse(UNUSED_URL).with_context(|_| error::UrlParseSnafu {
             url: UNUSED_URL.to_owned(),
         })?,
     )
     .load()
-    .context(error::RepoLoad)
+    .context(error::RepoLoadSnafu)
 }

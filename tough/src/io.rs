@@ -35,7 +35,7 @@ impl Read for DigestAdapter {
         if size == 0 {
             let result = std::mem::replace(&mut self.digest, None).unwrap().finish();
             if result.as_ref() != self.hash.as_slice() {
-                error::HashMismatch {
+                error::HashMismatchSnafu {
                     context: self.url.to_string(),
                     calculated: hex::encode(result),
                     expected: hex::encode(&self.hash),
@@ -82,7 +82,7 @@ impl Read for MaxSizeAdapter {
         let size = self.reader.read(buf)?;
         self.counter += size as u64;
         if self.counter > self.max_size {
-            error::MaxSizeExceeded {
+            error::MaxSizeExceededSnafu {
                 max_size: self.max_size,
                 specifier: self.specifier,
             }

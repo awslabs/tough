@@ -50,12 +50,13 @@ use url::Url;
 /// the `KeySource` trait in the `tough` library. A user can then add
 /// to this parser to support them in `tuftool`.
 pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
-    let pwd_url = Url::from_directory_path(std::env::current_dir().context(error::CurrentDir)?)
-        .expect("expected current directory to be absolute");
+    let pwd_url =
+        Url::from_directory_path(std::env::current_dir().context(error::CurrentDirSnafu)?)
+            .expect("expected current directory to be absolute");
     let url = Url::options()
         .base_url(Some(&pwd_url))
         .parse(input)
-        .context(error::UrlParse { url: input })?;
+        .context(error::UrlParseSnafu { url: input })?;
     match url.scheme() {
         "file" => Ok(Box::new(LocalKeySource {
             path: PathBuf::from(url.path()),
@@ -97,7 +98,7 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
             client: None,
             signing_algorithm: KmsSigningAlgorithm::RsassaPssSha256,
         })),
-        _ => error::UnrecognizedScheme {
+        _ => error::UnrecognizedSchemeSnafu {
             scheme: url.scheme(),
         }
         .fail(),

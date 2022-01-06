@@ -94,10 +94,11 @@ impl RepositoryEditor {
         // Read and parse the root.json. Without a good root, it doesn't
         // make sense to continue
         let root_path = root_path.as_ref();
-        let root_buf = std::fs::read(root_path).context(error::FileRead { path: root_path })?;
+        let root_buf =
+            std::fs::read(root_path).context(error::FileReadSnafu { path: root_path })?;
         let root_buf_len = root_buf.len() as u64;
         let root = serde_json::from_slice::<Signed<Root>>(&root_buf)
-            .context(error::FileParseJson { path: root_path })?;
+            .context(error::FileParseJsonSnafu { path: root_path })?;
 
         // Quick check that root is signed by enough key IDs
         for (roletype, rolekeys) in &root.signed.roles {
@@ -166,7 +167,7 @@ impl RepositoryEditor {
         let root = KeyHolder::Root(self.signed_root.signed.signed.clone());
         // Sign the targets editor if able to with the provided keys
         self.sign_targets_editor(keys)?;
-        let targets = self.signed_targets.clone().context(error::NoTargets)?;
+        let targets = self.signed_targets.clone().context(error::NoTargetsSnafu)?;
         let delegated_targets = targets.signed.signed_delegated_targets();
         let signed_targets = SignedRole::from_signed(targets)?;
 
@@ -201,7 +202,7 @@ impl RepositoryEditor {
             .signed
             .signed
             .validate()
-            .context(error::InvalidPath)?;
+            .context(error::InvalidPathSnafu)?;
 
         Ok(SignedRepository {
             root: self.signed_root,
@@ -216,7 +217,7 @@ impl RepositoryEditor {
     pub fn targets(&mut self, targets: Signed<Targets>) -> Result<&mut Self> {
         ensure!(
             targets.signed.spec_version == SPEC_VERSION,
-            error::SpecVersion {
+            error::SpecVersionSnafu {
                 given: targets.signed.spec_version,
                 supported: SPEC_VERSION
             }
@@ -237,7 +238,7 @@ impl RepositoryEditor {
     pub fn snapshot(&mut self, snapshot: Snapshot) -> Result<&mut Self> {
         ensure!(
             snapshot.spec_version == SPEC_VERSION,
-            error::SpecVersion {
+            error::SpecVersionSnafu {
                 given: snapshot.spec_version,
                 supported: SPEC_VERSION
             }
@@ -251,7 +252,7 @@ impl RepositoryEditor {
     pub fn timestamp(&mut self, timestamp: Timestamp) -> Result<&mut Self> {
         ensure!(
             timestamp.spec_version == SPEC_VERSION,
-            error::SpecVersion {
+            error::SpecVersionSnafu {
                 given: timestamp.spec_version,
                 supported: SPEC_VERSION
             }
@@ -323,14 +324,14 @@ impl RepositoryEditor {
         let target_name = TargetName::new(
             target_path
                 .file_name()
-                .context(error::NoFileName { path: target_path })?
+                .context(error::NoFileNameSnafu { path: target_path })?
                 .to_str()
-                .context(error::PathUtf8 { path: target_path })?,
+                .context(error::PathUtf8Snafu { path: target_path })?,
         )?;
 
         // Build a Target from the path given. If it is not a file, this will fail
-        let target =
-            Target::from_path(target_path).context(error::TargetFromPath { path: target_path })?;
+        let target = Target::from_path(target_path)
+            .context(error::TargetFromPathSnafu { path: target_path })?;
 
         Ok((target_name, target))
     }
@@ -366,11 +367,17 @@ impl RepositoryEditor {
         for source in key_source {
             let key_pair = source
                 .as_sign()
-                .context(error::KeyPairFromKeySource)?
+                .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
-            keyids.push(key_pair.key_id().context(error::JsonSerialization {})?);
+            keyids.push(
+                key_pair
+                    .key_id()
+                    .context(error::JsonSerializationSnafu {})?,
+            );
             key_pairs.insert(
-                key_pair.key_id().context(error::JsonSerialization {})?,
+                key_pair
+                    .key_id()
+                    .context(error::JsonSerializationSnafu {})?,
                 key_pair,
             );
         }
@@ -433,10 +440,10 @@ impl RepositoryEditor {
             } else {
                 self.signed_targets
                     .as_mut()
-                    .context(error::NoTargets)?
+                    .context(error::NoTargetsSnafu)?
                     .signed
                     .delegated_role_mut(&name)
-                    .context(error::DelegateMissing { name })?
+                    .context(error::DelegateMissingSnafu { name })?
                     .targets = Some(targets);
             }
         }
@@ -455,7 +462,7 @@ impl RepositoryEditor {
         let targets = &mut self
             .signed_targets
             .as_mut()
-            .context(error::NoTargets)?
+            .context(error::NoTargetsSnafu)?
             .signed;
         let (key_holder, targets) = if role == "targets" {
             (
@@ -465,13 +472,13 @@ impl RepositoryEditor {
         } else {
             let parent = targets
                 .parent_of(role)
-                .context(error::DelegateMissing {
+                .context(error::DelegateMissingSnafu {
                     name: role.to_string(),
                 })?
                 .clone();
             let targets = targets
                 .delegated_targets(role)
-                .context(error::DelegateMissing {
+                .context(error::DelegateMissingSnafu {
                     name: role.to_string(),
                 })?
                 .clone();
@@ -493,26 +500,28 @@ impl RepositoryEditor {
         name: &str,
         metadata_url: &str,
     ) -> Result<&mut Self> {
-        let limits = self.limits.context(error::MissingLimits)?;
-        let transport = self.transport.as_ref().context(error::MissingTransport)?;
+        let limits = self.limits.context(error::MissingLimitsSnafu)?;
+        let transport = self
+            .transport
+            .as_ref()
+            .context(error::MissingTransportSnafu)?;
         let targets = &mut self
             .signed_targets
             .as_mut()
-            .context(error::NoTargets)?
+            .context(error::NoTargetsSnafu)?
             .signed;
         let metadata_base_url = parse_url(metadata_url)?;
         // path to updated metadata
         let encoded_name = encode_filename(name);
         let encoded_filename = format!("{}.json", encoded_name);
-        let role_url =
-            metadata_base_url
-                .join(&encoded_filename)
-                .with_context(|| error::JoinUrlEncoded {
-                    original: name,
-                    encoded: encoded_name,
-                    filename: encoded_filename,
-                    url: metadata_base_url.clone(),
-                })?;
+        let role_url = metadata_base_url
+            .join(&encoded_filename)
+            .with_context(|_| error::JoinUrlEncodedSnafu {
+                original: name,
+                encoded: encoded_name,
+                filename: encoded_filename,
+                url: metadata_base_url.clone(),
+            })?;
         let reader = Box::new(fetch_max_size(
             transport.as_ref(),
             role_url,
@@ -521,7 +530,7 @@ impl RepositoryEditor {
         )?);
         // Load incoming role metadata as Signed<Targets>
         let mut role: Signed<crate::schema::Targets> =
-            serde_json::from_reader(reader).context(error::ParseMetadata {
+            serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
                 role: RoleType::Targets,
             })?;
         //verify role with the parent delegation
@@ -533,22 +542,23 @@ impl RepositoryEditor {
         } else {
             let parent = targets
                 .parent_of(name)
-                .context(error::DelegateMissing {
+                .context(error::DelegateMissingSnafu {
                     name: name.to_string(),
                 })?
                 .clone();
-            let targets = targets
-                .delegated_targets_mut(name)
-                .context(error::DelegateMissing {
-                    name: name.to_string(),
-                })?;
+            let targets =
+                targets
+                    .delegated_targets_mut(name)
+                    .context(error::DelegateMissingSnafu {
+                        name: name.to_string(),
+                    })?;
             (KeyHolder::Delegations(parent), &mut targets.signed)
         };
         parent.verify_role(&role, name)?;
         // Make sure the version isn't downgraded
         ensure!(
             role.signed.version >= current_targets.version,
-            error::VersionMismatch {
+            error::VersionMismatchSnafu {
                 role: RoleType::Targets,
                 fetched: role.signed.version,
                 expected: current_targets.version
@@ -561,7 +571,7 @@ impl RepositoryEditor {
             .signed
             .delegations
             .as_mut()
-            .context(error::NoDelegations)?;
+            .context(error::NoDelegationsSnafu)?;
         // the new targets will be the keyholder for any of its newly delegated roles, so create a keyholder
         let key_holder = KeyHolder::Delegations(delegations.clone());
         // load the new roles
@@ -569,14 +579,14 @@ impl RepositoryEditor {
             // path to new metadata
             let encoded_name = encode_filename(&name);
             let encoded_filename = format!("{}.json", encoded_name);
-            let role_url = metadata_base_url.join(&encoded_filename).with_context(|| {
-                error::JoinUrlEncoded {
+            let role_url = metadata_base_url
+                .join(&encoded_filename)
+                .with_context(|_| error::JoinUrlEncodedSnafu {
                     original: &name,
                     encoded: encoded_name,
                     filename: encoded_filename,
                     url: metadata_base_url.clone(),
-                }
-            })?;
+                })?;
             let reader = Box::new(fetch_max_size(
                 transport.as_ref(),
                 role_url,
@@ -585,7 +595,7 @@ impl RepositoryEditor {
             )?);
             // Load new role metadata as Signed<Targets>
             let new_role: Signed<crate::schema::Targets> = serde_json::from_reader(reader)
-                .context(error::ParseMetadata {
+                .context(error::ParseMetadataSnafu {
                     role: RoleType::Targets,
                 })?;
             // verify the role
@@ -595,7 +605,7 @@ impl RepositoryEditor {
                 .roles
                 .iter_mut()
                 .find(|delegated_role| delegated_role.name == name)
-                .context(error::DelegateNotFound { name: name.clone() })?
+                .context(error::DelegateNotFoundSnafu { name: name.clone() })?
                 .targets = Some(new_role.clone());
         }
         // Add our new role in place of the old one
@@ -604,10 +614,10 @@ impl RepositoryEditor {
         } else {
             self.signed_targets
                 .as_mut()
-                .context(error::NoTargets)?
+                .context(error::NoTargetsSnafu)?
                 .signed
                 .delegated_role_mut(name)
-                .context(error::DelegateMissing {
+                .context(error::DelegateMissingSnafu {
                     name: name.to_string(),
                 })?
                 .targets = Some(role);
@@ -627,11 +637,11 @@ impl RepositoryEditor {
         threshold: NonZeroU64,
         keys: Option<HashMap<Decoded<Hex>, Key>>,
     ) -> Result<&mut Self> {
-        let limits = self.limits.context(error::MissingLimits)?;
+        let limits = self.limits.context(error::MissingLimitsSnafu)?;
         let transport = self
             .transport
             .as_ref()
-            .context(error::MissingTransport)?
+            .context(error::MissingTransportSnafu)?
             .clone();
         self.targets_editor_mut()?.limits(limits);
         self.targets_editor_mut()?.transport(transport.clone());
@@ -649,10 +659,10 @@ impl RepositoryEditor {
         signed_targets: &SignedRole<Targets>,
         signed_delegated_targets: &Option<SignedDelegatedTargets>,
     ) -> Result<Snapshot> {
-        let version = self.snapshot_version.context(error::Missing {
+        let version = self.snapshot_version.context(error::MissingSnafu {
             field: "snapshot version",
         })?;
-        let expires = self.snapshot_expires.context(error::Missing {
+        let expires = self.snapshot_expires.context(error::MissingSnafu {
             field: "snapshot expiration",
         })?;
         let _extra = self.snapshot_extra.clone().unwrap_or_else(HashMap::new);
@@ -697,10 +707,10 @@ impl RepositoryEditor {
 
     /// Build the `Timestamp` struct
     fn build_timestamp(&self, signed_snapshot: &SignedRole<Snapshot>) -> Result<Timestamp> {
-        let version = self.timestamp_version.context(error::Missing {
+        let version = self.timestamp_version.context(error::MissingSnafu {
             field: "timestamp version",
         })?;
-        let expires = self.timestamp_expires.context(error::Missing {
+        let expires = self.timestamp_expires.context(error::MissingSnafu {
             field: "timestamp expiration",
         })?;
         let _extra = self.timestamp_extra.clone().unwrap_or_else(HashMap::new);
@@ -739,5 +749,5 @@ fn parse_url(url: &str) -> Result<Url> {
     if !url.ends_with('/') {
         url.to_mut().push('/');
     }
-    Url::parse(&url).context(error::ParseUrl { url })
+    Url::parse(&url).context(error::ParseUrlSnafu { url })
 }

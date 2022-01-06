@@ -57,7 +57,7 @@ impl RemoveKeyArgs {
         self.remove_key(
             role,
             TargetsEditor::from_repo(repository, role)
-                .context(error::EditorFromRepo { path: &self.root })?,
+                .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
     }
 
@@ -65,15 +65,15 @@ impl RemoveKeyArgs {
     fn remove_key(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         let updated_role = editor
             .remove_key(&self.remove, self.delegated_role.as_deref())
-            .context(error::LoadMetadata)?
+            .context(error::LoadMetadataSnafu)?
             .version(self.version)
             .expires(self.expires)
             .sign(&self.keys)
-            .context(error::SignRepo)?;
+            .context(error::SignRepoSnafu)?;
         let metadata_destination_out = &self.outdir.join("metadata");
         updated_role
             .write(metadata_destination_out, false)
-            .context(error::WriteRoles {
+            .context(error::WriteRolesSnafu {
                 roles: [role.to_string()].to_vec(),
             })?;
 

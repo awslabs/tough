@@ -11,14 +11,14 @@ impl Root {
         let role_keys = self
             .roles
             .get(&T::TYPE)
-            .context(error::MissingRole { role: T::TYPE })?;
+            .context(error::MissingRoleSnafu { role: T::TYPE })?;
         let mut valid = 0;
 
         let mut data = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
         role.signed
             .serialize(&mut ser)
-            .context(error::JsonSerialization {
+            .context(error::JsonSerializationSnafu {
                 what: format!("{} role", T::TYPE),
             })?;
 
@@ -39,7 +39,7 @@ impl Root {
 
         ensure!(
             valid >= u64::from(role_keys.threshold),
-            error::SignatureThreshold {
+            error::SignatureThresholdSnafu {
                 role: T::TYPE,
                 threshold: role_keys.threshold,
                 valid,
@@ -66,7 +66,7 @@ impl Delegations {
         let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
         role.signed
             .serialize(&mut ser)
-            .context(error::JsonSerialization {
+            .context(error::JsonSerializationSnafu {
                 what: format!("{} role", name.to_string()),
             })?;
         for signature in &role.signatures {
@@ -81,7 +81,7 @@ impl Delegations {
 
         ensure!(
             valid >= u64::from(role_keys.threshold),
-            error::SignatureThreshold {
+            error::SignatureThresholdSnafu {
                 role: RoleType::Targets,
                 threshold: role_keys.threshold,
                 valid,

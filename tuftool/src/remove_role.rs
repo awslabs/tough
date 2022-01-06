@@ -56,7 +56,7 @@ impl RemoveRoleArgs {
         self.remove_delegated_role(
             role,
             TargetsEditor::from_repo(repository, role)
-                .context(error::EditorFromRepo { path: &self.root })?,
+                .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
     }
 
@@ -64,15 +64,15 @@ impl RemoveRoleArgs {
     fn remove_delegated_role(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         let updated_role = editor
             .remove_role(&self.delegated_role, self.recursive)
-            .context(error::LoadMetadata)?
+            .context(error::LoadMetadataSnafu)?
             .version(self.version)
             .expires(self.expires)
             .sign(&self.keys)
-            .context(error::SignRepo)?;
+            .context(error::SignRepoSnafu)?;
         let metadata_destination_out = &self.outdir.join("metadata");
         updated_role
             .write(metadata_destination_out, false)
-            .context(error::WriteRoles {
+            .context(error::WriteRolesSnafu {
                 roles: [role.to_string()].to_vec(),
             })?;
 

@@ -72,7 +72,7 @@ impl UpdateTargetsArgs {
         let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone())?;
         self.update_targets(
             TargetsEditor::from_repo(repository, role)
-                .context(error::EditorFromRepo { path: &self.root })?,
+                .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
     }
 
@@ -87,7 +87,7 @@ impl UpdateTargetsArgs {
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(usize::from(jobs))
                     .build_global()
-                    .context(error::InitializeThreadPool)?;
+                    .context(error::InitializeThreadPoolSnafu)?;
             }
 
             let new_targets = build_targets(&targets_indir, self.follow)?;
@@ -95,19 +95,19 @@ impl UpdateTargetsArgs {
             for (target_name, target) in new_targets {
                 editor
                     .add_target(target_name, target)
-                    .context(error::InvalidTargetName)?;
+                    .context(error::InvalidTargetNameSnafu)?;
             }
         };
 
         // Sign the role
-        let signed_role = editor.sign(&self.keys).context(error::SignRepo)?;
+        let signed_role = editor.sign(&self.keys).context(error::SignRepoSnafu)?;
 
         // Copy any targets that were added
         if let Some(ref targets_indir) = self.targets_indir {
             let targets_outdir = &self.outdir.join("targets");
             signed_role
                 .copy_targets(&targets_indir, &targets_outdir, self.target_path_exists)
-                .context(error::LinkTargets {
+                .context(error::LinkTargetsSnafu {
                     indir: &targets_indir,
                     outdir: targets_outdir,
                 })?;
@@ -117,7 +117,7 @@ impl UpdateTargetsArgs {
         let metadata_dir = &self.outdir.join("metadata");
         signed_role
             .write(metadata_dir, false)
-            .context(error::WriteRepo {
+            .context(error::WriteRepoSnafu {
                 directory: metadata_dir,
             })?;
 

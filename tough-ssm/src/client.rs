@@ -11,18 +11,18 @@ use std::str::FromStr;
 /// Builds an SSM client for a given profile name.
 pub(crate) fn build_client(profile: Option<&str>) -> Result<SsmClient> {
     Ok(if let Some(profile) = profile {
-        let mut provider = ProfileProvider::new().context(error::RusotoCreds)?;
+        let mut provider = ProfileProvider::new().context(error::RusotoCredsSnafu)?;
         provider.set_profile(profile);
         let region = provider
             .region_from_profile()
-            .context(error::RusotoRegionFromProfile { profile })?;
+            .context(error::RusotoRegionFromProfileSnafu { profile })?;
 
         SsmClient::new_with(
-            HttpClient::new().context(error::RusotoTls)?,
+            HttpClient::new().context(error::RusotoTlsSnafu)?,
             provider,
             match region {
                 Some(region) => {
-                    Region::from_str(&region).context(error::RusotoRegion { region })?
+                    Region::from_str(&region).context(error::RusotoRegionSnafu { region })?
                 }
                 None => Region::default(),
             },

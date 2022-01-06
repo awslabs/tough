@@ -38,7 +38,7 @@ impl KeyHolder {
                     return Ok(root
                         .roles
                         .get(&roletype)
-                        .context(error::NoRoleKeysinRoot {
+                        .context(error::NoRoleKeysinRootSnafu {
                             role: roletype.to_string(),
                         })?
                         .clone());
@@ -58,13 +58,13 @@ impl KeyHolder {
             Self::Delegations(delegations) => {
                 delegations
                     .verify_role(targets, name)
-                    .context(error::VerifyRoleMetadata {
+                    .context(error::VerifyRoleMetadataSnafu {
                         role: name.to_string(),
                     })
             }
             Self::Root(root) => root
                 .verify_role(targets)
-                .context(error::VerifyRoleMetadata {
+                .context(error::VerifyRoleMetadataSnafu {
                     role: name.to_string(),
                 }),
         }
@@ -79,7 +79,7 @@ pub(crate) fn get_root_keys(root: &Root, keys: &[Box<dyn KeySource>]) -> Result<
 
     for source in keys {
         // Get a keypair from the given source
-        let key_pair = source.as_sign().context(error::KeyPairFromKeySource)?;
+        let key_pair = source.as_sign().context(error::KeyPairFromKeySourceSnafu)?;
 
         // If the keypair matches any of the keys in the root.json,
         // add its ID and corresponding keypair the map to be returned
@@ -87,7 +87,7 @@ pub(crate) fn get_root_keys(root: &Root, keys: &[Box<dyn KeySource>]) -> Result<
             root_keys.insert(key_id, key_pair);
         }
     }
-    ensure!(!root_keys.is_empty(), error::KeysNotFoundInRoot);
+    ensure!(!root_keys.is_empty(), error::KeysNotFoundInRootSnafu);
     Ok(root_keys)
 }
 
@@ -101,7 +101,7 @@ pub(crate) fn get_targets_keys(
     let mut delegations_keys = KeyList::new();
     for source in keys {
         // Get a keypair from the given source
-        let key_pair = source.as_sign().context(error::KeyPairFromKeySource)?;
+        let key_pair = source.as_sign().context(error::KeyPairFromKeySourceSnafu)?;
         // If the keypair matches any of the keys in the delegations metadata,
         // add its ID and corresponding keypair the map to be returned
         if let Some(key_id) = delegations.key_id(key_pair.as_ref()) {

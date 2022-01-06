@@ -107,10 +107,10 @@ impl<'de> Deserialize<'de> for TargetName {
 // Resolves path-like constructs. e.g. `foo/../bar` becomes `bar`.
 fn clean_name(name: &str) -> Result<String> {
     // This causes something to panic, so we check for it early.
-    ensure!(name != "..", error::UnsafeTargetNameDotDot);
+    ensure!(name != "..", error::UnsafeTargetNameDotDotSnafu);
 
     // Seems like bad things could happen if the target filename is the empty string.
-    ensure!(!name.is_empty(), error::UnsafeTargetNameEmpty { name });
+    ensure!(!name.is_empty(), error::UnsafeTargetNameEmptySnafu { name });
 
     // If our name starts with absolute, then we need to remember this so we can restore it later.
     let name_path = PathBuf::from(name);
@@ -119,7 +119,7 @@ fn clean_name(name: &str) -> Result<String> {
     let clean = {
         let proposed = name_path
             .absolutize_from(&PathBuf::from("/"))
-            .context(error::TargetNameResolve { name })?;
+            .context(error::TargetNameResolveSnafu { name })?;
 
         // `absolutize_from` will give us a path that starts with `/`, so we remove it if the
         // original name did not start with `/`
@@ -134,14 +134,14 @@ fn clean_name(name: &str) -> Result<String> {
             let first_component = components
                 .next()
                 // If this error occurs then there is a bug or behavior change in absolutize_from.
-                .context(error::TargetNameComponentsEmpty { name })?
+                .context(error::TargetNameComponentsEmptySnafu { name })?
                 .as_os_str();
 
             // If the first component isn't `/` then there is a bug or behavior change in
             // absolutize_from.
             ensure!(
                 first_component == "/",
-                error::TargetNameRootMissing { name }
+                error::TargetNameRootMissingSnafu { name }
             );
 
             components.as_path().to_owned()
@@ -151,16 +151,19 @@ fn clean_name(name: &str) -> Result<String> {
     let final_name = clean
         .as_os_str()
         .to_str()
-        .context(error::PathUtf8 { path: &clean })?
+        .context(error::PathUtf8Snafu { path: &clean })?
         .to_string();
 
     // Check again to make sure we didn't end up with an empty string.
     ensure!(
         !final_name.is_empty(),
-        error::UnsafeTargetNameEmpty { name }
+        error::UnsafeTargetNameEmptySnafu { name }
     );
 
-    ensure!(final_name != "/", error::UnsafeTargetNameSlash { name });
+    ensure!(
+        final_name != "/",
+        error::UnsafeTargetNameSlashSnafu { name }
+    );
 
     Ok(final_name)
 }

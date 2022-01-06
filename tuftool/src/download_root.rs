@@ -22,18 +22,22 @@ where
     let name = format!("{}.root.json", version);
 
     let path = outdir.as_ref().join(&name);
-    let url = metadata_base_url.join(&name).context(error::UrlParse {
-        url: format!("{}/{}", metadata_base_url.as_str(), name),
-    })?;
+    let url = metadata_base_url
+        .join(&name)
+        .context(error::UrlParseSnafu {
+            url: format!("{}/{}", metadata_base_url.as_str(), name),
+        })?;
     root_warning(&path);
 
     let mut root_request = reqwest::blocking::get(url.as_str())
-        .context(error::ReqwestGet)?
+        .context(error::ReqwestGetSnafu)?
         .error_for_status()
-        .context(error::BadResponse { url })?;
+        .context(error::BadResponseSnafu { url })?;
 
-    let mut f = File::create(&path).context(error::OpenFile { path: &path })?;
-    root_request.copy_to(&mut f).context(error::ReqwestCopy)?;
+    let mut f = File::create(&path).context(error::OpenFileSnafu { path: &path })?;
+    root_request
+        .copy_to(&mut f)
+        .context(error::ReqwestCopySnafu)?;
 
     Ok(path)
 }

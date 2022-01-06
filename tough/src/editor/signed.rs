@@ -80,11 +80,13 @@ where
         let mut ser = serde_json::Serializer::with_formatter(&mut data, CanonicalFormatter::new());
         role.signed
             .serialize(&mut ser)
-            .context(error::SerializeRole {
+            .context(error::SerializeRoleSnafu {
                 role: T::TYPE.to_string(),
             })?;
         for (signing_key_id, signing_key) in valid_keys {
-            let sig = signing_key.sign(&data, rng).context(error::SignMessage)?;
+            let sig = signing_key
+                .sign(&data, rng)
+                .context(error::SignMessageSnafu)?;
 
             // Add the signatures to the `Signed` struct for this role
             role.signatures.push(Signature {
@@ -107,9 +109,10 @@ where
     pub(crate) fn from_signed(role: Signed<T>) -> Result<SignedRole<T>> {
         // Serialize the role, and calculate its length and
         // sha256.
-        let mut buffer = serde_json::to_vec_pretty(&role).context(error::SerializeSignedRole {
-            role: T::TYPE.to_string(),
-        })?;
+        let mut buffer =
+            serde_json::to_vec_pretty(&role).context(error::SerializeSignedRoleSnafu {
+                role: T::TYPE.to_string(),
+            })?;
         buffer.push(b'\n');
         let length = buffer.len() as u64;
 
@@ -156,12 +159,12 @@ where
         P: AsRef<Path>,
     {
         let outdir = outdir.as_ref();
-        std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
+        std::fs::create_dir_all(outdir).context(error::DirCreateSnafu { path: outdir })?;
 
         let filename = self.signed.signed.filename(consistent_snapshot);
 
         let path = outdir.join(filename);
-        std::fs::write(&path, &self.buffer).context(error::FileWrite { path })
+        std::fs::write(&path, &self.buffer).context(error::FileWriteSnafu { path })
     }
 
     /// Append the old signatures for root role
@@ -316,22 +319,22 @@ impl SignedRepository {
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
-            error::PathIsNotFile { path: input_path }
+            error::PathIsNotFileSnafu { path: input_path }
         );
         match self.target_path(input_path, outdir, target_filename)? {
             TargetPath::New { path } => {
-                symlink(input_path, &path).context(error::LinkCreate { path })?;
+                symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
             }
             TargetPath::Symlink { path } => match replace_behavior {
                 PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFail { path }.fail()?,
+                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
-                    symlink(input_path, &path).context(error::LinkCreate { path })?;
+                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
+                    symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
                 }
             },
             TargetPath::File { path } => {
-                error::TargetFileTypeMismatch {
+                error::TargetFileTypeMismatchSnafu {
                     expected: "symlink",
                     found: "regular file",
                     path,
@@ -358,22 +361,22 @@ impl SignedRepository {
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
-            error::PathIsNotFile { path: input_path }
+            error::PathIsNotFileSnafu { path: input_path }
         );
         match self.target_path(input_path, outdir, target_filename)? {
             TargetPath::New { path } => {
-                fs::copy(input_path, &path).context(error::FileWrite { path })?;
+                fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
             }
             TargetPath::File { path } => match replace_behavior {
                 PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFail { path }.fail()?,
+                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
-                    fs::copy(input_path, &path).context(error::FileWrite { path })?;
+                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
+                    fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
                 }
             },
             TargetPath::Symlink { path } => {
-                error::TargetFileTypeMismatch {
+                error::TargetFileTypeMismatchSnafu {
                     expected: "regular file",
                     found: "symlink",
                     path,
@@ -490,22 +493,22 @@ impl SignedDelegatedTargets {
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
-            error::PathIsNotFile { path: input_path }
+            error::PathIsNotFileSnafu { path: input_path }
         );
         match self.target_path(input_path, outdir, target_filename)? {
             TargetPath::New { path } => {
-                symlink(input_path, &path).context(error::LinkCreate { path })?;
+                symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
             }
             TargetPath::Symlink { path } => match replace_behavior {
                 PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFail { path }.fail()?,
+                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
-                    symlink(input_path, &path).context(error::LinkCreate { path })?;
+                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
+                    symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
                 }
             },
             TargetPath::File { path } => {
-                error::TargetFileTypeMismatch {
+                error::TargetFileTypeMismatchSnafu {
                     expected: "symlink",
                     found: "regular file",
                     path,
@@ -532,22 +535,22 @@ impl SignedDelegatedTargets {
     ) -> Result<()> {
         ensure!(
             input_path.is_file(),
-            error::PathIsNotFile { path: input_path }
+            error::PathIsNotFileSnafu { path: input_path }
         );
         match self.target_path(input_path, outdir, target_filename)? {
             TargetPath::New { path } => {
-                fs::copy(input_path, &path).context(error::FileWrite { path })?;
+                fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
             }
             TargetPath::File { path } => match replace_behavior {
                 PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFail { path }.fail()?,
+                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTarget { path: &path })?;
-                    fs::copy(input_path, &path).context(error::FileWrite { path })?;
+                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
+                    fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
                 }
             },
             TargetPath::Symlink { path } => {
-                error::TargetFileTypeMismatch {
+                error::TargetFileTypeMismatchSnafu {
                     expected: "regular file",
                     found: "symlink",
                     path,
@@ -599,17 +602,17 @@ trait TargetsWalker {
     where
         F: Fn(&Self, &Path, &Path, PathExists, Option<&TargetName>) -> Result<()>,
     {
-        std::fs::create_dir_all(outdir).context(error::DirCreate { path: outdir })?;
+        std::fs::create_dir_all(outdir).context(error::DirCreateSnafu { path: outdir })?;
 
         // Get the absolute path of the indir and outdir
         let abs_indir =
-            std::fs::canonicalize(indir).context(error::AbsolutePath { path: indir })?;
+            std::fs::canonicalize(indir).context(error::AbsolutePathSnafu { path: indir })?;
 
         // Walk the absolute path of the indir. Using the absolute path here
         // means that `entry.path()` call will return its absolute path.
         let walker = WalkDir::new(&abs_indir).follow_links(true);
         for entry in walker {
-            let entry = entry.context(error::WalkDir {
+            let entry = entry.context(error::WalkDirSnafu {
                 directory: &abs_indir,
             })?;
 
@@ -640,7 +643,8 @@ trait TargetsWalker {
         outdir: &Path,
         target_filename: Option<&TargetName>,
     ) -> Result<TargetPath> {
-        let outdir = std::fs::canonicalize(outdir).context(error::AbsolutePath { path: outdir })?;
+        let outdir =
+            std::fs::canonicalize(outdir).context(error::AbsolutePathSnafu { path: outdir })?;
 
         // If the caller requested a specific target filename, use that, otherwise use the filename
         // component of the input path.
@@ -650,28 +654,28 @@ trait TargetsWalker {
             Cow::Owned(TargetName::new(
                 input
                     .file_name()
-                    .context(error::NoFileName { path: input })?
+                    .context(error::NoFileNameSnafu { path: input })?
                     .to_str()
-                    .context(error::PathUtf8 { path: input })?,
+                    .context(error::PathUtf8Snafu { path: input })?,
             )?)
         };
 
         // create a Target object using the input path.
         let target_from_path =
-            Target::from_path(input).context(error::TargetFromPath { path: input })?;
+            Target::from_path(input).context(error::TargetFromPathSnafu { path: input })?;
 
         // Use the file name to see if a target exists in the repo
         // with that name. If so...
         let repo_targets = &self.targets();
         let repo_target = repo_targets
             .get(&target_name)
-            .context(error::PathIsNotTarget { path: input })?;
+            .context(error::PathIsNotTargetSnafu { path: input })?;
         // compare the hashes of the target from the repo and the target we just created.  They
         // should match, or we alert the caller; if target replacement is intended, it should
         // happen earlier, in RepositoryEditor.
         ensure!(
             target_from_path.hashes.sha256 == repo_target.hashes.sha256,
-            error::HashMismatch {
+            error::HashMismatchSnafu {
                 context: "target",
                 calculated: hex::encode(target_from_path.hashes.sha256),
                 expected: hex::encode(&repo_target.hashes.sha256),
@@ -700,27 +704,29 @@ trait TargetsWalker {
         if !self.consistent_snapshot() {
             // Use DigestAdapter to get a streaming checksum of the file without needing to hold
             // its contents.
-            let f = fs::File::open(&dest).context(error::FileOpen { path: &dest })?;
+            let f = fs::File::open(&dest).context(error::FileOpenSnafu { path: &dest })?;
             let mut reader = DigestAdapter::sha256(
                 Box::new(f),
                 &repo_target.hashes.sha256,
                 Url::from_file_path(&dest)
                     .ok() // dump unhelpful `()` error
-                    .context(error::FileUrl { path: &dest })?,
+                    .context(error::FileUrlSnafu { path: &dest })?,
             );
             let mut dev_null = std::io::sink();
             // The act of reading with the DigestAdapter verifies the checksum, assuming the read
             // succeeds.
-            std::io::copy(&mut reader, &mut dev_null).context(error::FileRead { path: &dest })?;
+            std::io::copy(&mut reader, &mut dev_null)
+                .context(error::FileReadSnafu { path: &dest })?;
         }
 
-        let metadata = fs::symlink_metadata(&dest).context(error::FileMetadata { path: &dest })?;
+        let metadata =
+            fs::symlink_metadata(&dest).context(error::FileMetadataSnafu { path: &dest })?;
         if metadata.file_type().is_file() {
             Ok(TargetPath::File { path: dest })
         } else if metadata.file_type().is_symlink() {
             Ok(TargetPath::Symlink { path: dest })
         } else {
-            error::InvalidFileType { path: dest }.fail()
+            error::InvalidFileTypeSnafu { path: dest }.fail()
         }
     }
 }

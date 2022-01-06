@@ -43,14 +43,14 @@ impl CreateRoleArgs {
             .version(self.version)
             .expires(self.expires)
             .add_key(key_hash_map(&self.keys), None)
-            .context(error::DelegationStructure)?
+            .context(error::DelegationStructureSnafu)?
             .sign(&self.keys)
-            .context(error::SignRepo)?;
+            .context(error::SignRepoSnafu)?;
         // write the new role
         let metadata_destination_out = &self.outdir.join("metadata");
         new_role
             .write(&metadata_destination_out, false)
-            .context(error::WriteRoles {
+            .context(error::WriteRolesSnafu {
                 roles: [role.to_string()].to_vec(),
             })?;
         Ok(())

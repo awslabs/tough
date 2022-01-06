@@ -18,7 +18,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// The error type for this library.
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility(pub(crate)))]
 #[non_exhaustive]
 #[allow(missing_docs)]
 pub enum Error {

@@ -132,19 +132,19 @@ impl TargetsEditor {
         } else {
             let targets = repo
                 .delegated_role(name)
-                .context(error::DelegateNotFound {
+                .context(error::DelegateNotFoundSnafu {
                     name: name.to_string(),
                 })?
                 .targets
                 .as_ref()
-                .context(error::NoTargets)?
+                .context(error::NoTargetsSnafu)?
                 .signed
                 .clone();
             let key_holder = KeyHolder::Delegations(
                 repo.targets
                     .signed
                     .parent_of(name)
-                    .context(error::DelegateMissing {
+                    .context(error::DelegateMissingSnafu {
                         name: name.to_string(),
                     })?
                     .clone(),
@@ -183,7 +183,7 @@ impl TargetsEditor {
         E: Display,
     {
         let target_name = name.try_into().map_err(|e| {
-            error::InvalidTargetName {
+            error::InvalidTargetNameSnafu {
                 inner: e.to_string(),
             }
             .build()
@@ -210,14 +210,14 @@ impl TargetsEditor {
         let target_name = TargetName::new(
             target_path
                 .file_name()
-                .context(error::NoFileName { path: target_path })?
+                .context(error::NoFileNameSnafu { path: target_path })?
                 .to_str()
-                .context(error::PathUtf8 { path: target_path })?,
+                .context(error::PathUtf8Snafu { path: target_path })?,
         )?;
 
         // Build a Target from the path given. If it is not a file, this will fail
-        let target =
-            Target::from_path(target_path).context(error::TargetFromPath { path: target_path })?;
+        let target = Target::from_path(target_path)
+            .context(error::TargetFromPathSnafu { path: target_path })?;
 
         self.add_target(target_name, target)?;
         Ok(self)
@@ -275,7 +275,10 @@ impl TargetsEditor {
         keys: HashMap<Decoded<Hex>, Key>,
         role: Option<&str>,
     ) -> Result<&mut Self> {
-        let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
+        let delegations = self
+            .delegations
+            .as_mut()
+            .context(error::NoDelegationsSnafu)?;
         let mut keyids = Vec::new();
         for (keyid, key) in keys {
             // Check to see if the key is present
@@ -308,7 +311,10 @@ impl TargetsEditor {
 
     /// Removes a key from delegations keyids, if a role is specified the key is only removed from the role
     pub fn remove_key(&mut self, keyid: &Decoded<Hex>, role: Option<&str>) -> Result<&mut Self> {
-        let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
+        let delegations = self
+            .delegations
+            .as_mut()
+            .context(error::NoDelegationsSnafu)?;
         // If a role was provided remove keyid from the delegated role
         if let Some(role) = role {
             for delegated_role in &mut delegations.roles {
@@ -354,7 +360,10 @@ impl TargetsEditor {
     /// If `recursive` is `false`, `role` is only removed if it is directly delegated by this role
     /// If `true` removes whichever role eventually delegates 'role'
     pub fn remove_role(&mut self, role: &str, recursive: bool) -> Result<&mut Self> {
-        let delegations = self.delegations.as_mut().context(error::NoDelegations)?;
+        let delegations = self
+            .delegations
+            .as_mut()
+            .context(error::NoDelegationsSnafu)?;
         // Keep all of the roles that are not `role`
         delegations
             .roles
@@ -381,26 +390,25 @@ impl TargetsEditor {
         threshold: NonZeroU64,
         keys: Option<HashMap<Decoded<Hex>, Key>>,
     ) -> Result<&mut Self> {
-        let limits = self.limits.context(error::MissingLimits)?;
+        let limits = self.limits.context(error::MissingLimitsSnafu)?;
         let transport: &dyn Transport = self
             .transport
             .as_ref()
-            .context(error::MissingTransport)?
+            .context(error::MissingTransportSnafu)?
             .as_ref();
 
         let metadata_base_url = parse_url(metadata_url)?;
         // path to updated metadata
         let encoded_name = encode_filename(name);
         let encoded_filename = format!("{}.json", encoded_name);
-        let role_url =
-            metadata_base_url
-                .join(&encoded_filename)
-                .with_context(|| error::JoinUrlEncoded {
-                    original: name,
-                    encoded: encoded_name,
-                    filename: encoded_filename,
-                    url: metadata_base_url,
-                })?;
+        let role_url = metadata_base_url
+            .join(&encoded_filename)
+            .with_context(|_| error::JoinUrlEncodedSnafu {
+                original: name,
+                encoded: encoded_name,
+                filename: encoded_filename,
+                url: metadata_base_url,
+            })?;
         let reader = Box::new(fetch_max_size(
             transport,
             role_url,
@@ -409,7 +417,7 @@ impl TargetsEditor {
         )?);
         // Load incoming role metadata as Signed<Targets>
         let role: Signed<crate::schema::Targets> =
-            serde_json::from_reader(reader).context(error::ParseMetadata {
+            serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
                 role: RoleType::Targets,
             })?;
 
@@ -424,7 +432,11 @@ impl TargetsEditor {
         let (keyids, key_pairs) = if let Some(keys) = keys {
             (keys.keys().cloned().collect(), keys)
         } else {
-            let key_pairs = role.signed.delegations.context(error::NoDelegations)?.keys;
+            let key_pairs = role
+                .signed
+                .delegations
+                .context(error::NoDelegationsSnafu)?
+                .keys;
             (key_pairs.keys().cloned().collect(), key_pairs)
         };
 
@@ -436,10 +448,10 @@ impl TargetsEditor {
     /// Build the `Targets` struct
     /// Adds in the new roles and new targets
     pub fn build_targets(&self) -> Result<DelegatedTargets> {
-        let version = self.version.context(error::Missing {
+        let version = self.version.context(error::MissingSnafu {
             field: "targets version",
         })?;
-        let expires = self.expires.context(error::Missing {
+        let expires = self.expires.context(error::MissingSnafu {
             field: "targets expiration",
         })?;
 
@@ -486,19 +498,19 @@ impl TargetsEditor {
         for source in keys {
             let key_pair = source
                 .as_sign()
-                .context(error::KeyPairFromKeySource)?
+                .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
             key_pairs.insert(
                 key_pair
                     .key_id()
-                    .context(error::JsonSerialization {})?
+                    .context(error::JsonSerializationSnafu {})?
                     .clone(),
                 key_pair.clone(),
             );
             keyids.push(
                 key_pair
                     .key_id()
-                    .context(error::JsonSerialization {})?
+                    .context(error::JsonSerializationSnafu {})?
                     .clone(),
             );
         }
@@ -558,7 +570,7 @@ impl TargetsEditor {
                 roles.push(SignedRole::from_signed(
                     role.clone()
                         .targets
-                        .context(error::NoTargets)?
+                        .context(error::NoTargetsSnafu)?
                         .delegated_targets(&role.name),
                 )?);
             }
@@ -576,5 +588,5 @@ fn parse_url(url: &str) -> Result<Url> {
     if !url.ends_with('/') {
         url.to_mut().push('/');
     }
-    Url::parse(&url).context(error::ParseUrl { url })
+    Url::parse(&url).context(error::ParseUrlSnafu { url })
 }

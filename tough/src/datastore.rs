@@ -18,7 +18,7 @@ impl Datastore {
     pub(crate) fn new(path: Option<PathBuf>) -> Result<Self> {
         // using pattern matching instead of mapping because TempDir::new() can error
         Ok(Self(Arc::new(RwLock::new(match path {
-            None => DatastorePath::TempDir(TempDir::new().context(error::DatastoreInit)?),
+            None => DatastorePath::TempDir(TempDir::new().context(error::DatastoreInitSnafu)?),
             Some(p) => DatastorePath::Path(p),
         }))))
     }
@@ -40,7 +40,7 @@ impl Datastore {
             Ok(file) => Ok(Some(file)),
             Err(err) => match err.kind() {
                 ErrorKind::NotFound => Ok(None),
-                _ => Err(err).context(error::DatastoreOpen { path: &path }),
+                _ => Err(err).context(error::DatastoreOpenSnafu { path: &path }),
             },
         }
     }
@@ -48,10 +48,10 @@ impl Datastore {
     pub(crate) fn create<T: Serialize>(&self, file: &str, value: &T) -> Result<()> {
         let path = self.write().path().join(file);
         serde_json::to_writer_pretty(
-            File::create(&path).context(error::DatastoreCreate { path: &path })?,
+            File::create(&path).context(error::DatastoreCreateSnafu { path: &path })?,
             value,
         )
-        .context(error::DatastoreSerialize {
+        .context(error::DatastoreSerializeSnafu {
             what: format!("{} in datastore", file),
             path,
         })
@@ -64,7 +64,7 @@ impl Datastore {
             Ok(()) => Ok(()),
             Err(err) => match err.kind() {
                 ErrorKind::NotFound => Ok(()),
-                _ => Err(err).context(error::DatastoreRemove { path: &path }),
+                _ => Err(err).context(error::DatastoreRemoveSnafu { path: &path }),
             },
         }
     }
