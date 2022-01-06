@@ -964,13 +964,11 @@ dependencies = [
 
 [[package]]
 name = "pem"
-version = "1.0.0"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2373df5233932a893d3bc2c78a0bf3f6d12590a1edd546b4fbefcac32c5c0f"
+checksum = "e9a3b09a20e374558580a4914d3b7d89bd61b954a5a5e1dcbea98753addb1947"
 dependencies = [
  "base64",
- "once_cell",
- "regex",
 ]
 
 [[package]]
