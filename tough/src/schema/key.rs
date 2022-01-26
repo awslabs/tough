@@ -2,7 +2,7 @@
 
 //! Handles cryptographic keys and their serialization in TUF metadata files.
 
-use crate::schema::decoded::{Decoded, EcdsaPem, Hex, RsaPem};
+use crate::schema::decoded::{Decoded, EcdsaFlex, Hex, RsaPem};
 use crate::schema::error::{self, Result};
 use olpc_cjson::CanonicalFormatter;
 use ring::digest::{digest, SHA256};
@@ -121,7 +121,7 @@ pub enum EcdsaScheme {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct EcdsaKey {
     /// The public key.
-    pub public: Decoded<EcdsaPem>,
+    pub public: Decoded<EcdsaFlex>,
 
     /// Any additional fields read during deserialization; will not be used.
     #[serde(flatten)]
@@ -204,7 +204,7 @@ impl FromStr for Key {
             } else {
                 Err(KeyParseError(()))
             }
-        } else if let Ok(public) = serde_plain::from_str::<Decoded<EcdsaPem>>(s) {
+        } else if let Ok(public) = serde_plain::from_str::<Decoded<EcdsaFlex>>(s) {
             Ok(Key::Ecdsa {
                 keyval: EcdsaKey {
                     public,

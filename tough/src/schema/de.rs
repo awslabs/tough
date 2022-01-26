@@ -86,4 +86,15 @@ mod tests {
         ))
         .is_err());
     }
+
+    /// Ensure that we can deserialize a root.json file that has hex-encoded ECDSA keys. This uses
+    /// sigstore's root.json file taken from here:
+    /// https://sigstore-tuf-root.storage.googleapis.com/2.root.json
+    #[test]
+    fn ecdsa_hex_encoded_keys() {
+        assert!(serde_json::from_str::<Signed<Root>>(include_str!(
+            "../../tests/data/hex-encoded-ecdsa-sig-keys/root.json"
+        ))
+        .is_ok());
+    }
 }
