@@ -36,9 +36,9 @@ snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
 tempfile = "3.3.0"
 tokio = "~1.8"  # LTS
-tough = { version = "0.12.0", path = "../tough", features = ["http"] }
-tough-ssm = { version = "0.6.4", path = "../tough-ssm" }
-tough-kms = { version = "0.3.4", path = "../tough-kms" }
+tough = { version = "0.12.1", path = "../tough", features = ["http"] }
+tough-ssm = { version = "0.6.5", path = "../tough-ssm" }
+tough-kms = { version = "0.3.5", path = "../tough-kms" }
 url = "2.1.0"
 walkdir = "2.3.2"
 

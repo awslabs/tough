@@ -1746,7 +1746,7 @@ dependencies = [
 
 [[package]]
 name = "tough"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -1774,7 +1774,7 @@ dependencies = [
 
 [[package]]
 name = "tough-kms"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "base64",
  "bytes",
@@ -1793,7 +1793,7 @@ dependencies = [
 
 [[package]]
 name = "tough-ssm"
-version = "0.6.4"
+version = "0.6.5"
 dependencies = [
  "rusoto_core",
  "rusoto_credential",
