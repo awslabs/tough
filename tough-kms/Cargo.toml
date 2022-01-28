@@ -1,6 +1,6 @@
 [package]
 name = "tough-kms"
-version = "0.3.4"
+version = "0.3.5"
 description = "Implements AWS KMS as a key source for TUF signing keys"
 authors = ["Shailesh Gothi <gothisg@amazon.com>"]
 license = "MIT OR Apache-2.0"

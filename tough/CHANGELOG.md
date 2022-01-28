@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2022-01-28
+### Fixes
+- ECDSA keys now use the correct keytype name, thanks @flavio [#425]
+
+### Changes
+- Added support for hex-encoded ECDSA keys, thanks @flavio [#426]
+- Updated to snafu 0.7, thanks @shepmaster [#435]
+- Various other dependency updates
+
 ## [0.12.0] - 2021-10-19
 ### Breaking Changes
 - Target names are now specified with a struct, `TargetName`, instead of `String`.
@@ -158,7 +167,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.0...HEAD
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.1...HEAD
+[0.12.1]: https://github.com/awslabs/tough/compare/tough-v0.12.0...tough-v0.12.1
 [0.12.0]: https://github.com/awslabs/tough/compare/tough-v0.11.3...tough-v0.12.0
 [0.11.3]: https://github.com/awslabs/tough/compare/tough-v0.11.2...tough-v0.11.3
 [0.11.2]: https://github.com/awslabs/tough/compare/tough-v0.11.1...tough-v0.11.2

@@ -22,6 +22,18 @@ allow = [
     "Zlib"
 ]
 
+# https://github.com/hsivonen/encoding_rs The non-test code that isn't generated from the WHATWG data in this crate is
+# under Apache-2.0 OR MIT. Test code is under CC0.
+[[licenses.clarify]]
+name = "encoding_rs"
+expression = "(Apache-2.0 OR MIT) AND BSD-3-Clause"
+license-files = [
+    { path = "LICENSE-APACHE", hash = 0x18785531 },
+    { path = "LICENSE-MIT", hash = 0xafaec4cb },
+    { path = "LICENSE-WHATWG", hash = 0xbcb87a0c },
+    { path = "COPYRIGHT", hash = 0x39f8ad31 } # this file describes what licenses apply to the sources, and when they apply
+]
+
 [[licenses.clarify]]
 name = "ring"
 expression = "MIT AND ISC AND OpenSSL"
@@ -40,6 +52,11 @@ license-files = [
 # Deny multiple versions or wildcard dependencies.
 multiple-versions = "deny"
 wildcards = "deny"
+
+skip-tree = [
+    # rusoto_signature uses an older version of itoa
+    { name = "rusoto_signature", version = "0.47.0" },
+]
 
 [sources]
 # Deny crates from unknown registries or git repositories.
