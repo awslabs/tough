@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2022-01-28
+### Changes
+- Dependency updates.
+
 ## [0.7.0] - 2021-10-19
 ### Breaking Changes
 - `tuftool download` now requires `outdir` to not exist.
@@ -154,7 +158,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.7.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.7.1...develop
+[0.7.1]: https://github.com/awslabs/tough/compare/tuftool-v0.7.0...tuftool-v0.7.1
 [0.7.0]: https://github.com/awslabs/tough/compare/tuftool-v0.6.4...tuftool-v0.7.0
 [0.6.4]: https://github.com/awslabs/tough/compare/tuftool-v0.6.3...tuftool-v0.6.4
 [0.6.3]: https://github.com/awslabs/tough/compare/tuftool-v0.6.2...tuftool-v0.6.3
