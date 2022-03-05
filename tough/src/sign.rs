@@ -12,6 +12,7 @@ use ring::rand::SecureRandom;
 use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, RsaKeyPair};
 use snafu::ResultExt;
 use std::collections::HashMap;
+use std::error::Error;
 
 /// This trait must be implemented for each type of key with which you will
 /// sign things.
@@ -25,6 +26,21 @@ pub trait Sign: Sync + Send {
         msg: &[u8],
         rng: &dyn SecureRandom,
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>>;
+}
+
+/// Implements `Sign` for a reference to any type that implements `Sign`.
+impl<'a, T: Sign> Sign for &'a T {
+    fn tuf_key(&self) -> Key {
+        (*self).tuf_key()
+    }
+
+    fn sign(
+        &self,
+        msg: &[u8],
+        rng: &dyn SecureRandom,
+    ) -> std::prelude::rust_2015::Result<Vec<u8>, Box<dyn Error + Send + Sync + 'static>> {
+        (*self).sign(msg, rng)
+    }
 }
 
 /// Implements the Sign trait for ED25519
