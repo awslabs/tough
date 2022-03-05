@@ -665,7 +665,7 @@ impl RepositoryEditor {
         let expires = self.snapshot_expires.context(error::MissingSnafu {
             field: "snapshot expiration",
         })?;
-        let _extra = self.snapshot_extra.clone().unwrap_or_else(HashMap::new);
+        let _extra = self.snapshot_extra.clone().unwrap_or_default();
 
         let mut snapshot = Snapshot::new(SPEC_VERSION.to_string(), version, expires);
 
@@ -713,7 +713,7 @@ impl RepositoryEditor {
         let expires = self.timestamp_expires.context(error::MissingSnafu {
             field: "timestamp expiration",
         })?;
-        let _extra = self.timestamp_extra.clone().unwrap_or_else(HashMap::new);
+        let _extra = self.timestamp_extra.clone().unwrap_or_default();
         let mut timestamp = Timestamp::new(SPEC_VERSION.to_string(), version, expires);
 
         // Timestamp stores metadata about snapshot
