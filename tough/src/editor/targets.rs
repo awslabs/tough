@@ -474,7 +474,7 @@ impl TargetsEditor {
             }
         }
 
-        let _extra = self._extra.clone().unwrap_or_else(HashMap::new);
+        let _extra = self._extra.clone().unwrap_or_default();
         Ok(DelegatedTargets {
             name: self.name.clone(),
             targets: Targets {

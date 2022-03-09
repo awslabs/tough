@@ -57,12 +57,14 @@ impl HttpTransportBuilder {
     }
 
     /// Set a timeout for the complete fetch operation.
+    #[must_use]
     pub fn timeout(mut self, value: Duration) -> Self {
         self.timeout = value;
         self
     }
 
     /// Set a timeout for only the connect phase.
+    #[must_use]
     pub fn connect_timeout(mut self, value: Duration) -> Self {
         self.connect_timeout = value;
         self
@@ -70,18 +72,21 @@ impl HttpTransportBuilder {
 
     /// Set the total number of times we will try the fetch operation (in case of retryable
     /// failures).
+    #[must_use]
     pub fn tries(mut self, value: u32) -> Self {
         self.tries = value;
         self
     }
 
     /// Set the pause duration between the first and second try.
+    #[must_use]
     pub fn initial_backoff(mut self, value: Duration) -> Self {
         self.initial_backoff = value;
         self
     }
 
     /// Set the maximum duration of a pause between retries.
+    #[must_use]
     pub fn max_backoff(mut self, value: Duration) -> Self {
         self.max_backoff = value;
         self
@@ -89,6 +94,7 @@ impl HttpTransportBuilder {
 
     /// Set the exponential backoff factor, the factor by which the pause time will increase after
     /// each try until reaching `max_backoff`.
+    #[must_use]
     pub fn backoff_factor(mut self, value: f32) -> Self {
         self.backoff_factor = value;
         self

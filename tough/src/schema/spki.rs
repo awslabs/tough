@@ -114,7 +114,7 @@ fn asn1_encode_len(n: usize) -> Vec<u8> {
         vec![n as u8]
     } else {
         let n = n.to_be_bytes();
-        let skip_bytes = n.iter().position(|b| *b != 0).unwrap_or_else(|| n.len());
+        let skip_bytes = n.iter().position(|b| *b != 0).unwrap_or(n.len());
         let mut v = vec![0_u8; n.len() - skip_bytes + 1];
         v[0] = 0x80 | (n.len() - skip_bytes) as u8;
         v[1..].copy_from_slice(&n[skip_bytes..]);

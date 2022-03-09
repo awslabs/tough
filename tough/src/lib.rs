@@ -195,12 +195,14 @@ impl<R: Read> RepositoryLoader<R> {
     }
 
     /// Set the transport. If no transport has been set, [`DefaultTransport`] will be used.
+    #[must_use]
     pub fn transport<T: Transport + 'static>(mut self, transport: T) -> Self {
         self.transport = Some(Box::new(transport));
         self
     }
 
     /// Set a the repository [`Limits`].
+    #[must_use]
     pub fn limits(mut self, limits: Limits) -> Self {
         self.limits = Some(limits);
         self
@@ -213,6 +215,7 @@ impl<R: Read> RepositoryLoader<R> {
     /// You may chose to provide a [`PathBuf`] to a directory on a persistent filesystem, which must
     /// exist prior to calling [`RepositoryLoader::load`]. If no datastore is provided, a temporary
     /// directory will be created and cleaned up for for you.
+    #[must_use]
     pub fn datastore<P: Into<PathBuf>>(mut self, datastore: P) -> Self {
         self.datastore = Some(datastore.into());
         self
@@ -223,6 +226,7 @@ impl<R: Read> RepositoryLoader<R> {
     /// **CAUTION:** TUF metadata expiration dates, particularly `timestamp.json`, are designed to
     /// limit a replay attack window. By setting `expiration_enforcement` to `Unsafe`, you are
     /// disabling this feature of TUF. Use `Safe` unless you have a good reason to use `Unsafe`.
+    #[must_use]
     pub fn expiration_enforcement(mut self, exp: ExpirationEnforcement) -> Self {
         self.expiration_enforcement = Some(exp);
         self
