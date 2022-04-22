@@ -276,13 +276,13 @@ fn pad_signature(mut signature: Vec<u8>, modulus_size_bytes: usize) -> error::Re
 #[test]
 fn parse_modulus_length_wrong_alg() {
     let result = parse_modulus_length_bytes("ECC_SECG_P256K1");
-    assert!(result.is_err())
+    assert!(result.is_err());
 }
 
 #[test]
 fn parse_modulus_length_bad_str() {
     let result = parse_modulus_length_bytes("RSA_");
-    assert!(result.is_err())
+    assert!(result.is_err());
 }
 
 #[test]

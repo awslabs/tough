@@ -139,12 +139,12 @@ fn check_signature_exists(root_json: &str, key_id: Decoded<Hex>) -> bool {
     if root.signatures.iter().find(|sig| sig.keyid == key_id) == None {
         return false;
     }
-    return true;
+    true
 }
 
 fn get_version(root_json: &str) -> NonZeroU64 {
     let root = get_signed_root(root_json);
-    return root.signed.version;
+    root.signed.version
 }
 
 #[test]
@@ -263,10 +263,10 @@ fn cross_sign_root() {
         new_root_json.to_str().unwrap(),
         old_root_key.to_str().unwrap(),
     );
-    assert_eq!(
-        check_signature_exists(new_root_json.to_str().unwrap(), old_key_id),
-        true
-    );
+    assert!(check_signature_exists(
+        new_root_json.to_str().unwrap(),
+        old_key_id,
+    ));
 }
 
 //cross-signing new_root.json with invalid key ( key not present in old_root.json )

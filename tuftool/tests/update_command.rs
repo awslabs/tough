@@ -232,7 +232,7 @@ fn update_with_incorrect_key() {
             "-k",
             bad_key.to_str().unwrap(),
             "--root",
-            root_json.clone().to_str().unwrap(),
+            root_json.to_str().unwrap(),
             "--metadata-url",
             "https://metadata.url.does.not.matter",
             "--targets-expires",
@@ -334,7 +334,7 @@ fn updates_expired_repo(
     } else {
         cmd.assert()
     };
-    return (
+    (
         assert,
         timestamp_expiration,
         timestamp_version,
@@ -342,7 +342,7 @@ fn updates_expired_repo(
         snapshot_version,
         targets_expiration,
         targets_version,
-    );
+    )
 }
 
 #[test]

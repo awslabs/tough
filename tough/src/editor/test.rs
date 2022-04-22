@@ -58,6 +58,7 @@ mod tests {
     }
 
     // Make sure we can add targets from different sources
+    #[allow(clippy::similar_names)]
     #[test]
     fn add_targets_from_multiple_sources() {
         let targets: Signed<Targets> = serde_json::from_str(include_str!(
@@ -80,6 +81,7 @@ mod tests {
             .unwrap();
     }
 
+    #[allow(clippy::similar_names)]
     #[test]
     fn clear_targets() {
         let targets: Signed<Targets> = serde_json::from_str(include_str!(

@@ -11,7 +11,6 @@ use serde::{Deserialize, Deserializer};
 use std::fs::File;
 use std::io::BufReader;
 use tough::key_source::KeySource;
-use tough::schema::decoded::{Decoded, RsaPem};
 use tough::schema::key::Key;
 use tough_kms::KmsKeySource;
 use tough_kms::KmsSigningAlgorithm::RsassaPssSha256;
@@ -32,11 +31,6 @@ struct PublicKeyResp {
     #[serde(deserialize_with = "de_bytes", default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     public_key: bytes::Bytes,
-}
-
-#[derive(Deserialize, Debug)]
-struct ExpectedPublicKey {
-    public_key: Decoded<RsaPem>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
@@ -83,7 +77,7 @@ fn check_tuf_key_success() {
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
     let kms_key = KmsKeySource {
         profile: None,
-        key_id: key_id.clone(),
+        key_id,
         client: Some(mock_client),
         signing_algorithm: RsassaPssSha256,
     };
@@ -175,8 +169,7 @@ fn check_public_key_failure() {
     assert_eq!(
         format!(
             "Failed to get public key for aws-kms:///{} : {}",
-            key_id.clone(),
-            error_msg.clone()
+            key_id, error_msg
         ),
         err.to_string()
     );
@@ -202,7 +195,7 @@ fn check_public_key_missing_algo() {
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
     let kms_key = KmsKeySource {
         profile: None,
-        key_id: key_id.clone(),
+        key_id,
         client: Some(mock_client),
         signing_algorithm: RsassaPssSha256,
     };
@@ -235,7 +228,7 @@ fn check_public_key_unmatch_algo() {
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
     let kms_key = KmsKeySource {
         profile: None,
-        key_id: key_id.clone(),
+        key_id,
         client: Some(mock_client),
         signing_algorithm: RsassaPssSha256,
     };
@@ -292,8 +285,7 @@ fn check_sign_request_failure() {
     assert_eq!(
         format!(
             "Error while signing message for aws-kms:///{} : {}",
-            key_id.clone(),
-            error_msg.clone()
+            key_id, error_msg
         ),
         err.to_string()
     );
@@ -340,7 +332,7 @@ fn check_signature_failure() {
     let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
     let kms_key = KmsKeySource {
         profile: None,
-        key_id: key_id.clone(),
+        key_id,
         client: Some(mock_client),
         signing_algorithm: RsassaPssSha256,
     };
@@ -360,9 +352,9 @@ fn check_write_ok() {
     let key_id = String::from("alias/some_alias");
     let kms_key = KmsKeySource {
         profile: None,
-        key_id: key_id.clone(),
+        key_id,
         client: None,
         signing_algorithm: RsassaPssSha256,
     };
-    assert_eq!((), kms_key.write("", "").unwrap())
+    assert!(kms_key.write("", "").is_ok());
 }

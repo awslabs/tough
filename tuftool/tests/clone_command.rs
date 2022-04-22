@@ -72,7 +72,7 @@ fn assert_all_metadata(metadata_dir: &TempDir) {
         "role1.json",
         "role2.json",
     ] {
-        assert_metadata_match(&metadata_dir, f)
+        assert_metadata_match(metadata_dir, f)
     }
 }
 

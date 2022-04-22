@@ -1179,10 +1179,10 @@ fn targets_iter_and_map_test() {
         length: 0,
         hashes: Hashes {
             sha256: [0u8].to_vec().into(),
-            _extra: Default::default(),
+            _extra: HashMap::default(),
         },
-        custom: Default::default(),
-        _extra: Default::default(),
+        custom: HashMap::default(),
+        _extra: HashMap::default(),
     };
 
     // Create a hierarchy of targets/delegations: a -> b -> c
@@ -1201,13 +1201,13 @@ fn targets_iter_and_map_test() {
                     TargetName::new("c.txt").unwrap() => nothing.clone(),
                 },
                 delegations: None,
-                _extra: Default::default(),
+                _extra: HashMap::default(),
             },
             signatures: vec![],
         }),
     };
     let b_delegations = Delegations {
-        keys: Default::default(),
+        keys: HashMap::default(),
         roles: vec![c_role],
     };
     let b_role = DelegatedRole {
@@ -1225,13 +1225,13 @@ fn targets_iter_and_map_test() {
                     TargetName::new("b.txt").unwrap() => nothing.clone(),
                 },
                 delegations: Some(b_delegations),
-                _extra: Default::default(),
+                _extra: HashMap::default(),
             },
             signatures: vec![],
         }),
     };
     let a_delegations = Delegations {
-        keys: Default::default(),
+        keys: HashMap::default(),
         roles: vec![b_role],
     };
     let a = Targets {
@@ -1239,28 +1239,25 @@ fn targets_iter_and_map_test() {
         version: NonZeroU64::new(1).unwrap(),
         expires: Utc::now(),
         targets: hashmap! {
-            TargetName::new("a.txt").unwrap() => nothing.clone(),
+            TargetName::new("a.txt").unwrap() => nothing,
         },
         delegations: Some(a_delegations),
-        _extra: Default::default(),
+        _extra: HashMap::default(),
     };
 
     // Assert that targets_iter is recursive and thus has a.txt, b.txt and c.txt
     assert!(a
         .targets_iter()
         .map(|(key, _)| key)
-        .find(|&item| item.raw() == "a.txt")
-        .is_some());
+        .any(|item| item.raw() == "a.txt"));
     assert!(a
         .targets_iter()
         .map(|(key, _)| key)
-        .find(|&item| item.raw() == "b.txt")
-        .is_some());
+        .any(|item| item.raw() == "b.txt"));
     assert!(a
         .targets_iter()
         .map(|(key, _)| key)
-        .find(|&item| item.raw() == "c.txt")
-        .is_some());
+        .any(|item| item.raw() == "c.txt"));
 
     // Assert that targets_map is also recursive
     let map = a.targets_map();

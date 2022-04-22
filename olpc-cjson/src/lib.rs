@@ -296,7 +296,7 @@ mod tests {
     use serde_json::Serializer;
     use std::io::Result;
 
-    /// Small wrapper around serde_json's json! macro to encode the value as canonical JSON.
+    /// Small wrapper around the `serde_json` json! macro to encode the value as canonical JSON.
     macro_rules! encode {
         ($($tt:tt)+) => {
             (|v: serde_json::Value| -> Result<Vec<u8>> {
@@ -311,7 +311,7 @@ mod tests {
     /// These smoke tests come from securesystemslib, the library used by the TUF reference
     /// implementation.
     ///
-    /// https://github.com/secure-systems-lab/securesystemslib/blob/f466266014aff529510216b8c2f8c8f39de279ec/tests/test_formats.py#L354-L389
+    /// `<https://github.com/secure-systems-lab/securesystemslib/blob/f466266014aff529510216b8c2f8c8f39de279ec/tests/test_formats.py#L354-L389>`
     #[test]
     fn securesystemslib_asserts() -> Result<()> {
         assert_eq!(encode!([1, 2, 3])?, b"[1,2,3]");
@@ -426,6 +426,7 @@ mod tests {
 
     /// This test asserts that the cannonical representation of some real-world data always comes
     /// out the same.
+    #[allow(clippy::unreadable_literal)]
     #[test]
     fn actual_tuf_signed() {
         let encode_result = encode!(
