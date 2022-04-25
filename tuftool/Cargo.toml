@@ -26,7 +26,7 @@ rayon = "1.5"
 reqwest = { version = "0.11.1", features = ["blocking"] }
 ring = { version = "0.16.16", features = ["std"] }
 rusoto_core = { version = "0.47", optional = true, default-features = false }
-rusoto_credential = { version = "0.47", optional = true }
+rusoto_credential = { version = "0.48", optional = true }
 rusoto_ssm = { version = "0.47", optional = true, default-features = false }
 rusoto_kms = { version = "0.47", optional = true, default-features = false }
 serde = "1.0.125"
