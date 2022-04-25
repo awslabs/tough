@@ -1226,8 +1226,32 @@ dependencies = [
  "hyper-tls",
  "lazy_static",
  "log",
- "rusoto_credential",
- "rusoto_signature",
+ "rusoto_credential 0.47.0",
+ "rusoto_signature 0.47.0",
+ "rustc_version",
+ "serde",
+ "serde_json",
+ "tokio",
+ "xml-rs",
+]
+
+[[package]]
+name = "rusoto_core"
+version = "0.48.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1db30db44ea73551326269adcf7a2169428a054f14faf9e1768f2163494f2fa2"
+dependencies = [
+ "async-trait",
+ "base64",
+ "bytes",
+ "crc32fast",
+ "futures",
+ "http",
+ "hyper",
+ "lazy_static",
+ "log",
+ "rusoto_credential 0.48.0",
+ "rusoto_signature 0.48.0",
  "rustc_version",
  "serde",
  "serde_json",
@@ -1254,6 +1278,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusoto_credential"
+version = "0.48.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee0a6c13db5aad6047b6a44ef023dbbc21a056b6dab5be3b79ce4283d5c02d05"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "dirs-next",
+ "futures",
+ "hyper",
+ "serde",
+ "serde_json",
+ "shlex",
+ "tokio",
+ "zeroize",
+]
+
+[[package]]
 name = "rusoto_kms"
 version = "0.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1262,22 +1304,22 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures",
- "rusoto_core",
+ "rusoto_core 0.47.0",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "rusoto_mock"
-version = "0.47.0"
+version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5b3ad822f9ff58043dc81172a27f392e2f2aedebd8566c5f4bee4bfd2be021a"
+checksum = "5a384880f3c6d514e9499e6df75490bef5f6f39237bc24844e3933dfc09e9e55"
 dependencies = [
  "async-trait",
  "chrono",
  "futures",
  "http",
- "rusoto_core",
+ "rusoto_core 0.48.0",
  "serde",
  "serde_json",
 ]
@@ -1301,7 +1343,33 @@ dependencies = [
  "md-5",
  "percent-encoding",
  "pin-project-lite",
- "rusoto_credential",
+ "rusoto_credential 0.47.0",
+ "rustc_version",
+ "serde",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "rusoto_signature"
+version = "0.48.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5ae95491c8b4847931e291b151127eccd6ff8ca13f33603eb3d0035ecb05272"
+dependencies = [
+ "base64",
+ "bytes",
+ "chrono",
+ "digest",
+ "futures",
+ "hex",
+ "hmac",
+ "http",
+ "hyper",
+ "log",
+ "md-5",
+ "percent-encoding",
+ "pin-project-lite",
+ "rusoto_credential 0.48.0",
  "rustc_version",
  "serde",
  "sha2",
@@ -1317,7 +1385,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures",
- "rusoto_core",
+ "rusoto_core 0.47.0",
  "serde",
  "serde_json",
 ]
@@ -1779,8 +1847,8 @@ dependencies = [
  "bytes",
  "pem",
  "ring",
- "rusoto_core",
- "rusoto_credential",
+ "rusoto_core 0.47.0",
+ "rusoto_credential 0.47.0",
  "rusoto_kms",
  "rusoto_mock",
  "serde",
@@ -1794,8 +1862,8 @@ dependencies = [
 name = "tough-ssm"
 version = "0.6.5"
 dependencies = [
- "rusoto_core",
- "rusoto_credential",
+ "rusoto_core 0.47.0",
+ "rusoto_credential 0.47.0",
  "rusoto_ssm",
  "serde",
  "serde_json",
@@ -1851,8 +1919,8 @@ dependencies = [
  "rayon",
  "reqwest",
  "ring",
- "rusoto_core",
- "rusoto_credential",
+ "rusoto_core 0.47.0",
+ "rusoto_credential 0.47.0",
  "rusoto_kms",
  "rusoto_ssm",
  "serde",
