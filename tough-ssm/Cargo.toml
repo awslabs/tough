@@ -1,6 +1,6 @@
 [package]
 name = "tough-ssm"
-version = "0.6.5"
+version = "0.6.6"
 description = "Implements AWS SSM as a key source for TUF signing keys"
 authors = ["Zac Mrowicki <mrowicki@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@ rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/
 rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls"]
 
 [dependencies]
-tough = { version = "0.12.0", path = "../tough", features = ["http"] }
+tough = { version = "0.12.2", path = "../tough", features = ["http"] }
 rusoto_core = { version = "0.48", optional = true, default-features = false }
 rusoto_credential = { version = "0.48", optional = true }
 rusoto_ssm = { version = "0.48", optional = true, default-features = false }

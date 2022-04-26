@@ -1742,7 +1742,7 @@ dependencies = [
 
 [[package]]
 name = "tough"
-version = "0.12.1"
+version = "0.12.2"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -1770,7 +1770,7 @@ dependencies = [
 
 [[package]]
 name = "tough-kms"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "base64",
  "bytes",
@@ -1789,7 +1789,7 @@ dependencies = [
 
 [[package]]
 name = "tough-ssm"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "rusoto_core",
  "rusoto_credential",
@@ -1835,7 +1835,7 @@ checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
 
 [[package]]
 name = "tuftool"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "assert_cmd",
  "chrono",

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2022-04-26
+### Changes
+- Do not pin tokio version in Cargo.toml. [#451]
+- Fix clippy warnings. [#455]
+- Update dependencies.
+
+[#451]: https://github.com/awslabs/tough/pull/451
+[#455]: https://github.com/awslabs/tough/pull/455
+
 ## [0.3.5] - 2022-01-28
 ### Changes
 - Update dependencies.
@@ -68,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-kms-v0.3.6...develop
+[0.3.6]: https://github.com/awslabs/tough/compare/tough-kms-v0.3.5...tough-kms-v0.3.6
 [0.3.5]: https://github.com/awslabs/tough/compare/tough-kms-v0.3.4...tough-kms-v0.3.5
 [0.3.4]: https://github.com/awslabs/tough/compare/tough-kms-v0.3.3...tough-kms-v0.3.4
 [0.3.3]: https://github.com/awslabs/tough/compare/tough-kms-v0.3.2...tough-kms-v0.3.3
