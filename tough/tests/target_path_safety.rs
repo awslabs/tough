@@ -28,7 +28,7 @@ fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySo
         path: test_data().join("snakeoil.pem"),
     })];
 
-    let key_pair = keys.iter().next().unwrap().as_sign().unwrap().tuf_key();
+    let key_pair = keys.get(0).unwrap().as_sign().unwrap().tuf_key();
     let key_id = key_pair.key_id().unwrap();
 
     let empty_keys = RoleKeys {
@@ -48,7 +48,7 @@ fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySo
                 RoleType::Root => empty_keys.clone(),
                 RoleType::Snapshot => empty_keys.clone(),
                 RoleType::Targets => empty_keys.clone(),
-                RoleType::Timestamp => empty_keys.clone(),
+                RoleType::Timestamp => empty_keys,
                 // RoleType::DelegatedTargets => empty_keys.clone(),
             },
             _extra: HashMap::new(),
@@ -56,7 +56,7 @@ fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySo
         signatures: Vec::new(),
     };
 
-    root.signed.keys.insert(key_id.clone(), key_pair.clone());
+    root.signed.keys.insert(key_id, key_pair);
 
     let signed_root = SignedRole::new(
         root.signed.clone(),

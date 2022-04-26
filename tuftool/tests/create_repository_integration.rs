@@ -73,7 +73,7 @@ fn gen_key(key: &str, root_json: &str) {
 fn add_root_key(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key.clone(), "--role", "root"])
+        .args(&["root", "add-key", root_json, key, "--role", "root"])
         .assert()
         .success();
 }
@@ -108,13 +108,13 @@ fn create_repository(root_key: &str, auto_generate: bool) {
     let root_json_dir = TempDir::new().unwrap();
     let root_json = root_json_dir.path().join("root.json");
     initialize_root_json(root_json.to_str().unwrap());
-    if auto_generate == true {
-        gen_key(root_key.clone(), root_json.to_str().unwrap());
+    if auto_generate {
+        gen_key(root_key, root_json.to_str().unwrap());
     } else {
         add_root_key(root_key, root_json.to_str().unwrap());
     }
-    add_key_all_role(root_key.clone(), root_json.to_str().unwrap());
-    sign_root_json(root_key.clone(), root_json.to_str().unwrap());
+    add_key_all_role(root_key, root_json.to_str().unwrap());
+    sign_root_json(root_key, root_json.to_str().unwrap());
     // Use root.json file to generate metadata using create command.
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let timestamp_version: u64 = 1234;
