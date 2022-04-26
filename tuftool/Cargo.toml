@@ -31,7 +31,7 @@ rusoto_ssm = { version = "0.48", optional = true, default-features = false }
 rusoto_kms = { version = "0.48", optional = true, default-features = false }
 serde = "1.0.125"
 serde_json = "1.0.63"
-simplelog = "0.11"
+simplelog = "0.12"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
 tempfile = "3.3.0"
