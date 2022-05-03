@@ -56,6 +56,8 @@ wildcards = "deny"
 skip-tree = [
     # rusoto_signature uses an older version of itoa
     { name = "rusoto_signature" },
+    # structopt-derive uses and older verision of heck
+    { name = "structopt-derive" },
 ]
 
 [sources]
