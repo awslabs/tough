@@ -4,7 +4,6 @@
 mod client;
 pub mod error;
 
-use rusoto_ssm::Ssm;
 use snafu::{OptionExt, ResultExt};
 use tough::key_source::KeySource;
 use tough::sign::{parse_keypair, Sign};
@@ -24,10 +23,11 @@ impl KeySource for SsmKeySource {
     ) -> std::result::Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>>
     {
         let ssm_client = client::build_client(self.profile.as_deref())?;
-        let fut = ssm_client.get_parameter(rusoto_ssm::GetParameterRequest {
-            name: self.parameter_name.to_owned(),
-            with_decryption: Some(true),
-        });
+        let fut = ssm_client
+            .get_parameter()
+            .name(self.parameter_name.to_owned())
+            .with_decryption(true)
+            .send();
         let response = tokio::runtime::Runtime::new()
             .context(error::RuntimeCreationSnafu)?
             .block_on(fut)
@@ -58,15 +58,17 @@ impl KeySource for SsmKeySource {
         key_id_hex: &str,
     ) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
         let ssm_client = client::build_client(self.profile.as_deref())?;
-        let fut = ssm_client.put_parameter(rusoto_ssm::PutParameterRequest {
-            name: self.parameter_name.to_owned(),
-            description: Some(key_id_hex.to_owned()),
-            key_id: self.key_id.as_ref().cloned(),
-            overwrite: Some(true),
-            type_: Some("SecureString".to_owned()),
-            value: value.to_owned(),
-            ..rusoto_ssm::PutParameterRequest::default()
-        });
+
+        let fut = ssm_client
+            .put_parameter()
+            .name(self.parameter_name.to_owned())
+            .description(key_id_hex.to_owned())
+            .set_key_id(self.key_id.as_ref().cloned())
+            .overwrite(true)
+            .set_type(Some(aws_sdk_ssm::model::ParameterType::SecureString))
+            .value(value.to_owned())
+            .send();
+
         tokio::runtime::Runtime::new()
             .context(error::RuntimeCreationSnafu)?
             .block_on(fut)

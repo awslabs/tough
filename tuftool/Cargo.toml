@@ -10,10 +10,10 @@ edition = "2018"
 
 [features]
 integ = []
-default = ["rusoto"]
-rusoto = ["rusoto-rustls"]
-rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/native-tls", "rusoto_kms/native-tls"]
-rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls", "rusoto_kms/rustls",]
+default = ["aws-sdk-rust"]
+aws-sdk-rust = ["aws-sdk-rust-rustls"]
+aws-sdk-rust-native-tls = ["aws-config/native-tls", "aws-sdk-ssm/native-tls", "aws-sdk-kms/native-tls"]
+aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls",]
 
 [dependencies]
 chrono = "0.4.11"
@@ -24,18 +24,17 @@ olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
 pem = "1.0.2"
 rayon = "1.5"
 reqwest = { version = "0.11.1", features = ["blocking"] }
+aws-sdk-kms = "0.16.0"
+aws-sdk-ssm = "0.16.0"
+aws-config = "0.46.0"
 ring = { version = "0.16.16", features = ["std"] }
-rusoto_core = { version = "0.48", optional = true, default-features = false }
-rusoto_credential = { version = "0.48", optional = true }
-rusoto_ssm = { version = "0.48", optional = true, default-features = false }
-rusoto_kms = { version = "0.48", optional = true, default-features = false }
 serde = "1.0.125"
 serde_json = "1.0.63"
 simplelog = "0.12"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
 tempfile = "3.3.0"
-tokio = "~1.8"  # LTS
+tokio = "~1.18"  # LTS
 tough = { version = "0.12.2", path = "../tough", features = ["http"] }
 tough-ssm = { version = "0.6.6", path = "../tough-ssm" }
 tough-kms = { version = "0.3.6", path = "../tough-kms" }

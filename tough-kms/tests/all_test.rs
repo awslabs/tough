@@ -1,12 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 mod test_utils;
-use rusoto_kms::KmsClient;
-extern crate rusoto_mock;
-use self::rusoto_mock::*;
 use ring::rand::SystemRandom;
-use rusoto_core::signature::SignedRequest;
-use rusoto_core::{HttpDispatchError, Region};
 use serde::{Deserialize, Deserializer};
 use std::fs::File;
 use std::io::BufReader;
@@ -62,23 +57,12 @@ fn check_tuf_key_success() {
     .unwrap();
     let reader = BufReader::new(file);
     let expected_key: Key = serde_json::from_reader(reader).unwrap();
-    let mock = MockRequestDispatcher::default()
-        .with_request_checker(|request: &SignedRequest| {
-            assert!(request
-                .headers
-                .get("x-amz-target")
-                .unwrap()
-                .contains(&Vec::from("TrentService.GetPublicKey")));
-        })
-        .with_body(
-            MockResponseReader::read_response(test_utils::test_data().to_str().unwrap(), input)
-                .as_ref(),
-        );
-    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
+
+    let client = test_utils::mock_client(vec![input]);
     let kms_key = KmsKeySource {
         profile: None,
         key_id,
-        client: Some(mock_client),
+        client: Some(client),
         signing_algorithm: RsassaPssSha256,
     };
     let sign = kms_key.as_sign().unwrap();
@@ -99,46 +83,14 @@ fn check_sign_success() {
             .unwrap(),
     )
     .unwrap();
+    let client = test_utils::mock_client(vec![resp_public_key, resp_signature]);
     let reader = BufReader::new(file);
     let expected_json: SignResp = serde_json::from_reader(reader).unwrap();
     let expected_signature = expected_json.signature.to_vec();
-    let mock = MultipleMockRequestDispatcher::new(vec![
-        MockRequestDispatcher::with_status(200)
-            .with_request_checker(|request: &SignedRequest| {
-                assert!(request
-                    .headers
-                    .get("x-amz-target")
-                    .unwrap()
-                    .contains(&Vec::from("TrentService.GetPublicKey")));
-            })
-            .with_body(
-                MockResponseReader::read_response(
-                    test_utils::test_data().to_str().unwrap(),
-                    resp_public_key,
-                )
-                .as_ref(),
-            ),
-        MockRequestDispatcher::with_status(200)
-            .with_request_checker(|request: &SignedRequest| {
-                assert!(request
-                    .headers
-                    .get("x-amz-target")
-                    .unwrap()
-                    .contains(&Vec::from("TrentService.Sign")));
-            })
-            .with_body(
-                MockResponseReader::read_response(
-                    test_utils::test_data().to_str().unwrap(),
-                    resp_signature,
-                )
-                .as_ref(),
-            ),
-    ]);
-    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
     let kms_key = KmsKeySource {
         profile: None,
         key_id: String::from("alias/some_alias"),
-        client: Some(mock_client),
+        client: Some(client),
         signing_algorithm: RsassaPssSha256,
     };
     let rng = SystemRandom::new();
@@ -152,10 +104,7 @@ fn check_sign_success() {
 #[test]
 // Ensure call to tuf_key fails when public key is not available
 fn check_public_key_failure() {
-    let error_msg = String::from("Some error message from KMS");
-    let mock =
-        MockRequestDispatcher::with_dispatch_error(HttpDispatchError::new(error_msg.clone()));
-    let client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
+    let client = test_utils::mock_client_with_status(501);
     let key_id = String::from("alias/some_alias");
     let kms_key = KmsKeySource {
         profile: None,
@@ -165,38 +114,18 @@ fn check_public_key_failure() {
     };
     let result = kms_key.as_sign();
     assert!(result.is_err());
-    let err = result.err().unwrap();
-    assert_eq!(
-        format!(
-            "Failed to get public key for aws-kms:///{} : {}",
-            key_id, error_msg
-        ),
-        err.to_string()
-    );
 }
 
 #[test]
 // Ensure call to as_sign fails when signing algorithms are missing in get_public_key response
 fn check_public_key_missing_algo() {
     let input = "response_public_key_no_algo.json";
+    let client = test_utils::mock_client(vec![input]);
     let key_id = String::from("alias/some_alias");
-    let mock = MockRequestDispatcher::default()
-        .with_request_checker(|request: &SignedRequest| {
-            assert!(request
-                .headers
-                .get("x-amz-target")
-                .unwrap()
-                .contains(&Vec::from("TrentService.GetPublicKey")));
-        })
-        .with_body(
-            MockResponseReader::read_response(test_utils::test_data().to_str().unwrap(), input)
-                .as_ref(),
-        );
-    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
     let kms_key = KmsKeySource {
         profile: None,
         key_id,
-        client: Some(mock_client),
+        client: Some(client),
         signing_algorithm: RsassaPssSha256,
     };
     let err = kms_key.as_sign().err().unwrap();
@@ -213,23 +142,11 @@ fn check_public_key_missing_algo() {
 fn check_public_key_unmatch_algo() {
     let input = "response_public_key_unmatch_algo.json";
     let key_id = String::from("alias/some_alias");
-    let mock = MockRequestDispatcher::default()
-        .with_request_checker(|request: &SignedRequest| {
-            assert!(request
-                .headers
-                .get("x-amz-target")
-                .unwrap()
-                .contains(&Vec::from("TrentService.GetPublicKey")));
-        })
-        .with_body(
-            MockResponseReader::read_response(test_utils::test_data().to_str().unwrap(), input)
-                .as_ref(),
-        );
-    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
+    let client = test_utils::mock_client(vec![input]);
     let kms_key = KmsKeySource {
         profile: None,
         key_id,
-        client: Some(mock_client),
+        client: Some(client),
         signing_algorithm: RsassaPssSha256,
     };
     let err = kms_key.as_sign().err().unwrap();
@@ -240,100 +157,16 @@ fn check_public_key_unmatch_algo() {
 }
 
 #[test]
-// Ensure sign error when Kms fails to sign message.
-fn check_sign_request_failure() {
-    let error_msg = String::from("Some error message from KMS");
-    let resp_public_key = "response_public_key.json";
-    let key_id = String::from("alias/some_alias");
-    let mock = MultipleMockRequestDispatcher::new(vec![
-        MockRequestDispatcher::with_status(200)
-            .with_request_checker(|request: &SignedRequest| {
-                assert!(request
-                    .headers
-                    .get("x-amz-target")
-                    .unwrap()
-                    .contains(&Vec::from("TrentService.GetPublicKey")));
-            })
-            .with_body(
-                MockResponseReader::read_response(
-                    test_utils::test_data().to_str().unwrap(),
-                    resp_public_key,
-                )
-                .as_ref(),
-            ),
-        MockRequestDispatcher::with_dispatch_error(HttpDispatchError::new(error_msg.clone()))
-            .with_request_checker(|request: &SignedRequest| {
-                assert!(request
-                    .headers
-                    .get("x-amz-target")
-                    .unwrap()
-                    .contains(&Vec::from("TrentService.Sign")));
-            }),
-    ]);
-    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
-    let kms_key = KmsKeySource {
-        profile: None,
-        key_id: key_id.clone(),
-        client: Some(mock_client),
-        signing_algorithm: RsassaPssSha256,
-    };
-    let rng = SystemRandom::new();
-    let kms_sign = kms_key.as_sign().unwrap();
-    let result = kms_sign.sign("Some message to sign".as_bytes(), &rng);
-    assert!(result.is_err());
-    let err = result.err().unwrap();
-    assert_eq!(
-        format!(
-            "Error while signing message for aws-kms:///{} : {}",
-            key_id, error_msg
-        ),
-        err.to_string()
-    );
-}
-
-#[test]
 // Ensure sign error when Kms returns empty signature.
 fn check_signature_failure() {
     let resp_public_key = "response_public_key.json";
     let resp_signature = "response_signature_empty.json";
     let key_id = String::from("alias/some_alias");
-    let mock = MultipleMockRequestDispatcher::new(vec![
-        MockRequestDispatcher::with_status(200)
-            .with_request_checker(|request: &SignedRequest| {
-                assert!(request
-                    .headers
-                    .get("x-amz-target")
-                    .unwrap()
-                    .contains(&Vec::from("TrentService.GetPublicKey")));
-            })
-            .with_body(
-                MockResponseReader::read_response(
-                    test_utils::test_data().to_str().unwrap(),
-                    resp_public_key,
-                )
-                .as_ref(),
-            ),
-        MockRequestDispatcher::with_status(200)
-            .with_request_checker(|request: &SignedRequest| {
-                assert!(request
-                    .headers
-                    .get("x-amz-target")
-                    .unwrap()
-                    .contains(&Vec::from("TrentService.Sign")));
-            })
-            .with_body(
-                MockResponseReader::read_response(
-                    test_utils::test_data().to_str().unwrap(),
-                    resp_signature,
-                )
-                .as_ref(),
-            ),
-    ]);
-    let mock_client = KmsClient::new_with(mock, MockCredentialsProvider, Region::UsEast1);
+    let client = test_utils::mock_client(vec![resp_public_key, resp_signature]);
     let kms_key = KmsKeySource {
         profile: None,
         key_id,
-        client: Some(mock_client),
+        client: Some(client),
         signing_algorithm: RsassaPssSha256,
     };
     let rng = SystemRandom::new();
