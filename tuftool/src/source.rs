@@ -3,7 +3,7 @@
 
 #![allow(clippy::doc_markdown)]
 //! Private keys are generally provided as paths, but may sometimes be provided as a URL. For
-//! example, when one of the Rusoto features is enabled, you can use an aws-ssm:// special URL
+//! example, when one of the AWS SDK Rust features is enabled, you can use an aws-ssm:// special URL
 //! to refer to a key accessible in SSM. (See below for more format examples)
 //!
 //! This module parses a key source command line parameter as a URL, relative to `file://$PWD`,
@@ -61,7 +61,7 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
         "file" => Ok(Box::new(LocalKeySource {
             path: PathBuf::from(url.path()),
         })),
-        #[cfg(any(feature = "rusoto-native-tls", feature = "rusoto-rustls"))]
+        #[cfg(any(feature = "aws-sdk-rust-native-tls", feature = "aws-sdk-rust-rustls"))]
         "aws-ssm" => Ok(Box::new(SsmKeySource {
             profile: url.host_str().and_then(|s| {
                 if s.is_empty() {

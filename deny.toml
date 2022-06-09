@@ -22,6 +22,10 @@ allow = [
     "Zlib"
 ]
 
+exceptions = [
+    { name = "unicode-ident", version = "1.0.2", allow = ["MIT", "Apache-2.0", "Unicode-DFS-2016"] },
+]
+
 # https://github.com/hsivonen/encoding_rs The non-test code that isn't generated from the WHATWG data in this crate is
 # under Apache-2.0 OR MIT. Test code is under CC0.
 [[licenses.clarify]]
@@ -54,10 +58,13 @@ multiple-versions = "deny"
 wildcards = "deny"
 
 skip-tree = [
-    # rusoto_signature uses an older version of itoa
-    { name = "rusoto_signature" },
-    # structopt-derive uses and older verision of heck
-    { name = "structopt-derive" },
+    { name = "h2", version = "0.3.11" }, 
+    # aws sdk depends on hyper, which pulls in an older version of itoa
+    { name = "hyper", version = "0.14.16" },
+    # chrono pulls in an older version of time
+    { name = "chrono", version = "0.4.19" },
+    # structopt is using an older heck
+    { name = "heck", version="0.3.3"},
 ]
 
 [sources]

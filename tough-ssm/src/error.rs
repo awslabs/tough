@@ -1,6 +1,7 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use aws_sdk_ssm::error::{GetParameterError, PutParameterError};
 use snafu::{Backtrace, Snafu};
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -15,37 +16,14 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Error creating AWS credentials provider: {}", source))]
-    RusotoCreds {
-        source: rusoto_credential::CredentialsError,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Unable to determine region from profile '{}': {}", profile, source))]
-    RusotoRegionFromProfile {
-        profile: String,
-        source: rusoto_credential::CredentialsError,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Unknown AWS region \"{}\": {}", region, source))]
-    RusotoRegion {
-        region: String,
-        source: rusoto_core::region::ParseRegionError,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Error creating AWS request dispatcher: {}", source))]
-    RusotoTls {
-        source: rusoto_core::request::TlsError,
-        backtrace: Backtrace,
-    },
-
     #[snafu(display("Unable to create tokio runtime: {}", source))]
     RuntimeCreation {
         source: std::io::Error,
         backtrace: Backtrace,
     },
+    /// The library failed to join 'tokio Runtime'.
+    #[snafu(display("Unable to join tokio thread used to offload async workloads"))]
+    ThreadJoin,
 
     #[snafu(display(
         "Failed to get aws-ssm://{}{}: {}",
@@ -56,7 +34,7 @@ pub enum Error {
     SsmGetParameter {
         profile: Option<String>,
         parameter_name: String,
-        source: rusoto_core::RusotoError<rusoto_ssm::GetParameterError>,
+        source: aws_sdk_ssm::types::SdkError<GetParameterError>,
         backtrace: Backtrace,
     },
 
@@ -80,7 +58,7 @@ pub enum Error {
     SsmPutParameter {
         profile: Option<String>,
         parameter_name: String,
-        source: rusoto_core::RusotoError<rusoto_ssm::PutParameterError>,
+        source: aws_sdk_ssm::types::SdkError<PutParameterError>,
         backtrace: Backtrace,
     },
 }

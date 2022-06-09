@@ -9,17 +9,16 @@ keywords = ["TUF", "SSM"]
 edition = "2018"
 
 [features]
-default = ["rusoto"]
-rusoto = ["rusoto-rustls"]
-rusoto-native-tls = ["rusoto_core/native-tls", "rusoto_credential", "rusoto_ssm/native-tls"]
-rusoto-rustls = ["rusoto_core/rustls", "rusoto_credential", "rusoto_ssm/rustls"]
+default = ["aws-sdk-rust"]
+aws-sdk-rust = ["aws-sdk-rust-rustls"]
+aws-sdk-rust-tls = ["aws-config/native-tls", "aws-sdk-ssm/native-tls"]
+aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls"]
 
 [dependencies]
 tough = { version = "0.12.2", path = "../tough", features = ["http"] }
-rusoto_core = { version = "0.48", optional = true, default-features = false }
-rusoto_credential = { version = "0.48", optional = true }
-rusoto_ssm = { version = "0.48", optional = true, default-features = false }
+aws-sdk-ssm = "0.16.0"
+aws-config = "0.46.0"
 serde = "1.0.125"
 serde_json = "1.0.63"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
-tokio = "1.8"
+tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }

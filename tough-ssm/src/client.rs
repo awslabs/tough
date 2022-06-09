@@ -1,33 +1,45 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::error::{self, Result};
-use rusoto_core::{HttpClient, Region};
-use rusoto_credential::ProfileProvider;
-use rusoto_ssm::SsmClient;
+use aws_sdk_ssm::Client as SsmClient;
 use snafu::ResultExt;
-use std::str::FromStr;
+use std::thread;
+
+use crate::error::{self, Result};
 
 /// Builds an SSM client for a given profile name.
 pub(crate) fn build_client(profile: Option<&str>) -> Result<SsmClient> {
-    Ok(if let Some(profile) = profile {
-        let mut provider = ProfileProvider::new().context(error::RusotoCredsSnafu)?;
-        provider.set_profile(profile);
-        let region = provider
-            .region_from_profile()
-            .context(error::RusotoRegionFromProfileSnafu { profile })?;
-
-        SsmClient::new_with(
-            HttpClient::new().context(error::RusotoTlsSnafu)?,
-            provider,
-            match region {
-                Some(region) => {
-                    Region::from_str(&region).context(error::RusotoRegionSnafu { region })?
-                }
-                None => Region::default(),
-            },
-        )
-    } else {
-        SsmClient::new(Region::default())
+    // We are cloning this so that we can send it across a thread boundary
+    let profile = profile.map(|s| s.to_owned());
+    // We need to spin up a new thread to deal with the async nature of the
+    // AWS SDK Rust
+    let client: Result<SsmClient> = thread::spawn(move || {
+        let runtime = tokio::runtime::Runtime::new().context(error::RuntimeCreationSnafu)?;
+        Ok(runtime.block_on(async_build_client(profile)))
     })
+    .join()
+    .map_err(|_| error::Error::ThreadJoin {})?;
+    client
+}
+
+async fn async_build_client(profile: Option<String>) -> SsmClient {
+    let config = aws_config::from_env();
+    let client_config = if let Some(profile) = profile {
+        config
+            .region(
+                aws_config::profile::ProfileFileRegionProvider::builder()
+                    .profile_name(&profile)
+                    .build(),
+            )
+            .credentials_provider(
+                aws_config::profile::ProfileFileCredentialsProvider::builder()
+                    .profile_name(profile)
+                    .build(),
+            )
+            .load()
+            .await
+    } else {
+        config.load().await
+    };
+    SsmClient::new(&client_config)
 }
