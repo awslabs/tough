@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.3] - 2022-07-26
+- Various dependency updates
+
 ## [0.12.2] - 2022-04-26
 ### Changes
 - Blanket impl sign for references [#448]
@@ -180,7 +183,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.2...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.3...develop
+[0.12.3]: https://github.com/awslabs/tough/compare/tough-v0.12.2...tough-v0.12.3
 [0.12.2]: https://github.com/awslabs/tough/compare/tough-v0.12.1...tough-v0.12.2
 [0.12.1]: https://github.com/awslabs/tough/compare/tough-v0.12.0...tough-v0.12.1
 [0.12.0]: https://github.com/awslabs/tough/compare/tough-v0.11.3...tough-v0.12.0
