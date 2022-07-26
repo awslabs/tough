@@ -22,9 +22,10 @@
 
 mod client;
 pub mod error;
+use aws_sdk_kms::types::Blob;
+use aws_sdk_kms::Client as KmsClient;
 use ring::digest::{digest, SHA256};
 use ring::rand::SecureRandom;
-use rusoto_kms::{Kms, KmsClient, SignRequest};
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fmt;
@@ -42,12 +43,14 @@ pub enum KmsSigningAlgorithm {
 }
 
 impl KmsSigningAlgorithm {
-    fn value(self) -> String {
+    fn value(self) -> aws_sdk_kms::model::SigningAlgorithmSpec {
         // Currently we are supporting only single algorithm, but code stub is added to support
         // multiple algorithms in future.
-        String::from(match self {
-            KmsSigningAlgorithm::RsassaPssSha256 => "RSASSA_PSS_SHA_256",
-        })
+        match self {
+            KmsSigningAlgorithm::RsassaPssSha256 => {
+                aws_sdk_kms::model::SigningAlgorithmSpec::RsassaPssSha256
+            }
+        }
     }
 }
 
@@ -83,10 +86,10 @@ impl KeySource for KmsKeySource {
             None => client::build_client_kms(self.profile.as_deref())?,
         };
         // Get the public key from AWS KMS
-        let fut = kms_client.get_public_key(rusoto_kms::GetPublicKeyRequest {
-            key_id: self.key_id.clone(),
-            ..rusoto_kms::GetPublicKeyRequest::default()
-        });
+        let fut = kms_client
+            .get_public_key()
+            .key_id(self.key_id.clone())
+            .send();
         let response = tokio::runtime::Runtime::new()
             .context(error::RuntimeCreationSnafu)?
             .block_on(fut)
@@ -100,7 +103,7 @@ impl KeySource for KmsKeySource {
                 contents: response
                     .public_key
                     .context(error::PublicKeyNoneSnafu)?
-                    .to_vec(),
+                    .into_inner(),
             },
             pem::EncodeConfig {
                 line_ending: pem::LineEnding::LF,
@@ -115,7 +118,7 @@ impl KeySource for KmsKeySource {
         );
         Ok(Box::new(KmsRsaKey {
             profile: self.profile.clone(),
-            client: Some(kms_client.clone()),
+            client: Some(kms_client),
             key_id: self.key_id.clone(),
             public_key: key.parse().context(error::PublicKeyParseSnafu)?,
             signing_algorithm: self.signing_algorithm,
@@ -123,7 +126,8 @@ impl KeySource for KmsKeySource {
                 response
                     .customer_master_key_spec
                     .as_ref()
-                    .context(error::MissingCustomerMasterKeySpecSnafu)?,
+                    .context(error::MissingCustomerMasterKeySpecSnafu)?
+                    .as_str(),
             )?,
         }))
     }
@@ -185,13 +189,15 @@ impl Sign for KmsRsaKey {
             Some(value) => value,
             None => client::build_client_kms(self.profile.as_deref())?,
         };
-        let sign_fut = kms_client.sign(SignRequest {
-            key_id: self.key_id.clone(),
-            message: digest(&SHA256, msg).as_ref().to_vec().into(),
-            message_type: Some(String::from("DIGEST")),
-            signing_algorithm: self.signing_algorithm.value(),
-            ..rusoto_kms::SignRequest::default()
-        });
+        let blob = Blob::new(digest(&SHA256, msg).as_ref().to_vec());
+        let sign_fut = kms_client
+            .sign()
+            .key_id(self.key_id.clone())
+            .message(blob)
+            .message_type(aws_sdk_kms::model::MessageType::Digest)
+            .signing_algorithm(self.signing_algorithm.value())
+            .send();
+
         let response = tokio::runtime::Runtime::new()
             .context(error::RuntimeCreationSnafu)?
             .block_on(sign_fut)
@@ -202,7 +208,7 @@ impl Sign for KmsRsaKey {
         let signature = response
             .signature
             .context(error::SignatureNotFoundSnafu)?
-            .to_vec();
+            .into_inner();
 
         // sometimes KMS produces a signature that is shorter than the modulus. in those cases,
         // we have observed that openssl and KMS will both validate the signature, but ring will
