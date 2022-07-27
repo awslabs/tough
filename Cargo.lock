@@ -1386,9 +1386,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "534cfe58d6a18cc17120fbf4635d53d14691c1fe4d951064df9bd326178d7d5a"
+checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
  "bitflags",
 ]
@@ -1927,7 +1927,7 @@ dependencies = [
 
 [[package]]
 name = "tough"
-version = "0.12.2"
+version = "0.12.3"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -1955,7 +1955,7 @@ dependencies = [
 
 [[package]]
 name = "tough-kms"
-version = "0.3.6"
+version = "0.4.0"
 dependencies = [
  "aws-config",
  "aws-sdk-kms",
@@ -1975,7 +1975,7 @@ dependencies = [
 
 [[package]]
 name = "tough-ssm"
-version = "0.6.6"
+version = "0.7.0"
 dependencies = [
  "aws-config",
  "aws-sdk-ssm",
@@ -2055,7 +2055,7 @@ checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
 
 [[package]]
 name = "tuftool"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "assert_cmd",
  "aws-config",
