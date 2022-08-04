@@ -3,6 +3,7 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
+      - '.github/dependabot.yml'
     branches: [develop]
 jobs:
   build:
