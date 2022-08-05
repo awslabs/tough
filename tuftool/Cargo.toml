@@ -34,7 +34,7 @@ simplelog = "0.12"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
 tempfile = "3.3.0"
-tokio = "~1.18"  # LTS
+tokio = "~1.20"  # LTS
 tough = { version = "0.12.3", path = "../tough", features = ["http"] }
 tough-ssm = { version = "0.7.0", path = "../tough-ssm" }
 tough-kms = { version = "0.4.0", path = "../tough-kms" }
