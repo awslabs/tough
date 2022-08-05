@@ -29,7 +29,7 @@ aws-sdk-ssm = "0.16.0"
 aws-config = "0.46.0"
 ring = { version = "0.16.16", features = ["std"] }
 serde = "1.0.142"
-serde_json = "1.0.63"
+serde_json = "1.0.83"
 simplelog = "0.12"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 structopt = "0.3"
