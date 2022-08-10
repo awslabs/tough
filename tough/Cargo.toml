@@ -9,7 +9,7 @@ keywords = ["tuf", "update", "repository"]
 edition = "2018"
 
 [dependencies]
-chrono = { version = "0.4.20", features = ["serde"] }
+chrono = { version = "0.4.21", features = ["serde"] }
 dyn-clone = "1.0.9"
 globset = { version = "0.4.9" }
 hex = "0.4.2"
