@@ -36,7 +36,7 @@ use tough::sign::Sign;
 
 /// Represents a Signing Algorithms for AWS KMS.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
 pub enum KmsSigningAlgorithm {
     /// Signing Algorithm `RSASSA_PSS_SHA_256`
     RsassaPssSha256,
