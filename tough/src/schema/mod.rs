@@ -99,7 +99,7 @@ pub trait Role: Serialize {
 }
 
 /// A signed metadata object.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Signed<T> {
     /// The role that is signed.
     pub signed: T,
@@ -108,7 +108,7 @@ pub struct Signed<T> {
 }
 
 /// A signature and the key ID that made it.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Signature {
     /// The key ID (listed in root.json) that made this signature.
     pub keyid: Decoded<Hex>,
@@ -132,7 +132,7 @@ pub enum KeyHolder {
 /// authorized for all top-level roles, including the root role itself. Revocation and replacement
 /// of top-level role keys, including for the root role, is done by changing the keys listed for the
 /// roles in this file.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "root")]
 pub struct Root {
@@ -179,7 +179,7 @@ pub struct Root {
 /// if mirror lists are being used. The THRESHOLD for a role is an integer of the number of keys of
 /// that role whose signatures are required in order to consider a file as being properly signed by
 /// that role.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct RoleKeys {
     /// The key IDs used for the role.
     pub keyids: Vec<Decoded<Hex>>,
@@ -241,7 +241,7 @@ impl Role for Root {
 /// TUF 4.4 The snapshot.json file is signed by the snapshot role. It MUST list the version numbers
 /// of the top-level targets metadata and all delegated targets metadata. It MAY also list their
 /// lengths and file hashes.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "snapshot")]
 pub struct Snapshot {
@@ -291,7 +291,7 @@ pub struct Snapshot {
 ///     }
 ///    },
 /// ```
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct SnapshotMeta {
     /// LENGTH is the integer length in bytes of the metadata file at METAPATH. It is OPTIONAL and
     /// can be omitted to reduce the snapshot metadata file size. In that case the client MUST use a
@@ -321,7 +321,7 @@ pub struct SnapshotMeta {
 }
 
 /// Represents the hash dictionary in a `snapshot.json` file.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Hashes {
     /// The SHA 256 digest of a metadata file.
     pub sha256: Decoded<Hex>,
@@ -425,7 +425,7 @@ pub struct Targets {
 ///   , ...
 /// }
 /// ```
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Target {
     /// LENGTH is the integer length in bytes of the target file at TARGETPATH.
     pub length: u64,
@@ -1089,7 +1089,7 @@ impl DelegatedRole {
 /// TUF 4.6: The timestamp file is signed by a timestamp key. It indicates the latest version of the
 /// snapshot metadata and is frequently resigned to limit the amount of time a client can be kept
 /// unaware of interference with obtaining updates.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(tag = "_type")]
 #[serde(rename = "timestamp")]
 pub struct Timestamp {
@@ -1120,7 +1120,7 @@ pub struct Timestamp {
 
 /// METAFILES is the same as described for the snapshot.json file. In the case of the timestamp.json
 /// file, this MUST only include a description of the snapshot.json file.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct TimestampMeta {
     /// The integer length in bytes of the snapshot.json file.
     pub length: u64,

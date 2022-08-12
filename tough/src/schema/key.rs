@@ -33,7 +33,7 @@ use std::str::FromStr;
 ///  * `Rsa`: PUBLIC is in PEM format and a string. All RSA keys must be at least 2048 bits.
 ///  * `Ed25519`: PUBLIC is a 64-byte hex encoded string.
 ///  * `Ecdsa`: PUBLIC is in PEM format and a string.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 #[serde(tag = "keytype")]
 pub enum Key {
@@ -71,7 +71,7 @@ pub enum Key {
 }
 
 /// Used to identify the RSA signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum RsaScheme {
     /// `rsassa-pss-sha256`: RSA Probabilistic signature scheme with appendix.
@@ -79,7 +79,7 @@ pub enum RsaScheme {
 }
 
 /// Represents a deserialized (decoded) RSA public key.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct RsaKey {
     /// The public key.
     pub public: Decoded<RsaPem>,
@@ -90,7 +90,7 @@ pub struct RsaKey {
 }
 
 /// Used to identify the `EdDSA` signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Ed25519Scheme {
     /// 'ed25519': Elliptic curve digital signature algorithm based on Twisted Edwards curves.
@@ -98,7 +98,7 @@ pub enum Ed25519Scheme {
 }
 
 /// Represents a deserialized (decoded) Ed25519 public key.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Ed25519Key {
     /// The public key.
     pub public: Decoded<Hex>,
@@ -109,7 +109,7 @@ pub struct Ed25519Key {
 }
 
 /// Used to identify the ECDSA signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum EcdsaScheme {
     /// `ecdsa-sha2-nistp256`: Elliptic Curve Digital Signature Algorithm with NIST P-256 curve
@@ -118,7 +118,7 @@ pub enum EcdsaScheme {
 }
 
 /// Represents a deserialized (decoded)  Ecdsa public key.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct EcdsaKey {
     /// The public key.
     pub public: Decoded<EcdsaFlex>,
