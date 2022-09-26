@@ -108,7 +108,7 @@ fn check_public_key_failure() {
     let key_id = String::from("alias/some_alias");
     let kms_key = KmsKeySource {
         profile: None,
-        key_id: key_id.clone(),
+        key_id,
         client: Some(client),
         signing_algorithm: RsassaPssSha256,
     };

@@ -1,6 +1,6 @@
 {
   "KeyId": "arn:aws:kms:us-west-2:062205370538:key/3bbf2655-2dff-4040-ad37-2ec8f60d651b",
   "PublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwFWHzkki38xzt2d/jECKNVdHe/y1o6dPcdwUz07bnbtVKyT1Cw5iemChnIGwUNpsqmrOov2+wetWEW/zrCeHpQtqBZFeSo689N99WVFSA48xWEYLHutYY0eOSQ+RZzrLXaAPnXlu93F8icLNHBU37fSd8t5mpoj6tIn9M50mRp1qk1qJpgajB6a2W+T1yMur2kQkqzJLZQg4kxqXDCdggxb8DWdRnT/m2K9b/RziwqGJbNPnxGe3A0n8HCNOF1IuTJeKn8vbQMoP3cXE6+TINmZzU28IdiNDvN5+zlHFoxsNRL/yHJPX/8PVGNu+Gg2xBfmnYYzSR9hm9O1GBLixkwIDAQAB",
-  "CustomerMasterKeySpec": "RSA_2048",
+  "KeySpec": "RSA_2048",
   "KeyUsage": "SIGN_VERIFY"
 }
