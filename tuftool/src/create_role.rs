@@ -5,34 +5,34 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
+use clap::Parser;
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use tough::editor::targets::TargetsEditor;
 use tough::key_source::KeySource;
 use tough::schema::decoded::Decoded;
 use tough::schema::decoded::Hex;
 use tough::schema::key::Key;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct CreateRoleArgs {
     /// Key files to sign with
-    #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
+    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
     keys: Vec<Box<dyn KeySource>>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[structopt(short = "e", long = "expires", required = true, parse(try_from_str = parse_datetime))]
+    #[clap(short = 'e', long = "expires", required = true, parse(try_from_str = parse_datetime))]
     expires: DateTime<Utc>,
 
     /// Version of targets.json file
-    #[structopt(short = "v", long = "version")]
+    #[clap(short = 'v', long = "version")]
     version: NonZeroU64,
 
     /// The directory where the repository will be written
-    #[structopt(short = "o", long = "outdir")]
+    #[clap(short = 'o', long = "outdir")]
     outdir: PathBuf,
 }
 

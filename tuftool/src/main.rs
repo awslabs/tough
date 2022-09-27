@@ -29,6 +29,7 @@ mod update;
 mod update_targets;
 
 use crate::error::Result;
+use clap::Parser;
 use rayon::prelude::*;
 use simplelog::{ColorChoice, ConfigBuilder, LevelFilter, TermLogger, TerminalMode};
 use snafu::{ErrorCompat, OptionExt, ResultExt};
@@ -36,7 +37,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use structopt::StructOpt;
 use tempfile::NamedTempFile;
 use tough::schema::Target;
 use tough::TargetName;
@@ -45,17 +45,17 @@ use walkdir::WalkDir;
 static SPEC_VERSION: &str = "1.0.0";
 
 /// This wrapper enables global options and initializes the logger before running any subcommands.
-#[derive(StructOpt)]
+#[derive(Parser)]
 struct Program {
     /// Set logging verbosity [trace|debug|info|warn|error]
-    #[structopt(
+    #[clap(
         name = "log-level",
-        short = "l",
+        short = 'l',
         long = "log-level",
         default_value = "info"
     )]
     log_level: LevelFilter,
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     cmd: Command,
 }
 
@@ -75,7 +75,7 @@ impl Program {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 enum Command {
     /// Create a TUF repository
     Create(create::CreateArgs),
@@ -84,6 +84,7 @@ enum Command {
     /// Update a TUF repository's metadata and optionally add targets
     Update(Box<update::UpdateArgs>),
     /// Manipulate a root.json metadata file
+    #[clap(subcommand)]
     Root(root::Command),
     /// Delegation Commands
     Delegation(Delegation),
@@ -187,13 +188,13 @@ fn main() -> ! {
     })
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 struct Delegation {
     /// The signing role
-    #[structopt(long = "signing-role", required = true)]
+    #[clap(long = "signing-role", required = true)]
     role: String,
 
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     cmd: DelegationCommand,
 }
 
@@ -203,7 +204,7 @@ impl Delegation {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 enum DelegationCommand {
     /// Creates a delegated role
     CreateRole(Box<create_role::CreateRoleArgs>),

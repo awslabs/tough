@@ -4,58 +4,58 @@
 use crate::common::UNUSED_URL;
 use crate::download_root::download_root;
 use crate::error::{self, Result};
+use clap::Parser;
 use snafu::ResultExt;
 use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use tough::{ExpirationEnforcement, RepositoryLoader};
 use url::Url;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct CloneArgs {
     /// Path to root.json file for the repository
-    #[structopt(
-        short = "r",
+    #[clap(
+        short = 'r',
         long = "root",
         required_if("allow-root-download", "false")
     )]
     root: Option<PathBuf>,
 
     /// Remote root.json version number
-    #[structopt(short = "v", long = "root-version", default_value = "1")]
+    #[clap(short = 'v', long = "root-version", default_value = "1")]
     root_version: NonZeroU64,
 
     /// TUF repository metadata base URL
-    #[structopt(short = "m", long = "metadata-url")]
+    #[clap(short = 'm', long = "metadata-url")]
     metadata_base_url: Url,
 
     /// TUF repository targets base URL
-    #[structopt(short = "t", long = "targets-url", required_unless = "metadata-only")]
+    #[clap(short = 't', long = "targets-url", required_unless = "metadata-only")]
     targets_base_url: Option<Url>,
 
     /// Allow downloading the root.json file (unsafe)
-    #[structopt(long)]
+    #[clap(long)]
     allow_root_download: bool,
 
     /// Allow repo download for expired metadata (unsafe)
-    #[structopt(long)]
+    #[clap(long)]
     allow_expired_repo: bool,
 
     /// Download only these targets, if specified
-    #[structopt(short = "n", long = "target-names", conflicts_with = "metadata-only")]
+    #[clap(short = 'n', long = "target-names", conflicts_with = "metadata-only")]
     target_names: Vec<String>,
 
     /// Output directory of targets
-    #[structopt(long, required_unless = "metadata-only")]
+    #[clap(long, required_unless = "metadata-only")]
     targets_dir: Option<PathBuf>,
 
     /// Output directory of metadata
-    #[structopt(long)]
+    #[clap(long)]
     metadata_dir: PathBuf,
 
     /// Only download the repository metadata, not the targets
-    #[structopt(long, conflicts_with_all(&["target-names", "targets-dir", "targets-base-url"]))]
+    #[clap(long, conflicts_with_all(&["target-names", "targets-dir", "targets-base-url"]))]
     metadata_only: bool,
 }
 
@@ -80,7 +80,7 @@ impl CloneArgs {
             std::process::exit(1);
         };
 
-        // Structopt won't allow `targets_base_url` to be None when it is required.  We require the
+        // Clap won't allow `targets_base_url` to be None when it is required.  We require the
         // user to supply `targets_base_url` in the case they actually plan to download targets.
         // When downloading metadata, we don't ever need to access the targets URL, so we use a
         // fake URL to satisfy the library.

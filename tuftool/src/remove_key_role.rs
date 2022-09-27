@@ -6,48 +6,48 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
+use clap::Parser;
 use snafu::ResultExt;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use tough::editor::targets::TargetsEditor;
 use tough::key_source::KeySource;
 use tough::schema::decoded::{Decoded, Hex};
 use url::Url;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct RemoveKeyArgs {
     /// Key files to sign with
-    #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
+    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
     keys: Vec<Box<dyn KeySource>>,
 
     /// Key to be removed will look similar to `8ec3a843a0f9328c863cac4046ab1cacbbc67888476ac7acf73d9bcd9a223ada`
-    #[structopt(long = "keyid", required = true)]
+    #[clap(long = "keyid", required = true)]
     remove: Decoded<Hex>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[structopt(short = "e", long = "expires", parse(try_from_str = parse_datetime))]
+    #[clap(short = 'e', long = "expires", parse(try_from_str = parse_datetime))]
     expires: DateTime<Utc>,
 
     /// Version of role file
-    #[structopt(short = "v", long = "version")]
+    #[clap(short = 'v', long = "version")]
     version: NonZeroU64,
 
     /// Path to root.json file for the repository
-    #[structopt(short = "r", long = "root")]
+    #[clap(short = 'r', long = "root")]
     root: PathBuf,
 
     /// TUF repository metadata base URL
-    #[structopt(short = "m", long = "metadata-url")]
+    #[clap(short = 'm', long = "metadata-url")]
     metadata_base_url: Url,
 
     /// The directory where the repository will be written
-    #[structopt(short = "o", long = "outdir")]
+    #[clap(short = 'o', long = "outdir")]
     outdir: PathBuf,
 
     /// The role for the keys to be added to
-    #[structopt(long = "delegated-role")]
+    #[clap(long = "delegated-role")]
     delegated_role: Option<String>,
 }
 

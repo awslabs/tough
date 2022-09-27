@@ -3,45 +3,45 @@
 
 use crate::download_root::download_root;
 use crate::error::{self, Result};
+use clap::Parser;
 use snafu::{ensure, ResultExt};
 use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 use tough::{ExpirationEnforcement, Prefix, Repository, RepositoryLoader, TargetName};
 use url::Url;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct DownloadArgs {
     /// Path to root.json file for the repository
-    #[structopt(short = "r", long = "root")]
+    #[clap(short = 'r', long = "root")]
     root: Option<PathBuf>,
 
     /// Remote root.json version number
-    #[structopt(short = "v", long = "root-version", default_value = "1")]
+    #[clap(short = 'v', long = "root-version", default_value = "1")]
     root_version: NonZeroU64,
 
     /// TUF repository metadata base URL
-    #[structopt(short = "m", long = "metadata-url")]
+    #[clap(short = 'm', long = "metadata-url")]
     metadata_base_url: Url,
 
     /// TUF repository targets base URL
-    #[structopt(short = "t", long = "targets-url")]
+    #[clap(short = 't', long = "targets-url")]
     targets_base_url: Url,
 
     /// Allow downloading the root.json file (unsafe)
-    #[structopt(long)]
+    #[clap(long)]
     allow_root_download: bool,
 
     /// Download only these targets, if specified
-    #[structopt(short = "n", long = "target-name")]
+    #[clap(short = 'n', long = "target-name")]
     target_names: Vec<String>,
 
     /// Output directory for targets (will be created and must not already exist)
     outdir: PathBuf,
 
     /// Allow repo download for expired metadata
-    #[structopt(long)]
+    #[clap(long)]
     allow_expired_repo: bool,
 }
 

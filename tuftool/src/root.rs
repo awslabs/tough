@@ -6,6 +6,7 @@ use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use crate::{load_file, write_file};
 use chrono::{DateTime, Timelike, Utc};
+use clap::Parser;
 use log::warn;
 use maplit::hashmap;
 use ring::rand::SystemRandom;
@@ -14,7 +15,6 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 use tempfile::NamedTempFile;
 use tough::editor::signed::SignedRole;
 use tough::key_source::KeySource;
@@ -22,7 +22,7 @@ use tough::schema::decoded::{Decoded, Hex};
 use tough::schema::{key::Key, KeyHolder, RoleKeys, RoleType, Root, Signed};
 use tough::sign::{parse_keypair, Sign};
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) enum Command {
     /// Create a new root.json metadata file
     Init {
@@ -40,7 +40,7 @@ pub(crate) enum Command {
         path: PathBuf,
         /// Expiration of root; can be in full RFC 3339 format, or something like 'in
         /// 7 days'
-        #[structopt(parse(try_from_str = parse_datetime))]
+        #[clap(parse(try_from_str = parse_datetime))]
         time: DateTime<Utc>,
     },
     /// Set the signature count threshold for a role
@@ -64,10 +64,10 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// The new key
-        #[structopt(parse(try_from_str = parse_key_source))]
+        #[clap(parse(try_from_str = parse_key_source))]
         key_source: Box<dyn KeySource>,
         /// The role to add the key to
-        #[structopt(short = "r", long = "role")]
+        #[clap(short = 'r', long = "role")]
         roles: Vec<RoleType>,
     },
     /// Remove a key ID, either entirely or from a single role
@@ -85,16 +85,16 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// Where to write the new key
-        #[structopt(parse(try_from_str = parse_key_source))]
+        #[clap(parse(try_from_str = parse_key_source))]
         key_source: Box<dyn KeySource>,
         /// Bit length of new key
-        #[structopt(short = "b", long = "bits", default_value = "2048")]
+        #[clap(short = 'b', long = "bits", default_value = "2048")]
         bits: u16,
         /// Public exponent of new key
-        #[structopt(short = "e", long = "exp", default_value = "65537")]
+        #[clap(short = 'e', long = "exp", default_value = "65537")]
         exponent: u32,
         /// The role to add the key to
-        #[structopt(short = "r", long = "role")]
+        #[clap(short = 'r', long = "role")]
         roles: Vec<RoleType>,
     },
     /// Sign the given root.json
@@ -102,13 +102,13 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         ///Key source(s) to sign the file with
-        #[structopt(short = "k", long = "key",parse(try_from_str = parse_key_source))]
+        #[clap(short = 'k', long = "key",parse(try_from_str = parse_key_source))]
         key_sources: Vec<Box<dyn KeySource>>,
         ///Optional - Path of older root.json that contains the key-id
-        #[structopt(short = "c", long = "cross-sign")]
+        #[clap(short = 'c', long = "cross-sign")]
         cross_sign: Option<PathBuf>,
         ///Ignore the threshold when signing with fewer keys
-        #[structopt(short = "i", long = "ignore-threshold")]
+        #[clap(short = 'i', long = "ignore-threshold")]
         ignore_threshold: bool,
     },
 }

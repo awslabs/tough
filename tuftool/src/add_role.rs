@@ -6,81 +6,81 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
+use clap::Parser;
 use snafu::{OptionExt, ResultExt};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use tough::editor::{targets::TargetsEditor, RepositoryEditor};
 use tough::key_source::KeySource;
 use tough::schema::{PathHashPrefix, PathPattern, PathSet};
 use url::Url;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct AddRoleArgs {
     /// The role being delegated
-    #[structopt(short = "d", long = "delegated-role")]
+    #[clap(short = 'd', long = "delegated-role")]
     delegatee: String,
 
     /// Key files to sign with
-    #[structopt(short = "k", long = "key", required = true, parse(try_from_str = parse_key_source))]
+    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
     keys: Vec<Box<dyn KeySource>>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[structopt(short = "e", long = "expires", parse(try_from_str = parse_datetime))]
+    #[clap(short = 'e', long = "expires", parse(try_from_str = parse_datetime))]
     expires: DateTime<Utc>,
 
     /// Version of targets.json file
-    #[structopt(short = "v", long = "version")]
+    #[clap(short = 'v', long = "version")]
     version: NonZeroU64,
 
     /// Path to root.json file for the repository
-    #[structopt(short = "r", long = "root")]
+    #[clap(short = 'r', long = "root")]
     root: PathBuf,
 
     /// TUF repository metadata base URL
-    #[structopt(short = "m", long = "metadata-url")]
+    #[clap(short = 'm', long = "metadata-url")]
     metadata_base_url: Url,
 
     /// Incoming metadata
-    #[structopt(short = "i", long = "incoming-metadata")]
+    #[clap(short = 'i', long = "incoming-metadata")]
     indir: Url,
 
     /// threshold of signatures to sign delegatee
-    #[structopt(short = "t", long = "threshold")]
+    #[clap(short = 't', long = "threshold")]
     threshold: NonZeroU64,
 
     /// The directory where the repository will be written
-    #[structopt(short = "o", long = "outdir")]
+    #[clap(short = 'o', long = "outdir")]
     outdir: PathBuf,
 
     /// The delegated paths
-    #[structopt(short = "p", long = "paths", conflicts_with = "path-hash-prefixes")]
+    #[clap(short = 'p', long = "paths", conflicts_with = "path-hash-prefixes")]
     paths: Option<Vec<PathPattern>>,
 
     /// The delegated paths hash prefixes
-    #[structopt(short = "hp", long = "path-hash-prefixes")]
+    #[clap(short = 'x', long = "path-hash-prefixes")]
     path_hash_prefixes: Option<Vec<PathHashPrefix>>,
 
     /// Determines if entire repo should be signed
-    #[structopt(long = "sign-all")]
+    #[clap(long = "sign-all")]
     sign_all: bool,
 
     /// Version of snapshot.json file
-    #[structopt(long = "snapshot-version")]
+    #[clap(long = "snapshot-version")]
     snapshot_version: Option<NonZeroU64>,
     /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[structopt(long = "snapshot-expires", parse(try_from_str = parse_datetime))]
+    #[clap(long = "snapshot-expires", parse(try_from_str = parse_datetime))]
     snapshot_expires: Option<DateTime<Utc>>,
 
     /// Version of timestamp.json file
-    #[structopt(long = "timestamp-version")]
+    #[clap(long = "timestamp-version")]
     timestamp_version: Option<NonZeroU64>,
 
     /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[structopt(long = "timestamp-expires", parse(try_from_str = parse_datetime))]
+    #[clap(long = "timestamp-expires", parse(try_from_str = parse_datetime))]
     timestamp_expires: Option<DateTime<Utc>>,
 }
 
