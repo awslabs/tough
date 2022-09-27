@@ -16,7 +16,11 @@ aws-sdk-rust-native-tls = ["aws-config/native-tls", "aws-sdk-ssm/native-tls", "a
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls",]
 
 [dependencies]
+aws-config = "0.48.0"
+aws-sdk-kms = "0.18.0"
+aws-sdk-ssm = "0.18.0"
 chrono = { version = "0.4.22", default-features = false, features = ["alloc", "std", "clock"] }
+clap = { version = "3.2.22", features = ["derive"] }
 hex = "0.4.2"
 log = "0.4.8"
 maplit = "1.0.1"
@@ -24,9 +28,6 @@ olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
 pem = "1.0.2"
 rayon = "1.5"
 reqwest = { version = "0.11.1", features = ["blocking"] }
-aws-sdk-kms = "0.18.0"
-aws-sdk-ssm = "0.18.0"
-aws-config = "0.48.0"
 ring = { version = "0.16.16", features = ["std"] }
 serde = "1.0.144"
 serde_json = "1.0.85"
@@ -35,11 +36,10 @@ snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tempfile = "3.3.0"
 tokio = "~1.18"  # LTS
 tough = { version = "0.12.4", path = "../tough", features = ["http"] }
-tough-ssm = { version = "0.7.1", path = "../tough-ssm" }
 tough-kms = { version = "0.4.1", path = "../tough-kms" }
+tough-ssm = { version = "0.7.1", path = "../tough-ssm" }
 url = "2.3.0"
 walkdir = "2.3.2"
-clap = { version = "3.2.22", features = ["derive"] }
 
 [dev-dependencies]
 assert_cmd = "2.0"
