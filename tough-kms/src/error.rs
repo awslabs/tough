@@ -71,16 +71,14 @@ pub enum Error {
     ))]
     MissingSignAlgorithm,
 
-    #[snafu(display(
-        "Found public key from AWS KMS, but the CustomerMasterKeySpec field is missing"
-    ))]
-    MissingCustomerMasterKeySpec,
+    #[snafu(display("Found public key from AWS KMS, but the KeySpec field is missing"))]
+    MissingKeySpec,
 
-    #[snafu(display("Unable to parse the CustomerMasterKeySpec: {}", spec))]
-    BadCustomerMasterKeySpec { spec: String },
+    #[snafu(display("Unable to parse the KeySpec: {}", spec))]
+    BadKeySpec { spec: String },
 
-    #[snafu(display("Unable to parse the integer in CustomerMasterKeySpec: {}", spec))]
-    BadCustomerMasterKeySpecInt {
+    #[snafu(display("Unable to parse the integer in KeySpec: {}", spec))]
+    BadKeySpecInt {
         spec: String,
         source: std::num::ParseIntError,
     },
@@ -96,7 +94,7 @@ pub enum Error {
     },
 
     #[snafu(display(
-        "The modulus bit size is {}, but should be divisible by 8. CustomerMasterKeySpec is {}.",
+        "The modulus bit size is {}, but should be divisible by 8. KeySpec is {}.",
         modulus_size_bits,
         spec
     ))]

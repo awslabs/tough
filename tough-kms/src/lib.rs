@@ -124,9 +124,9 @@ impl KeySource for KmsKeySource {
             signing_algorithm: self.signing_algorithm,
             modulus_size_bytes: parse_modulus_length_bytes(
                 response
-                    .customer_master_key_spec
+                    .key_spec
                     .as_ref()
-                    .context(error::MissingCustomerMasterKeySpecSnafu)?
+                    .context(error::MissingKeySpecSnafu)?
                     .as_str(),
             )?,
         }))
@@ -223,26 +223,20 @@ impl Sign for KmsRsaKey {
     }
 }
 
-/// Parses the `CustomerMasterKeySpec` string returned by KMS, e.g. `RSA_3072` and returns the size
-/// of the modulus in bytes. For example `RSA_3072` has a modulus of 3072 bits, so the function will
-/// return 384 == (3072 / 8). If the parsed number is not divisible by 8, an error is returned.
+/// Parses the `KeySpec` string returned by KMS, e.g. `RSA_3072` and returns the size of the modulus
+/// in bytes. For example `RSA_3072` has a modulus of 3072 bits, so the function will return 384 ==
+/// (3072 / 8). If the parsed number is not divisible by 8, an error is returned.
 fn parse_modulus_length_bytes(spec: &str) -> error::Result<usize> {
     // only RSA is currently supported
-    ensure!(
-        spec.starts_with("RSA_"),
-        error::BadCustomerMasterKeySpecSnafu { spec }
-    );
+    ensure!(spec.starts_with("RSA_"), error::BadKeySpecSnafu { spec });
     // prevent a panic if the string is precisely "RSA_"
-    ensure!(
-        spec.len() > 4,
-        error::BadCustomerMasterKeySpecSnafu { spec }
-    );
+    ensure!(spec.len() > 4, error::BadKeySpecSnafu { spec });
     // extract the digits
     let mod_len_str = &spec[4..];
     // parse the digits
     let mod_bits = mod_len_str
         .parse::<usize>()
-        .context(error::BadCustomerMasterKeySpecIntSnafu { spec })?;
+        .context(error::BadKeySpecIntSnafu { spec })?;
     // make sure the modulus size is compatible with u8 bytes
     ensure!(
         mod_bits % 8 == 0,

@@ -17,15 +17,15 @@ aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-kms/rustls"]
 [dependencies]
 tough = { version = "0.12.4", path = "../tough", features = ["http"] }
 ring = { version = "0.16.16", features = ["std"] }
-aws-sdk-kms = "0.16.0"
-aws-config = "0.46.0"
+aws-sdk-kms = "0.18.0"
+aws-config = "0.48.0"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
 pem = "1.0.2"
 
 [dev-dependencies]
-aws-smithy-client = {version = "0.46.0", features = ["test-util"]}
-aws-smithy-http = "0.46.0"
+aws-smithy-client = {version = "0.48.0", features = ["test-util"]}
+aws-smithy-http = "0.48.0"
 base64 = "0.13"
 bytes = "1"
 http = "0.2"
