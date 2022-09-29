@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.5] - 2022-10-03
+### Security Fixes
+- Update `chrono` and enable only necessary features to address RUSTSEC-2020-0071, thanks @flavio [#506]
+
+### Changes
+- Various dependency updates [#501], [#502], [#503], [#508], [#509], [#514]
+
+[#501]: https://github.com/awslabs/tough/pull/501
+[#502]: https://github.com/awslabs/tough/pull/502
+[#503]: https://github.com/awslabs/tough/pull/503
+[#506]: https://github.com/awslabs/tough/pull/506
+[#508]: https://github.com/awslabs/tough/pull/508
+[#509]: https://github.com/awslabs/tough/pull/509
+[#514]: https://github.com/awslabs/tough/pull/514
+
 ## [0.12.4] - 2022-08-12
 ### Changes
 - Various dependency updates
@@ -187,7 +202,9 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.3...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.5...develop
+[0.12.5]: https://github.com/awslabs/tough/compare/tough-v0.12.4...tough-v0.12.5
+[0.12.4]: https://github.com/awslabs/tough/compare/tough-v0.12.3...tough-v0.12.4
 [0.12.3]: https://github.com/awslabs/tough/compare/tough-v0.12.2...tough-v0.12.3
 [0.12.2]: https://github.com/awslabs/tough/compare/tough-v0.12.1...tough-v0.12.2
 [0.12.1]: https://github.com/awslabs/tough/compare/tough-v0.12.0...tough-v0.12.1

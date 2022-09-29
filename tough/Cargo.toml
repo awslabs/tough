@@ -1,6 +1,6 @@
 [package]
 name = "tough"
-version = "0.12.4"
+version = "0.12.5"
 description = "The Update Framework (TUF) repository client"
 authors = ["iliana destroyer of worlds <iweller@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ dyn-clone = "1.0.9"
 globset = { version = "0.4.9" }
 hex = "0.4.2"
 log = "0.4.8"
-olpc-cjson = { version = "0.1.0", path = "../olpc-cjson" }
+olpc-cjson = { version = "0.1.2", path = "../olpc-cjson" }
 path-absolutize = "3"
 pem = "1.0.2"
 percent-encoding = "2"
