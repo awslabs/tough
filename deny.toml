@@ -59,8 +59,6 @@ multiple-versions = "deny"
 wildcards = "deny"
 
 skip-tree = [
-    # structopt is using an older heck
-    { name = "structopt", version = "0.3.26" },
 ]
 
 [sources]
