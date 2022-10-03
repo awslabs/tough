@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2022-10-03
+### Security Fixes
+- Update `chrono` and enable only necessary features to address RUSTSEC-2020-0071, thanks @flavio [#506]
+
+### Changes
+- Various dependency updates [#501], [#502], [#503], [#508], [#514]
+
+[#501]: https://github.com/awslabs/tough/pull/501
+[#502]: https://github.com/awslabs/tough/pull/502
+[#503]: https://github.com/awslabs/tough/pull/503
+[#506]: https://github.com/awslabs/tough/pull/506
+[#508]: https://github.com/awslabs/tough/pull/508
+[#514]: https://github.com/awslabs/tough/pull/514
+
 ## [0.8.1] - 2022-08-12
 ### Changes
 - Update dependencies
@@ -176,7 +190,9 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.8.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.8.2...develop
+[0.8.2]: https://github.com/awslabs/tough/compare/tuftool-v0.8.1...tuftool-v0.8.2
+[0.8.1]: https://github.com/awslabs/tough/compare/tuftool-v0.8.0...tuftool-v0.8.1
 [0.8.0]: https://github.com/awslabs/tough/compare/tuftool-v0.7.2...tuftool-v0.8.0
 [0.7.2]: https://github.com/awslabs/tough/compare/tuftool-v0.7.1...tuftool-v0.7.2
 [0.7.1]: https://github.com/awslabs/tough/compare/tuftool-v0.7.0...tuftool-v0.7.1
