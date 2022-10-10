@@ -20,7 +20,7 @@ aws-config = "0.48.0"
 aws-sdk-kms = "0.18.0"
 aws-sdk-ssm = "0.18.0"
 chrono = { version = "0.4.22", default-features = false, features = ["alloc", "std", "clock"] }
-clap = { version = "3.2.22", features = ["derive"] }
+clap = { version = "4.0.11", features = ["derive"] }
 hex = "0.4.2"
 log = "0.4.8"
 maplit = "1.0.1"
