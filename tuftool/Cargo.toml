@@ -30,7 +30,7 @@ rayon = "1.5"
 reqwest = { version = "0.11.1", features = ["blocking"] }
 ring = { version = "0.16.16", features = ["std"] }
 serde = "1.0.144"
-serde_json = "1.0.87"
+serde_json = "1.0.88"
 simplelog = "0.12"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tempfile = "3.3.0"
