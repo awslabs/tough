@@ -128,13 +128,13 @@ impl CloneArgs {
             );
             if self.target_names.is_empty() {
                 repository
-                    .cache(&self.metadata_dir, &targets_dir, None::<&[&str]>, true)
+                    .cache(&self.metadata_dir, targets_dir, None::<&[&str]>, true)
                     .context(error::CloneRepositorySnafu)?;
             } else {
                 repository
                     .cache(
                         &self.metadata_dir,
-                        &targets_dir,
+                        targets_dir,
                         Some(self.target_names.as_slice()),
                         true,
                     )

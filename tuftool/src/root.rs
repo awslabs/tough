@@ -274,7 +274,7 @@ impl Command {
         // ring doesn't support RSA key generation yet
         // https://github.com/briansmith/ring/issues/219
         let mut command = std::process::Command::new("openssl");
-        command.args(&["genpkey", "-algorithm", "RSA", "-pkeyopt"]);
+        command.args(["genpkey", "-algorithm", "RSA", "-pkeyopt"]);
         command.arg(format!("rsa_keygen_bits:{}", bits));
         command.arg("-pkeyopt");
         command.arg(format!("rsa_keygen_pubexp:{}", exponent));

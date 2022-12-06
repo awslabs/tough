@@ -49,7 +49,7 @@ impl CreateRoleArgs {
         // write the new role
         let metadata_destination_out = &self.outdir.join("metadata");
         new_role
-            .write(&metadata_destination_out, false)
+            .write(metadata_destination_out, false)
             .context(error::WriteRolesSnafu {
                 roles: [role.to_string()].to_vec(),
             })?;
