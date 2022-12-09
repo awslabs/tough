@@ -194,7 +194,7 @@ impl Repository {
             max_size,
             max_size_specifier,
         )?;
-        let outpath = outdir.as_ref().join(&filename);
+        let outpath = outdir.as_ref().join(filename);
         let mut file = std::fs::File::create(&outpath).context(error::CacheFileWriteSnafu {
             path: outpath.clone(),
         })?;

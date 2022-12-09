@@ -26,7 +26,8 @@
 #![allow(
     clippy::module_name_repetitions,
     clippy::must_use_candidate,
-    clippy::missing_errors_doc
+    clippy::missing_errors_doc,
+    clippy::result_large_err
 )]
 
 mod cache;
@@ -541,11 +542,11 @@ impl Repository {
         let mut reader = self
             .read_target(name)?
             .with_context(|| error::SaveTargetNotFoundSnafu { name: name.clone() })?;
-        create_dir_all(&filepath_dir).context(error::DirCreateSnafu {
+        create_dir_all(filepath_dir).context(error::DirCreateSnafu {
             path: &filepath_dir,
         })?;
         let mut f =
-            NamedTempFile::new_in(&filepath_dir).context(error::NamedTempFileCreateSnafu {
+            NamedTempFile::new_in(filepath_dir).context(error::NamedTempFileCreateSnafu {
                 path: &filepath_dir,
             })?;
         std::io::copy(&mut reader, &mut f).context(error::FileWriteSnafu { path: &f.path() })?;

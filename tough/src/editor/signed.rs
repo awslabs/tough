@@ -171,12 +171,11 @@ where
     pub fn add_old_signatures(mut self, old_signatures: Vec<Signature>) -> Result<Self> {
         for old_signature in old_signatures {
             //add only if the signature of the key does not exist
-            if self
+            if !self
                 .signed
                 .signatures
                 .iter()
-                .find(|new_sig| new_sig.keyid == old_signature.keyid)
-                == None
+                .any(|new_sig| new_sig.keyid == old_signature.keyid)
             {
                 self.signed.signatures.push(Signature {
                     keyid: old_signature.keyid,

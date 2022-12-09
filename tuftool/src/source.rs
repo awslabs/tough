@@ -91,7 +91,7 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
             }),
             // remove first '/' from the path to get the key_id
             key_id: if url.path().is_empty() {
-                String::from("")
+                String::new()
             } else {
                 url.path()[1..].to_string()
             },

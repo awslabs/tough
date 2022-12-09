@@ -9,6 +9,7 @@
     clippy::use_self,
     // Caused by interacting with tough::schema::*._extra
     clippy::used_underscore_binding,
+    clippy::result_large_err,
 )]
 
 mod add_key_role;

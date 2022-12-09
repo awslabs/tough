@@ -90,7 +90,7 @@ impl UpdateTargetsArgs {
                     .context(error::InitializeThreadPoolSnafu)?;
             }
 
-            let new_targets = build_targets(&targets_indir, self.follow)?;
+            let new_targets = build_targets(targets_indir, self.follow)?;
 
             for (target_name, target) in new_targets {
                 editor
@@ -106,7 +106,7 @@ impl UpdateTargetsArgs {
         if let Some(ref targets_indir) = self.targets_indir {
             let targets_outdir = &self.outdir.join("targets");
             signed_role
-                .copy_targets(&targets_indir, &targets_outdir, self.target_path_exists)
+                .copy_targets(targets_indir, targets_outdir, self.target_path_exists)
                 .context(error::LinkTargetsSnafu {
                     indir: &targets_indir,
                     outdir: targets_outdir,
