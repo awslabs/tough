@@ -2,8 +2,8 @@ name: Rust
 on:
   pull_request:
     paths-ignore:
-      - '**.md'
-      - '.github/dependabot.yml'
+      - "**.md"
+      - ".github/dependabot.yml"
     branches: [develop]
 jobs:
   build:
@@ -12,15 +12,17 @@ jobs:
         make_target: ["check-licenses", "build", "integ"]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/cache@v3
-      with:
-        path: |
-          .cargo
-          target
-        # you can edit the .github/cache_bust file if you need to clear the cache
-        key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-
-    - run: rustup update stable
-    - run: make ${{ matrix.make_target }}
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            .cargo
+            target
+          # you can edit the .github/cache_bust file if you need to clear the cache
+          key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-
+      - run: rustup default 1.64.0
+      - run: rustup component add rustfmt
+      - run: rustup component add clippy
+      - run: make ${{ matrix.make_target }}
