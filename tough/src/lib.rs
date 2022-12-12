@@ -26,8 +26,7 @@
 #![allow(
     clippy::module_name_repetitions,
     clippy::must_use_candidate,
-    clippy::missing_errors_doc,
-    clippy::result_large_err
+    clippy::missing_errors_doc
 )]
 
 mod cache;
