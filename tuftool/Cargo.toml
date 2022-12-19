@@ -34,7 +34,7 @@ serde_json = "1.0.87"
 simplelog = "0.12"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tempfile = "3.3.0"
-tokio = "~1.18"  # LTS
+tokio = "~1.23"  # LTS
 tough = { version = "0.12.5", path = "../tough", features = ["http"] }
 tough-kms = { version = "0.4.2", path = "../tough-kms" }
 tough-ssm = { version = "0.7.2", path = "../tough-ssm" }
