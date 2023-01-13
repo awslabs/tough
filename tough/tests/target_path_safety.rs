@@ -66,7 +66,7 @@ fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySo
     )
     .unwrap();
 
-    std::fs::write(&root_path, signed_root.buffer()).unwrap();
+    std::fs::write(root_path, signed_root.buffer()).unwrap();
 
     keys
 }

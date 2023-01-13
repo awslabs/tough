@@ -78,7 +78,7 @@ fn assert_all_metadata(metadata_dir: &TempDir) {
 
 /// Given a `Command`, attach all the base args necessary for the `clone` subcommand
 fn clone_base_command<'a>(cmd: &'a mut Command, repo_paths: &RepoPaths) -> &'a mut Command {
-    cmd.args(&[
+    cmd.args([
         "clone",
         "--root",
         repo_paths.root_path.to_str().unwrap(),
@@ -95,7 +95,7 @@ fn clone_metadata() {
     let repo_paths = RepoPaths::new();
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
     clone_base_command(&mut cmd, &repo_paths)
-        .args(&["--metadata-only"])
+        .args(["--metadata-only"])
         .assert()
         .success();
 
@@ -109,13 +109,13 @@ fn clone_metadata_target_args_failure() {
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
     // --target-names
     clone_base_command(&mut cmd, &repo_paths)
-        .args(&["--metadata-only", "--target-names", "foo"])
+        .args(["--metadata-only", "--target-names", "foo"])
         .assert()
         .failure();
 
     // --targets-url
     clone_base_command(&mut cmd, &repo_paths)
-        .args(&[
+        .args([
             "--metadata-only",
             "--targets-url",
             repo_paths.targets_base_url.as_str(),
@@ -125,7 +125,7 @@ fn clone_metadata_target_args_failure() {
 
     // --targets-dir
     clone_base_command(&mut cmd, &repo_paths)
-        .args(&[
+        .args([
             "--metadata-only",
             "--targets-dir",
             repo_paths.targets_outdir.path().to_str().unwrap(),
@@ -135,7 +135,7 @@ fn clone_metadata_target_args_failure() {
 
     // all target args
     clone_base_command(&mut cmd, &repo_paths)
-        .args(&[
+        .args([
             "--metadata-only",
             "--targets-url",
             repo_paths.targets_base_url.as_str(),
@@ -155,7 +155,7 @@ fn clone_subset_targets() {
     let repo_paths = RepoPaths::new();
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
     clone_base_command(&mut cmd, &repo_paths)
-        .args(&[
+        .args([
             "--targets-url",
             repo_paths.targets_base_url.as_str(),
             "--targets-dir",
@@ -181,7 +181,7 @@ fn clone_full_repo() {
     let repo_paths = RepoPaths::new();
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
     clone_base_command(&mut cmd, &repo_paths)
-        .args(&[
+        .args([
             "--targets-url",
             repo_paths.targets_base_url.as_str(),
             "--targets-dir",

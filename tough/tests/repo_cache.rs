@@ -205,7 +205,7 @@ fn test_repo_cache_metadata() {
     let copied_repo = RepositoryLoader::new(
         repo_paths.root(),
         dir_url(&metadata_destination),
-        dir_url(&targets_destination),
+        dir_url(targets_destination),
     )
     .load()
     .unwrap();

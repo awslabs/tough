@@ -28,7 +28,7 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     // Create a repo using tuftool and the reference tuf implementation data
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "create",
             "-t",
             targets_input_dir.to_str().unwrap(),
@@ -78,7 +78,7 @@ fn update_command_without_new_targets() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -150,7 +150,7 @@ fn update_command_with_new_targets() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-t",
             new_targets_input_dir.to_str().unwrap(),
@@ -225,7 +225,7 @@ fn update_with_incorrect_key() {
 
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "--outdir",
             "/outdir/does/not/matter",
@@ -257,7 +257,7 @@ fn update_with_incorrect_key() {
 fn update_with_no_key() {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "--outdir",
             "/outdir/does/not/matter",
@@ -306,7 +306,7 @@ fn updates_expired_repo(
     let targets_version: u64 = 170;
     let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
-    cmd.args(&[
+    cmd.args([
         "update",
         "-o",
         outdir.path().to_str().unwrap(),

@@ -52,7 +52,7 @@ impl Datastore {
             value,
         )
         .context(error::DatastoreSerializeSnafu {
-            what: format!("{} in datastore", file),
+            what: format!("{file} in datastore"),
             path,
         })
     }

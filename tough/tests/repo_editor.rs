@@ -86,7 +86,7 @@ fn test_repo_editor() -> RepositoryEditor {
     let target3 = targets_path().join("file3.txt");
     let target_list = vec![target3];
 
-    let mut editor = RepositoryEditor::new(&root).unwrap();
+    let mut editor = RepositoryEditor::new(root).unwrap();
     editor
         .targets_expires(targets_expiration)
         .unwrap()
@@ -118,7 +118,7 @@ fn repository_editor_from_repository() {
     let root = repo_paths.root_path.clone();
     let repo = load_tuf_reference_impl(&mut repo_paths);
 
-    assert!(RepositoryEditor::from_repo(&root, repo).is_ok());
+    assert!(RepositoryEditor::from_repo(root, repo).is_ok());
 }
 
 // Create sign write and reload repo
@@ -227,7 +227,7 @@ fn create_sign_write_reload_repo() {
 
     assert!(signed_repo.write(&metadata_destination).is_ok());
     assert!(signed_repo
-        .link_targets(&targets_path(), &targets_destination, PathExists::Skip)
+        .link_targets(targets_path(), &targets_destination, PathExists::Skip)
         .is_ok());
     // Load the repo we just created
     let _new_repo = RepositoryLoader::new(
@@ -277,9 +277,9 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
-        dir_url(&targets_destination),
+        dir_url(targets_destination),
     )
     .load()
     .unwrap();
@@ -328,7 +328,7 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -352,7 +352,7 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -391,7 +391,7 @@ fn create_role_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -426,9 +426,9 @@ fn create_role_flow() {
     // reload repo and verify that A and B role are included
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
-        dir_url(&metadata_destination),
-        dir_url(&targets_destination),
+        File::open(root).unwrap(),
+        dir_url(metadata_destination),
+        dir_url(targets_destination),
     )
     .load()
     .unwrap();
@@ -477,9 +477,9 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
-        dir_url(&targets_destination),
+        dir_url(targets_destination),
     )
     .load()
     .unwrap();
@@ -528,7 +528,7 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -552,7 +552,7 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -591,7 +591,7 @@ fn update_targets_flow() {
     // reload repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -626,7 +626,7 @@ fn update_targets_flow() {
     // reload repo and verify that A and B role are included
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -669,7 +669,7 @@ fn update_targets_flow() {
     // load repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -706,7 +706,7 @@ fn update_targets_flow() {
     //load the updated repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -755,7 +755,7 @@ fn update_targets_flow() {
     // load repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )
@@ -793,7 +793,7 @@ fn update_targets_flow() {
     //load the updated repo
     let root = root_path();
     let new_repo = RepositoryLoader::new(
-        File::open(&root).unwrap(),
+        File::open(root).unwrap(),
         dir_url(&metadata_destination),
         dir_url(&targets_destination),
     )

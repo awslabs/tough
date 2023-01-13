@@ -48,7 +48,7 @@ pub fn create_expired_repo<P: AsRef<Path>>(repo_dir: P) {
     // Create a repo using tuftool and the reference tuf implementation data
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "create",
             "-t",
             targets_input_dir.to_str().unwrap(),

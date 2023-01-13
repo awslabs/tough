@@ -123,8 +123,8 @@ impl CloneArgs {
             );
 
             println!(
-                "Cloning repository:\n\tmetadata location: {:?}\n\ttargets location: {:?}",
-                self.metadata_dir, targets_dir
+                "Cloning repository:\n\tmetadata location: {:?}\n\ttargets location: {targets_dir:?}",
+                self.metadata_dir
             );
             if self.target_names.is_empty() {
                 repository

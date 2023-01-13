@@ -233,7 +233,7 @@ impl Command {
             .tuf_key();
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair)?);
         clear_sigs(&mut root);
-        println!("{}", key_id);
+        println!("{key_id}");
         write_file(path, &root)
     }
 
@@ -275,11 +275,11 @@ impl Command {
         // https://github.com/briansmith/ring/issues/219
         let mut command = std::process::Command::new("openssl");
         command.args(["genpkey", "-algorithm", "RSA", "-pkeyopt"]);
-        command.arg(format!("rsa_keygen_bits:{}", bits));
+        command.arg(format!("rsa_keygen_bits:{bits}"));
         command.arg("-pkeyopt");
-        command.arg(format!("rsa_keygen_pubexp:{}", exponent));
+        command.arg(format!("rsa_keygen_pubexp:{exponent}"));
 
-        let command_str = format!("{:?}", command);
+        let command_str = format!("{command:?}");
         let output = command.output().context(error::CommandExecSnafu {
             command_str: &command_str,
         })?;
@@ -299,7 +299,7 @@ impl Command {
             .write(&stdout, &key_id)
             .context(error::WriteKeySourceSnafu)?;
         clear_sigs(&mut root);
-        println!("{}", key_id);
+        println!("{key_id}");
         write_file(path, &root)
     }
 
