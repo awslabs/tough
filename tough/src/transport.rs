@@ -118,8 +118,8 @@ impl Display for TransportError {
         if let Some(e) = self.source.as_ref() {
             write!(
                 f,
-                "Transport '{}' error fetching '{}': {}",
-                self.kind, self.url, e
+                "Transport '{}' error fetching '{}': {e}",
+                self.kind, self.url
             )
         } else {
             write!(f, "Transport '{}' error fetching '{}'", self.kind, self.url)

@@ -13,32 +13,32 @@ use tough::schema::{Root, Signed};
 fn initialize_root_json(root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "init", root_json])
+        .args(["root", "init", root_json])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "expire", root_json, "2020-09-22T00:00:00Z"])
+        .args(["root", "expire", root_json, "2020-09-22T00:00:00Z"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "root", "2"])
+        .args(["root", "set-threshold", root_json, "root", "2"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "snapshot", "1"])
+        .args(["root", "set-threshold", root_json, "snapshot", "1"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "targets", "1"])
+        .args(["root", "set-threshold", root_json, "targets", "1"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "timestamp", "1"])
+        .args(["root", "set-threshold", root_json, "timestamp", "1"])
         .assert()
         .success();
 }
@@ -46,7 +46,7 @@ fn initialize_root_json(root_json: &str) {
 fn add_key_root(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "root"])
+        .args(["root", "add-key", root_json, key, "--role", "root"])
         .assert()
         .success();
 }
@@ -54,7 +54,7 @@ fn add_key_root(key: &str, root_json: &str) {
 fn add_key_timestamp(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "timestamp"])
+        .args(["root", "add-key", root_json, key, "--role", "timestamp"])
         .assert()
         .success();
 }
@@ -62,14 +62,14 @@ fn add_key_timestamp(key: &str, root_json: &str) {
 fn add_key_snapshot(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "snapshot"])
+        .args(["root", "add-key", root_json, key, "--role", "snapshot"])
         .assert()
         .success();
 }
 fn add_key_targets(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "targets"])
+        .args(["root", "add-key", root_json, key, "--role", "targets"])
         .assert()
         .success();
 }
@@ -85,7 +85,7 @@ fn sign_root_json(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
         // We don't have enough signatures to meet the threshold, so we have to pass `-i`
-        .args(&["root", "sign", root_json, "-i", "-k", key])
+        .args(["root", "sign", root_json, "-i", "-k", key])
         .assert()
         .success();
 }
@@ -94,7 +94,7 @@ fn sign_root_json_failure(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
         // We don't have enough signatures to meet the threshold, so we should fail
-        .args(&["root", "sign", root_json, "-k", key])
+        .args(["root", "sign", root_json, "-k", key])
         .assert()
         .failure();
 }
@@ -102,7 +102,7 @@ fn sign_root_json_failure(key: &str, root_json: &str) {
 fn sign_root_json_two_keys(key_1: &str, key_2: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "sign", root_json, "-k", key_1, "-k", key_2])
+        .args(["root", "sign", root_json, "-k", key_1, "-k", key_2])
         .assert()
         .success();
 }
@@ -110,7 +110,7 @@ fn sign_root_json_two_keys(key_1: &str, key_2: &str, root_json: &str) {
 fn cross_sign(old_root: &str, new_root: &str, key: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "root",
             "sign",
             new_root,
@@ -136,7 +136,12 @@ fn get_sign_len(root_json: &str) -> usize {
 
 fn check_signature_exists(root_json: &str, key_id: Decoded<Hex>) -> bool {
     let root = get_signed_root(root_json);
-    if root.signatures.iter().find(|sig| sig.keyid == key_id) == None {
+    if root
+        .signatures
+        .iter()
+        .find(|sig| sig.keyid == key_id)
+        .is_none()
+    {
         return false;
     }
     true
@@ -182,7 +187,7 @@ fn create_unstable_root() {
     // Set the threshold for roles with targets being more than 1
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "root",
             "set-threshold",
             root_json.to_str().unwrap(),
@@ -196,7 +201,7 @@ fn create_unstable_root() {
     // Sign root.json (error because targets can never be validated root has 1 key but targets requires 2 signatures)
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "root",
             "sign",
             out_dir.path().join("root.json").to_str().unwrap(),
@@ -221,7 +226,7 @@ fn create_invalid_root() {
     // Sign root.json (error because key is not valid)
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "root",
             "sign",
             out_dir.path().join("root.json").to_str().unwrap(),
@@ -286,7 +291,7 @@ fn cross_sign_root_invalid_key() {
     //Sign 2.root.json with key not in 1.root.json
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "root",
             "sign",
             new_root_json.to_str().unwrap(),
@@ -349,7 +354,7 @@ fn set_version_root() {
     //set version to 5
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-version", root_json.to_str().unwrap(), "5"])
+        .args(["root", "set-version", root_json.to_str().unwrap(), "5"])
         .assert()
         .success();
 

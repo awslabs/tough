@@ -24,32 +24,32 @@ fn get_profile() -> String {
 fn initialize_root_json(root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "init", root_json])
+        .args(["root", "init", root_json])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "expire", root_json, "3030-09-22T00:00:00Z"])
+        .args(["root", "expire", root_json, "3030-09-22T00:00:00Z"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "root", "1"])
+        .args(["root", "set-threshold", root_json, "root", "1"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "snapshot", "1"])
+        .args(["root", "set-threshold", root_json, "snapshot", "1"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "targets", "1"])
+        .args(["root", "set-threshold", root_json, "targets", "1"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "set-threshold", root_json, "timestamp", "1"])
+        .args(["root", "set-threshold", root_json, "timestamp", "1"])
         .assert()
         .success();
 }
@@ -57,7 +57,7 @@ fn initialize_root_json(root_json: &str) {
 fn gen_key(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "root",
             "gen-rsa-key",
             root_json,
@@ -73,24 +73,24 @@ fn gen_key(key: &str, root_json: &str) {
 fn add_root_key(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "root"])
+        .args(["root", "add-key", root_json, key, "--role", "root"])
         .assert()
         .success();
 }
 fn add_key_all_role(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "snapshot"])
+        .args(["root", "add-key", root_json, key, "--role", "snapshot"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "targets"])
+        .args(["root", "add-key", root_json, key, "--role", "targets"])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "add-key", root_json, key, "--role", "timestamp"])
+        .args(["root", "add-key", root_json, key, "--role", "timestamp"])
         .assert()
         .success();
 }
@@ -98,7 +98,7 @@ fn add_key_all_role(key: &str, root_json: &str) {
 fn sign_root_json(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&["root", "sign", root_json, "-k", key])
+        .args(["root", "sign", root_json, "-k", key])
         .assert()
         .success();
 }
@@ -129,7 +129,7 @@ fn create_repository(root_key: &str, auto_generate: bool) {
     // Create a repo using tuftool and the reference tuf implementation targets
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "create",
             "-t",
             targets_input_dir.to_str().unwrap(),

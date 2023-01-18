@@ -389,7 +389,7 @@ fn build_request(client: &Client, next_byte: usize, url: &Url) -> Result<Request
             .context(RequestBuildSnafu)?;
         Ok(request)
     } else {
-        let header_value_string = format!("bytes={}-", next_byte);
+        let header_value_string = format!("bytes={next_byte}-");
         let header_value =
             HeaderValue::from_str(header_value_string.as_str()).context(InvalidHeaderSnafu {
                 header_value: &header_value_string,

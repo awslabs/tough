@@ -12,7 +12,7 @@ use url::Url;
 /// Set an expectation in a test HTTP server which serves a file from `tuf-reference-impl`.
 fn create_successful_get(relative_path: &str) -> httptest::Expectation {
     let repo_dir = test_utils::test_data().join("tuf-reference-impl");
-    let file_bytes = std::fs::read(&repo_dir.join(relative_path)).unwrap();
+    let file_bytes = std::fs::read(repo_dir.join(relative_path)).unwrap();
     Expectation::matching(request::method_path("GET", format!("/{}", relative_path)))
         .times(1)
         .respond_with(
@@ -56,7 +56,7 @@ fn download_command(metadata_base_url: Url, targets_base_url: Url) {
     // Download a test repo.
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "download",
             "-r",
             root_json.to_str().unwrap(),
@@ -76,7 +76,7 @@ fn download_command(metadata_base_url: Url, targets_base_url: Url) {
     // Download again into the same outdir, this will fail because the directory exists.
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "download",
             "-r",
             root_json.to_str().unwrap(),
@@ -123,7 +123,7 @@ fn download_expired_repo(outdir: &Path, repo_dir: &TempDir, allow_expired_repo: 
     let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let targets_base_url = &test_utils::dir_url(repo_dir.path().join("targets"));
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
-    cmd.args(&[
+    cmd.args([
         "download",
         "-r",
         root_json.to_str().unwrap(),
@@ -176,7 +176,7 @@ fn download_safe_target_paths() {
     let tempdir = TempDir::new().unwrap();
     let outdir = tempdir.path().join("outdir");
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
-    cmd.args(&[
+    cmd.args([
         "download",
         "-r",
         root.to_str().unwrap(),

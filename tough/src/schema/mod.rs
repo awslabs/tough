@@ -978,7 +978,7 @@ impl<'de> Deserialize<'de> for PathPattern {
         D: Deserializer<'de>,
     {
         let s = <String>::deserialize(deserializer)?;
-        PathPattern::new(s).map_err(|e| D::Error::custom(format!("{}", e)))
+        PathPattern::new(s).map_err(|e| D::Error::custom(format!("{e}")))
     }
 }
 
@@ -1194,7 +1194,7 @@ fn targets_iter_and_map_test() {
         terminating: false,
         targets: Some(Signed {
             signed: Targets {
-                spec_version: "".to_string(),
+                spec_version: String::new(),
                 version: NonZeroU64::new(1).unwrap(),
                 expires: Utc::now(),
                 targets: hashmap! {
@@ -1218,7 +1218,7 @@ fn targets_iter_and_map_test() {
         terminating: false,
         targets: Some(Signed {
             signed: Targets {
-                spec_version: "".to_string(),
+                spec_version: String::new(),
                 version: NonZeroU64::new(1).unwrap(),
                 expires: Utc::now(),
                 targets: hashmap! {
@@ -1235,7 +1235,7 @@ fn targets_iter_and_map_test() {
         roles: vec![b_role],
     };
     let a = Targets {
-        spec_version: "".to_string(),
+        spec_version: String::new(),
         version: NonZeroU64::new(1).unwrap(),
         expires: Utc::now(),
         targets: hashmap! {

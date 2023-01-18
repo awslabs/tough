@@ -129,7 +129,7 @@ impl Repository {
         P: AsRef<Path>,
     {
         for ver in (1..=self.root.signed.version.get()).rev() {
-            let root_json_filename = format!("{}.root.json", ver);
+            let root_json_filename = format!("{ver}.root.json");
             self.cache_file_from_transport(
                 root_json_filename.as_str(),
                 self.limits.max_root_size,
@@ -166,7 +166,7 @@ impl Repository {
                 self.snapshot
                     .signed
                     .meta
-                    .get(&format!("{}.json", name))?
+                    .get(&format!("{name}.json"))?
                     .version,
                 encode_filename(name)
             ))

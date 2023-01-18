@@ -100,7 +100,7 @@ impl<'de> Deserialize<'de> for TargetName {
         D: Deserializer<'de>,
     {
         let s = <String>::deserialize(deserializer)?;
-        TargetName::new(s).map_err(|e| D::Error::custom(format!("{}", e)))
+        TargetName::new(s).map_err(|e| D::Error::custom(format!("{e}")))
     }
 }
 

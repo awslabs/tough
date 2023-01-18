@@ -122,7 +122,7 @@ fn handle_download(repository: &Repository, outdir: &Path, raw_names: &[String])
         target_names
     };
 
-    println!("Downloading targets to {:?}", outdir);
+    println!("Downloading targets to {outdir:?}");
     std::fs::create_dir_all(outdir).context(error::DirCreateSnafu { path: outdir })?;
     for target in targets {
         download_target(&target)?;

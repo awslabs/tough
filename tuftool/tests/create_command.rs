@@ -29,7 +29,7 @@ fn create_command() {
     // Create a repo using tuftool and the reference tuf implementation targets
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "create",
             "-t",
             targets_input_dir.to_str().unwrap(),
@@ -122,7 +122,7 @@ fn create_with_incorrect_key() {
     // the command fails.
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "create",
             "-t",
             "input/dir/does/not/matter",
@@ -155,7 +155,7 @@ fn create_with_no_key() {
     // Misuse the tuftool create command by not passing any keys and assert failure
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "create",
             "-t",
             "/input/dir/does/not/matter",

@@ -67,7 +67,7 @@ impl Delegations {
         role.signed
             .serialize(&mut ser)
             .context(error::JsonSerializationSnafu {
-                what: format!("{} role", name),
+                what: format!("{name} role"),
             })?;
         for signature in &role.signatures {
             if role_keys.keyids.contains(&signature.keyid) {

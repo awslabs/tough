@@ -19,13 +19,13 @@ pub(crate) fn download_root<P>(
 where
     P: AsRef<Path>,
 {
-    let name = format!("{}.root.json", version);
+    let name = format!("{version}.root.json");
 
     let path = outdir.as_ref().join(&name);
     let url = metadata_base_url
         .join(&name)
         .context(error::UrlParseSnafu {
-            url: format!("{}/{}", metadata_base_url.as_str(), name),
+            url: format!("{name}/{}", metadata_base_url.as_str()),
         })?;
     root_warning(&path);
 

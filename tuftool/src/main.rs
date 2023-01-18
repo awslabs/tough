@@ -9,6 +9,7 @@
     clippy::use_self,
     // Caused by interacting with tough::schema::*._extra
     clippy::used_underscore_binding,
+    clippy::result_large_err,
 )]
 
 mod add_key_role;
@@ -175,11 +176,11 @@ fn main() -> ! {
     std::process::exit(match Program::from_args().run() {
         Ok(()) => 0,
         Err(err) => {
-            eprintln!("{}", err);
+            eprintln!("{err}");
             if let Some(var) = std::env::var_os("RUST_BACKTRACE") {
                 if var != "0" {
                     if let Some(backtrace) = err.backtrace() {
-                        eprintln!("\n{:?}", backtrace);
+                        eprintln!("\n{backtrace:?}");
                     }
                 }
             }

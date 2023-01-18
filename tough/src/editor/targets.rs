@@ -400,7 +400,7 @@ impl TargetsEditor {
         let metadata_base_url = parse_url(metadata_url)?;
         // path to updated metadata
         let encoded_name = encode_filename(name);
-        let encoded_filename = format!("{}.json", encoded_name);
+        let encoded_filename = format!("{encoded_name}.json");
         let role_url = metadata_base_url
             .join(&encoded_filename)
             .with_context(|_| error::JoinUrlEncodedSnafu {

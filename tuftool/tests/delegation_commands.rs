@@ -27,7 +27,7 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     // Create a repo using tuftool and the reference tuf implementation data
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "create",
             "-t",
             targets_input_dir.to_str().unwrap(),
@@ -83,7 +83,7 @@ fn create_add_role_command() {
     // create role A
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -104,7 +104,7 @@ fn create_add_role_command() {
     // add role to targets metadata and sign entire repo
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -112,7 +112,7 @@ fn create_add_role_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -157,7 +157,7 @@ fn create_add_role_command() {
     // create role B
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "B",
@@ -178,7 +178,7 @@ fn create_add_role_command() {
     // add role B to A metadata and sign A meta
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -186,7 +186,7 @@ fn create_add_role_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key.to_str().unwrap(),
             "--root",
@@ -212,7 +212,7 @@ fn create_add_role_command() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -237,7 +237,7 @@ fn create_add_role_command() {
             "--role",
             "A",
             "-i",
-            dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
@@ -279,7 +279,7 @@ fn update_target_command() {
     // create role A
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -300,7 +300,7 @@ fn update_target_command() {
     // add role to targets metadata and sign entire repo
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -308,7 +308,7 @@ fn update_target_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -338,13 +338,13 @@ fn update_target_command() {
 
     // Update A's targets
     let ut_out = TempDir::new().unwrap();
-    let meta_out_url = dir_url(&ut_out.path().join("metadata"));
+    let meta_out_url = dir_url(ut_out.path().join("metadata"));
     let targets_out_url = ut_out.path().join("targets");
     let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let targets_input_dir = test_utils::test_data().join("targets");
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -380,7 +380,7 @@ fn update_target_command() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -455,7 +455,7 @@ fn add_key_command() {
     // create role A
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -476,7 +476,7 @@ fn add_key_command() {
     // add role to targets metadata and sign entire repo
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -484,7 +484,7 @@ fn add_key_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -517,7 +517,7 @@ fn add_key_command() {
     let key_out = TempDir::new().unwrap();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -546,14 +546,14 @@ fn add_key_command() {
     let new_repo_dir = TempDir::new().unwrap();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "--role",
             "targets",
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&key_out.path().join("metadata")).as_str(),
+            dir_url(key_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -582,7 +582,7 @@ fn add_key_command() {
     // create role B
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "B",
@@ -603,7 +603,7 @@ fn add_key_command() {
     // add role B to A metadata and sign A meta with the added key
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -611,7 +611,7 @@ fn add_key_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key1.to_str().unwrap(),
             "--root",
@@ -637,7 +637,7 @@ fn add_key_command() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -662,7 +662,7 @@ fn add_key_command() {
             "--role",
             "A",
             "-i",
-            dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
@@ -702,7 +702,7 @@ fn remove_key_command() {
     // create role A
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -725,7 +725,7 @@ fn remove_key_command() {
     // add role to targets metadata and sign entire repo
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -733,7 +733,7 @@ fn remove_key_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -767,7 +767,7 @@ fn remove_key_command() {
     let key_out = TempDir::new().unwrap();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -796,14 +796,14 @@ fn remove_key_command() {
     let new_repo_dir = TempDir::new().unwrap();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "--role",
             "targets",
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&key_out.path().join("metadata")).as_str(),
+            dir_url(key_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -832,7 +832,7 @@ fn remove_key_command() {
     // create role B
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "B",
@@ -853,7 +853,7 @@ fn remove_key_command() {
     // add role B to A metadata and sign A meta with the removed key
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -861,7 +861,7 @@ fn remove_key_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key1.to_str().unwrap(),
             "--root",
@@ -905,7 +905,7 @@ fn remove_role_command() {
     // create role A
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -926,7 +926,7 @@ fn remove_role_command() {
     // add role to targets metadata and sign entire repo
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -934,7 +934,7 @@ fn remove_role_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -979,7 +979,7 @@ fn remove_role_command() {
     // create role B
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "B",
@@ -1000,7 +1000,7 @@ fn remove_role_command() {
     // add role B to A metadata
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -1008,7 +1008,7 @@ fn remove_role_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key.to_str().unwrap(),
             "--root",
@@ -1040,7 +1040,7 @@ fn remove_role_command() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -1065,7 +1065,7 @@ fn remove_role_command() {
             "--role",
             "A",
             "-i",
-            dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
@@ -1077,7 +1077,7 @@ fn remove_role_command() {
     // remove role B from A metadata and sign A meta
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -1113,7 +1113,7 @@ fn remove_role_command() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -1138,7 +1138,7 @@ fn remove_role_command() {
             "--role",
             "A",
             "-i",
-            dir_url(&remove_b_out.path().join("metadata")).as_str(),
+            dir_url(remove_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
@@ -1180,7 +1180,7 @@ fn remove_role_recursive_command() {
     // create role A
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -1201,7 +1201,7 @@ fn remove_role_recursive_command() {
     // add role to targets metadata and sign entire repo
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -1209,7 +1209,7 @@ fn remove_role_recursive_command() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -1253,7 +1253,7 @@ fn remove_role_recursive_command() {
     // create role B
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "B",
@@ -1274,7 +1274,7 @@ fn remove_role_recursive_command() {
     // add role B to A metadata
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "A",
@@ -1282,7 +1282,7 @@ fn remove_role_recursive_command() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key.to_str().unwrap(),
             "--root",
@@ -1314,7 +1314,7 @@ fn remove_role_recursive_command() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -1339,7 +1339,7 @@ fn remove_role_recursive_command() {
             "--role",
             "A",
             "-i",
-            dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
@@ -1351,7 +1351,7 @@ fn remove_role_recursive_command() {
     // remove role B from A metadata and sign A meta
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -1388,7 +1388,7 @@ fn remove_role_recursive_command() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -1413,7 +1413,7 @@ fn remove_role_recursive_command() {
             "--role",
             "targets",
             "-i",
-            dir_url(&remove_b_out.path().join("metadata")).as_str(),
+            dir_url(remove_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
@@ -1466,7 +1466,7 @@ fn dubious_role_name() {
     // create role A
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             dubious_role_name,
@@ -1487,7 +1487,7 @@ fn dubious_role_name() {
     // add role to targets metadata and sign entire repo
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             "targets",
@@ -1495,7 +1495,7 @@ fn dubious_role_name() {
             "-o",
             new_repo_dir.path().to_str().unwrap(),
             "-i",
-            dir_url(&meta_out.path().join("metadata")).as_str(),
+            dir_url(meta_out.path().join("metadata")).as_str(),
             "-k",
             root_key.to_str().unwrap(),
             "--root",
@@ -1540,7 +1540,7 @@ fn dubious_role_name() {
     // create role B
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             funny_role_name,
@@ -1561,7 +1561,7 @@ fn dubious_role_name() {
     // add role B to A metadata and sign A meta
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "delegation",
             "--signing-role",
             dubious_role_name,
@@ -1569,7 +1569,7 @@ fn dubious_role_name() {
             "-o",
             add_b_out.path().to_str().unwrap(),
             "-i",
-            dir_url(&create_out.path().join("metadata")).as_str(),
+            dir_url(create_out.path().join("metadata")).as_str(),
             "-k",
             targets_key.to_str().unwrap(),
             "--root",
@@ -1607,7 +1607,7 @@ fn dubious_role_name() {
     // Update the repo we just created
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(&[
+        .args([
             "update",
             "-o",
             update_out.path().to_str().unwrap(),
@@ -1632,7 +1632,7 @@ fn dubious_role_name() {
             "--role",
             dubious_role_name,
             "-i",
-            dir_url(&add_b_out.path().join("metadata")).as_str(),
+            dir_url(add_b_out.path().join("metadata")).as_str(),
         ])
         .assert()
         .success();
