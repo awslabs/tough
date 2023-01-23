@@ -23,6 +23,7 @@ build:
 	cargo clippy --locked -- -D warnings
 	cargo build --locked -p olpc-cjson
 	cargo build --locked -p tough
+	cargo build --locked -p tough --target wasm32-unknown-unknown
 	cargo build --locked -p tough-ssm
 	cargo build --locked -p tough-kms
 	cargo build --locked -p tuftool
@@ -34,3 +35,4 @@ integ:
 	set +e
 	cd tough && cargo test --features '' --locked
 	cd tough && cargo test --all-features --locked
+	cd tough && cargo test --no-default-features --locked --target wasm32-unknown-unknown

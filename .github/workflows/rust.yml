@@ -25,4 +25,5 @@ jobs:
       - run: rustup default 1.66.1
       - run: rustup component add rustfmt
       - run: rustup component add clippy
+      - run: rustup target add wasm32-unknown-unknown
       - run: make ${{ matrix.make_target }}

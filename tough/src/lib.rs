@@ -32,6 +32,7 @@
 
 mod cache;
 mod datastore;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod editor;
 pub mod error;
 mod fetch;
