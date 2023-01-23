@@ -411,7 +411,7 @@ impl Repository {
     }
 
     ///return a vec of all targets including all target files delegated by targets
-    pub fn all_targets(&self) -> impl Iterator + '_ {
+    pub fn all_targets(&self) -> impl Iterator<Item = (&TargetName, &schema::Target)> + '_ {
         self.targets.signed.targets_iter()
     }
 
