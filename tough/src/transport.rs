@@ -16,7 +16,7 @@ use url::Url;
 /// implementing a `Transport`.
 pub trait Transport: Debug + DynClone {
     /// Opens a `Read` object for the file specified by `url`.
-    fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError>;
+    fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send + '_>, TransportError>;
 }
 
 // Implements `Clone` for `Transport` trait objects (i.e. on `Box::<dyn Clone>`). To facilitate
@@ -206,7 +206,7 @@ impl DefaultTransport {
 }
 
 impl Transport for DefaultTransport {
-    fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
+    fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send + '_>, TransportError> {
         match url.scheme() {
             "file" => self.file.fetch(url),
             "http" | "https" => self.handle_http(url),
@@ -230,7 +230,7 @@ impl DefaultTransport {
     }
 
     #[cfg(feature = "http")]
-    fn handle_http(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
+    fn handle_http(&self, url: Url) -> Result<Box<dyn Read + Send + '_>, TransportError> {
         self.http.fetch(url)
     }
 }

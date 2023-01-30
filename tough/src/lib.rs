@@ -426,7 +426,7 @@ impl Repository {
     /// before its checksum is validated. If the maximum size is reached or there is a checksum
     /// mismatch, the reader returns a [`std::io::Error`]. **Consumers of this library must not use
     /// data from the reader if it returns an error.**
-    pub fn read_target(&self, name: &TargetName) -> Result<Option<impl Read + Send>> {
+    pub fn read_target(&self, name: &TargetName) -> Result<Option<impl Read + Send + '_>> {
         // Check for repository metadata expiration.
         if self.expiration_enforcement == ExpirationEnforcement::Safe {
             ensure!(

@@ -6,15 +6,15 @@ use ring::digest::{Context, SHA256};
 use std::io::{self, Read};
 use url::Url;
 
-pub(crate) struct DigestAdapter {
+pub(crate) struct DigestAdapter<'a> {
     url: Url,
-    reader: Box<dyn Read + Send>,
+    reader: Box<dyn Read + Send + 'a>,
     hash: Vec<u8>,
     digest: Option<Context>,
 }
 
-impl DigestAdapter {
-    pub(crate) fn sha256(reader: Box<dyn Read + Send>, hash: &[u8], url: Url) -> Self {
+impl<'a> DigestAdapter<'a> {
+    pub(crate) fn sha256(reader: Box<dyn Read + Send + 'a>, hash: &[u8], url: Url) -> Self {
         Self {
             url,
             reader,
@@ -24,7 +24,7 @@ impl DigestAdapter {
     }
 }
 
-impl Read for DigestAdapter {
+impl<'a> Read for DigestAdapter<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         assert!(
             self.digest.is_some(),
@@ -52,8 +52,8 @@ impl Read for DigestAdapter {
     }
 }
 
-pub(crate) struct MaxSizeAdapter {
-    reader: Box<dyn Read + Send>,
+pub(crate) struct MaxSizeAdapter<'a> {
+    reader: Box<dyn Read + Send + 'a>,
     /// How the `max_size` was specified. For example the max size of `root.json` is specified by
     /// the `max_root_size` argument in `Settings`. `specifier` is used to construct an error
     /// message when the `MaxSizeAdapter` detects that too many bytes have been read.
@@ -62,9 +62,9 @@ pub(crate) struct MaxSizeAdapter {
     counter: u64,
 }
 
-impl MaxSizeAdapter {
+impl<'a> MaxSizeAdapter<'a> {
     pub(crate) fn new(
-        reader: Box<dyn Read + Send>,
+        reader: Box<dyn Read + Send + 'a>,
         specifier: &'static str,
         max_size: u64,
     ) -> Self {
@@ -77,7 +77,7 @@ impl MaxSizeAdapter {
     }
 }
 
-impl Read for MaxSizeAdapter {
+impl<'a> Read for MaxSizeAdapter<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let size = self.reader.read(buf)?;
         self.counter += size as u64;

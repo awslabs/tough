@@ -8,12 +8,12 @@ use snafu::ResultExt;
 use std::io::Read;
 use url::Url;
 
-pub(crate) fn fetch_max_size(
-    transport: &dyn Transport,
+pub(crate) fn fetch_max_size<'a>(
+    transport: &'a dyn Transport,
     url: Url,
     max_size: u64,
     specifier: &'static str,
-) -> Result<impl Read + Send> {
+) -> Result<impl Read + Send + 'a> {
     Ok(MaxSizeAdapter::new(
         transport
             .fetch(url.clone())
@@ -23,13 +23,13 @@ pub(crate) fn fetch_max_size(
     ))
 }
 
-pub(crate) fn fetch_sha256(
-    transport: &dyn Transport,
+pub(crate) fn fetch_sha256<'a>(
+    transport: &'a dyn Transport,
     url: Url,
     size: u64,
     specifier: &'static str,
     sha256: &[u8],
-) -> Result<impl Read + Send> {
+) -> Result<impl Read + Send + 'a> {
     Ok(DigestAdapter::sha256(
         Box::new(MaxSizeAdapter::new(
             transport
