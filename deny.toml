@@ -59,16 +59,11 @@ multiple-versions = "deny"
 wildcards = "deny"
 
 skip = [
-    # globset and httptest are using an old version of bstr
-    { name = "bstr", version = "=0.2.17" },
+    # clap 3.x is using an old version of hermit-abi
+    { name = "hermit-abi", version = "=0.1.19" }
 ]
 
 skip-tree = [
-    # windows-sys is not a direct dependency. mio and schannel
-    # are using different versions of windows-sys. we skip the
-    # dependency tree because windows-sys has many sub-crates
-    # that differ in major version.
-    { name = "windows-sys", version = "=0.36.1" }
 ]
 
 [sources]
