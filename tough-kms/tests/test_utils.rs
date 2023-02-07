@@ -23,10 +23,6 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
         "",
     );
 
-    let conf = Config::builder()
-        .credentials_provider(creds)
-        .region(aws_sdk_kms::Region::new("us-east-1"))
-        .build();
     // Get a vec of events based on the given data_files
     let events = data_files
         .iter()
@@ -51,7 +47,14 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
 
     let conn = TestConnection::new(events);
     let conn = DynConnector::new(conn);
-    aws_sdk_kms::Client::from_conf_conn(conf, conn)
+
+    let conf = Config::builder()
+        .credentials_provider(creds)
+        .region(aws_sdk_kms::Region::new("us-east-1"))
+        .http_connector(conn)
+        .build();
+
+    aws_sdk_kms::Client::from_conf(conf)
 }
 
 // Create a mock client that returns a specific status code and empty
@@ -64,11 +67,6 @@ pub fn mock_client_with_status(status: u16) -> Client {
         None,
         "",
     );
-
-    let conf = aws_sdk_kms::Config::builder()
-        .credentials_provider(creds)
-        .region(aws_sdk_kms::Region::new("us-east-1"))
-        .build();
 
     let events = vec![(
         // Request
@@ -84,5 +82,12 @@ pub fn mock_client_with_status(status: u16) -> Client {
 
     let conn = TestConnection::new(events);
     let conn = DynConnector::new(conn);
-    aws_sdk_kms::Client::from_conf_conn(conf, conn)
+
+    let conf = aws_sdk_kms::Config::builder()
+        .credentials_provider(creds)
+        .region(aws_sdk_kms::Region::new("us-east-1"))
+        .http_connector(conn)
+        .build();
+
+    aws_sdk_kms::Client::from_conf(conf)
 }

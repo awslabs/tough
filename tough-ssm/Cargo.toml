@@ -16,8 +16,8 @@ aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls"]
 
 [dependencies]
 tough = { version = "0.12.5", path = "../tough", features = ["http"] }
-aws-sdk-ssm = "0.19.0"
-aws-config = "0.49.0"
+aws-sdk-ssm = "0.24.0"
+aws-config = "0.54.1"
 serde = "1.0.144"
 serde_json = "1.0.91"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
