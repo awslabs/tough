@@ -260,7 +260,7 @@ impl Repository {
         target: &Target,
         digest: &[u8],
         filename: &str,
-    ) -> Result<impl Read> {
+    ) -> Result<impl Read + '_> {
         fetch_sha256(
             self.transport.as_ref(),
             self.targets_base_url
