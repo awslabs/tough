@@ -11,7 +11,7 @@ edition = "2018"
 [dependencies]
 chrono = { version = "0.4.22", default-features = false, features = ["std", "alloc", "serde", "clock"] }
 dyn-clone = "1.0.10"
-globset = { version = "0.4.9" }
+globset = { version = "0.4.10" }
 hex = "0.4.2"
 log = "0.4.8"
 olpc-cjson = { version = "0.1.2", path = "../olpc-cjson" }
