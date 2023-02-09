@@ -19,6 +19,6 @@ tough = { version = "0.12.5", path = "../tough", features = ["http"] }
 aws-sdk-ssm = "0.24.0"
 aws-config = "0.54.1"
 serde = "1.0.144"
-serde_json = "1.0.91"
+serde_json = "1.0.93"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
