@@ -9,30 +9,30 @@ keywords = ["tuf", "update", "repository"]
 edition = "2018"
 
 [dependencies]
-chrono = { version = "0.4.22", default-features = false, features = ["std", "alloc", "serde", "clock"] }
-dyn-clone = "1.0.10"
-globset = { version = "0.4.9" }
-hex = "0.4.2"
-log = "0.4.8"
-olpc-cjson = { version = "0.1.2", path = "../olpc-cjson" }
+chrono = { version = "0.4", default-features = false, features = ["std", "alloc", "serde", "clock"] }
+dyn-clone = "1"
+globset = { version = "0.4" }
+hex = "0.4"
+log = "0.4"
+olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 path-absolutize = "3"
-pem = "1.1.1"
+pem = "1"
 percent-encoding = "2"
-reqwest = { version = "0.11.1", optional = true, default-features = false, features = ["blocking"] }
-ring = { version = "0.16.16", features = ["std"] }
-serde = { version = "1.0.144", features = ["derive"] }
-serde_json = "1.0.91"
-serde_plain = "1.0.1"
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["blocking"] }
+ring = { version = "0.16", features = ["std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_plain = "1"
 snafu = "0.7"
-tempfile = "3.3.0"
-untrusted = "0.7.0"
-url = "2.3.0"
-walkdir = "2.3.2"
+tempfile = "3"
+untrusted = "0.7"
+url = "2"
+walkdir = "2"
 
 [dev-dependencies]
-hex-literal = "0.3.4"
+hex-literal = "0.3"
 httptest = "0.15"
-maplit = "1.0.1"
+maplit = "1"
 
 [features]
 http = ["reqwest"]

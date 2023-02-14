@@ -9,6 +9,6 @@ keywords = ["json"]
 edition = "2018"
 
 [dependencies]
-serde = "1.0"
-serde_json = "1.0.91"
+serde = "1"
+serde_json = "1"
 unicode-normalization = "0.1"
