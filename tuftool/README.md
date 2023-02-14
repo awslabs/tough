@@ -1,5 +1,11 @@
 **tuftool** is a Rust command-line utility for generating and signing TUF repositories.
 
+## Dependencies
+
+Make sure you have the following dependencies present on your system before installing `tuftool`:
+
+- OpenSSL: install `libssl-dev` on Ubuntu or `openssl-devel` on Fedora.
+
 ## Installing
 
 To install the latest version of `tuftool`:
