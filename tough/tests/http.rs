@@ -45,7 +45,7 @@ mod http_happy {
         run_http_test(DefaultTransport::default());
     }
 
-    fn run_http_test<T: Transport + 'static>(transport: T) {
+    fn run_http_test<T: Transport + Send + Sync + 'static>(transport: T) {
         let server = Server::run();
         let repo_dir = test_data().join("tuf-reference-impl");
         server.expect(create_successful_get("metadata/timestamp.json"));
