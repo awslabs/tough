@@ -162,7 +162,7 @@ where
     root: R,
     metadata_base_url: Url,
     targets_base_url: Url,
-    transport: Option<Box<dyn Transport>>,
+    transport: Option<Box<dyn Transport + Send + Sync>>,
     limits: Option<Limits>,
     datastore: Option<PathBuf>,
     expiration_enforcement: Option<ExpirationEnforcement>,
@@ -197,7 +197,7 @@ impl<R: Read> RepositoryLoader<R> {
 
     /// Set the transport. If no transport has been set, [`DefaultTransport`] will be used.
     #[must_use]
-    pub fn transport<T: Transport + 'static>(mut self, transport: T) -> Self {
+    pub fn transport<T: Transport + Send + Sync + 'static>(mut self, transport: T) -> Self {
         self.transport = Some(Box::new(transport));
         self
     }
@@ -295,7 +295,7 @@ pub enum Prefix {
 /// You can create a `Repository` using a [`RepositoryLoader`].
 #[derive(Debug, Clone)]
 pub struct Repository {
-    transport: Box<dyn Transport>,
+    transport: Box<dyn Transport + Send + Sync>,
     consistent_snapshot: bool,
     datastore: Datastore,
     earliest_expiration: DateTime<Utc>,
