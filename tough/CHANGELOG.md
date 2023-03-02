@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2023-03-02
+### Breaking Changes
+- Add a lifetime parameter to Transport::fetch and Repository::read_target, thanks @sunshowers [#563]
+- Add Send and Sync to Repository transport [#578]
+
+### Changes
+- Fix all_targets iterator type [#562]
+- Addressed clippy warnings [#544], [#556]
+- Remove minor/patch versions from Cargo.tomls [#573]
+- Bump tokio from 1.18.3 to 1.24.1 [#555]
+- Various dependency updates
+
+[#544]: https://github.com/awslabs/tough/pull/544
+[#555]: https://github.com/awslabs/tough/pull/555
+[#556]: https://github.com/awslabs/tough/pull/556
+[#562]: https://github.com/awslabs/tough/pull/562
+[#563]: https://github.com/awslabs/tough/pull/563
+[#573]: https://github.com/awslabs/tough/pull/573
+[#578]: https://github.com/awslabs/tough/pull/578
+
 ## [0.12.5] - 2022-10-03
 ### Security Fixes
 - Update `chrono` and enable only necessary features to address RUSTSEC-2020-0071, thanks @flavio [#506]
@@ -202,7 +222,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.12.5...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.13.0...develop
+[0.13.0]: https://github.com/awslabs/tough/compare/tough-v0.12.5...tough-v0.13.0
 [0.12.5]: https://github.com/awslabs/tough/compare/tough-v0.12.4...tough-v0.12.5
 [0.12.4]: https://github.com/awslabs/tough/compare/tough-v0.12.3...tough-v0.12.4
 [0.12.3]: https://github.com/awslabs/tough/compare/tough-v0.12.2...tough-v0.12.3

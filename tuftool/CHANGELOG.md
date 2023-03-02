@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2023-03-02
+### Changes
+- Remove rust openssl dependencies in tuftool [#569]
+- Addressed clippy warnings [#544], [#556]
+- Remove minor/patch versions from Cargo.tomls [#573]
+- Bump tokio from 1.18.x LTS to 1.25.0 [#555], [#568]
+- Update dependencies
+
+[#544]: https://github.com/awslabs/tough/pull/544
+[#555]: https://github.com/awslabs/tough/pull/555
+[#556]: https://github.com/awslabs/tough/pull/556
+[#568]: https://github.com/awslabs/tough/pull/568
+[#569]: https://github.com/awslabs/tough/pull/569
+[#573]: https://github.com/awslabs/tough/pull/573
+
 ## [0.8.2] - 2022-10-03
 ### Security Fixes
 - Update `chrono` and enable only necessary features to address RUSTSEC-2020-0071, thanks @flavio [#506]
@@ -190,7 +205,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.8.2...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.9.0...develop
+[0.9.0]: https://github.com/awslabs/tough/compare/tuftool-v0.8.2...tuftool-v0.9.0
 [0.8.2]: https://github.com/awslabs/tough/compare/tuftool-v0.8.1...tuftool-v0.8.2
 [0.8.1]: https://github.com/awslabs/tough/compare/tuftool-v0.8.0...tuftool-v0.8.1
 [0.8.0]: https://github.com/awslabs/tough/compare/tuftool-v0.7.2...tuftool-v0.8.0

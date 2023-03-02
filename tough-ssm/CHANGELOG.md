@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2023-03-02
+### Changes
+- Remove minor/patch versions from Cargo.tomls [#573]
+- Bump tokio from ~1.18 (LTS) to 1.25.0 [#555], [#568]
+- Update dependencies
+
+[#555]: https://github.com/awslabs/tough/pull/555
+[#568]: https://github.com/awslabs/tough/pull/568
+[#573]: https://github.com/awslabs/tough/pull/573
+
 ## [0.7.2] - 2022-10-03
 ### Changes
 - Update dependencies [#501], [#502], [#514]
@@ -103,7 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-ssm-v0.7.2...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-ssm-v0.8.0...develop
+[0.8.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.7.2...tough-ssm-v0.8.0
 [0.7.2]: https://github.com/awslabs/tough/compare/tough-ssm-v0.7.1...tough-ssm-v0.7.2
 [0.7.1]: https://github.com/awslabs/tough/compare/tough-ssm-v0.7.0...tough-ssm-v0.7.1
 [0.7.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.6.6...tough-ssm-v0.7.0
