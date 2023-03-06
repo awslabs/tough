@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix all_targets iterator type [#562]
 - Addressed clippy warnings [#544], [#556]
 - Remove minor/patch versions from Cargo.tomls [#573]
-- Bump tokio from 1.18.3 to 1.24.1 [#555]
+- Bump tokio from 1.18.x LTS to 1.25.0 [#555], [#568]
 - Various dependency updates
 
 [#544]: https://github.com/awslabs/tough/pull/544
@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#556]: https://github.com/awslabs/tough/pull/556
 [#562]: https://github.com/awslabs/tough/pull/562
 [#563]: https://github.com/awslabs/tough/pull/563
+[#568]: https://github.com/awslabs/tough/pull/568
 [#573]: https://github.com/awslabs/tough/pull/573
 [#578]: https://github.com/awslabs/tough/pull/578
 
