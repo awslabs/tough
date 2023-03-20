@@ -590,13 +590,15 @@ pub(crate) fn encode_filename<S: AsRef<str>>(name: S) -> String {
 /// Ensures that system time has not stepped backward since it was last sampled
 fn system_time(datastore: &Datastore) -> Result<DateTime<Utc>> {
     let file = "latest_known_time.json";
+    // Load the latest known system time, if it exists
+    let poss_latest_known_time = datastore
+        .reader(file)?
+        .map(serde_json::from_reader::<_, DateTime<Utc>>);
+
     // Get 'current' system time
     let sys_time = Utc::now();
-    // Load the latest known system time, if it exists
-    if let Some(Ok(latest_known_time)) = datastore
-        .reader(file)?
-        .map(serde_json::from_reader::<_, DateTime<Utc>>)
-    {
+
+    if let Some(Ok(latest_known_time)) = poss_latest_known_time {
         // Make sure the sampled system time did not go back in time
         ensure!(
             sys_time >= latest_known_time,
