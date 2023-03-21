@@ -599,9 +599,9 @@ fn system_time(datastore: &Datastore) -> Result<DateTime<Utc>> {
     let sys_time = Utc::now();
 
     if let Some(Ok(latest_known_time)) = poss_latest_known_time {
-        // Make sure the sampled system time did not go back in time
+        // Make sure the sampled system time did not go back in time with a tolerance of 1 second
         ensure!(
-            sys_time >= latest_known_time,
+            sys_time >= latest_known_time - chrono::Duration::seconds(1),
             error::SystemTimeSteppedBackwardSnafu {
                 sys_time,
                 latest_known_time
