@@ -12,7 +12,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[snafu(display("Unable to parse keypair: {}", source))]
     KeyPairParse {
-        source: tough::error::Error,
+        #[snafu(source(from(tough::error::Error, Box::new)))]
+        source: Box<tough::error::Error>,
         backtrace: Backtrace,
     },
 
