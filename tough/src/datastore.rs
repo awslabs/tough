@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tempfile::TempDir;
 
+/// `Datastore` persists TUF metadata files.
 #[derive(Debug, Clone)]
 pub(crate) struct Datastore(Arc<RwLock<DatastorePath>>);
 
@@ -34,6 +35,12 @@ impl Datastore {
         self.0.write().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Get a reader to a file in the datastore. Caution, this is *not* thread safe. A lock is
+    /// briefly created on the datastore when the read object is created, but it is released at the
+    /// end of this function.
+    ///
+    /// TODO: [provide a thread safe interface](https://github.com/awslabs/tough/issues/602)
+    ///
     pub(crate) fn reader(&self, file: &str) -> Result<Option<impl Read>> {
         let path = self.read().path().join(file);
         match File::open(&path) {
@@ -45,6 +52,7 @@ impl Datastore {
         }
     }
 
+    /// Writes a JSON metadata file in the datastore. This function is thread safe.
     pub(crate) fn create<T: Serialize>(&self, file: &str, value: &T) -> Result<()> {
         let path = self.write().path().join(file);
         serde_json::to_writer_pretty(
@@ -57,6 +65,7 @@ impl Datastore {
         })
     }
 
+    /// Deletes a file from the datastore. This function is thread safe.
     pub(crate) fn remove(&self, file: &str) -> Result<()> {
         let path = self.write().path().join(file);
         debug!("removing '{}'", path.display());
