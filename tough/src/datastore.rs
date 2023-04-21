@@ -13,26 +13,33 @@ use tempfile::TempDir;
 
 /// `Datastore` persists TUF metadata files.
 #[derive(Debug, Clone)]
-pub(crate) struct Datastore(Arc<RwLock<DatastorePath>>);
+pub(crate) struct Datastore {
+    path_lock: Arc<RwLock<DatastorePath>>,
+}
 
 impl Datastore {
     pub(crate) fn new(path: Option<PathBuf>) -> Result<Self> {
-        // using pattern matching instead of mapping because TempDir::new() can error
-        Ok(Self(Arc::new(RwLock::new(match path {
-            None => DatastorePath::TempDir(TempDir::new().context(error::DatastoreInitSnafu)?),
-            Some(p) => DatastorePath::Path(p),
-        }))))
+        Ok(Self {
+            path_lock: Arc::new(RwLock::new(match path {
+                None => DatastorePath::TempDir(TempDir::new().context(error::DatastoreInitSnafu)?),
+                Some(p) => DatastorePath::Path(p),
+            })),
+        })
     }
 
     // Because we are not actually changing the underlying data in the lock, we can ignore when a
     // lock is poisoned.
 
     fn read(&self) -> RwLockReadGuard<'_, DatastorePath> {
-        self.0.read().unwrap_or_else(PoisonError::into_inner)
+        self.path_lock
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     fn write(&self) -> RwLockWriteGuard<'_, DatastorePath> {
-        self.0.write().unwrap_or_else(PoisonError::into_inner)
+        self.path_lock
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Get a reader to a file in the datastore. Caution, this is *not* thread safe. A lock is
