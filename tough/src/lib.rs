@@ -430,7 +430,7 @@ impl Repository {
         // Check for repository metadata expiration.
         if self.expiration_enforcement == ExpirationEnforcement::Safe {
             ensure!(
-                system_time(&self.datastore)? < self.earliest_expiration,
+                self.datastore.system_time()? < self.earliest_expiration,
                 error::ExpiredMetadataSnafu {
                     role: self.earliest_expiration_role
                 }
@@ -587,38 +587,11 @@ pub(crate) fn encode_filename<S: AsRef<str>>(name: S) -> String {
     utf8_percent_encode(name.as_ref(), &CHARACTERS_TO_ESCAPE).to_string()
 }
 
-/// Ensures that system time has not stepped backward since it was last sampled
-fn system_time(datastore: &Datastore) -> Result<DateTime<Utc>> {
-    let file = "latest_known_time.json";
-    // Load the latest known system time, if it exists
-    let poss_latest_known_time = datastore
-        .reader(file)?
-        .map(serde_json::from_reader::<_, DateTime<Utc>>);
-
-    // Get 'current' system time
-    let sys_time = Utc::now();
-
-    if let Some(Ok(latest_known_time)) = poss_latest_known_time {
-        // Make sure the sampled system time did not go back in time
-        ensure!(
-            sys_time >= latest_known_time,
-            error::SystemTimeSteppedBackwardSnafu {
-                sys_time,
-                latest_known_time
-            }
-        );
-    }
-    // Store the latest known time
-    // Serializes RFC3339 time string and store to datastore
-    datastore.create(file, &sys_time)?;
-    Ok(sys_time)
-}
-
 /// TUF v1.0.16, 5.2.9, 5.3.3, 5.4.5, 5.5.4, The expiration timestamp in the `[metadata]` file MUST
 /// be higher than the fixed update start time.
 fn check_expired<T: Role>(datastore: &Datastore, role: &T) -> Result<()> {
     ensure!(
-        system_time(datastore)? <= role.expires(),
+        datastore.system_time()? <= role.expires(),
         error::ExpiredMetadataSnafu { role: T::TYPE }
     );
     Ok(())

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::error::{self, Result};
+use chrono::{DateTime, Utc};
 use log::debug;
 use serde::Serialize;
-use snafu::ResultExt;
+use snafu::{ensure, ResultExt};
 use std::fs::{self, File};
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
@@ -83,6 +84,33 @@ impl Datastore {
                 _ => Err(err).context(error::DatastoreRemoveSnafu { path: &path }),
             },
         }
+    }
+
+    /// Ensures that system time has not stepped backward since it was last sampled.
+    pub(crate) fn system_time(&self) -> Result<DateTime<Utc>> {
+        let file = "latest_known_time.json";
+        // Load the latest known system time, if it exists
+        let poss_latest_known_time = self
+            .reader(file)?
+            .map(serde_json::from_reader::<_, DateTime<Utc>>);
+
+        // Get 'current' system time
+        let sys_time = Utc::now();
+
+        if let Some(Ok(latest_known_time)) = poss_latest_known_time {
+            // Make sure the sampled system time did not go back in time
+            ensure!(
+                sys_time >= latest_known_time,
+                error::SystemTimeSteppedBackwardSnafu {
+                    sys_time,
+                    latest_known_time
+                }
+            );
+        }
+        // Store the latest known time
+        // Serializes RFC3339 time string and store to datastore
+        self.create(file, &sys_time)?;
+        Ok(sys_time)
     }
 }
 
