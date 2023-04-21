@@ -71,6 +71,9 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Failure to obtain a lock in the system_time function: {}", message))]
+    DatastoreTimeLock { message: String },
+
     #[snafu(display("Failed to create directory '{}': {}", path.display(), source))]
     DirCreate {
         path: PathBuf,

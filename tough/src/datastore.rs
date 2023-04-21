@@ -15,7 +15,10 @@ use tempfile::TempDir;
 /// `Datastore` persists TUF metadata files.
 #[derive(Debug, Clone)]
 pub(crate) struct Datastore {
+    /// A lock around retrieving the datastore path.
     path_lock: Arc<RwLock<DatastorePath>>,
+    /// A lock to treat the system_time function as a critical section.
+    time_lock: Arc<RwLock<()>>,
 }
 
 impl Datastore {
@@ -25,6 +28,7 @@ impl Datastore {
                 None => DatastorePath::TempDir(TempDir::new().context(error::DatastoreInitSnafu)?),
                 Some(p) => DatastorePath::Path(p),
             })),
+            time_lock: Arc::new(RwLock::new(())),
         })
     }
 
@@ -86,8 +90,18 @@ impl Datastore {
         }
     }
 
-    /// Ensures that system time has not stepped backward since it was last sampled.
+    /// Ensures that system time has not stepped backward since it was last sampled. This function
+    /// is protected by a lock guard to ensure thread safety.
     pub(crate) fn system_time(&self) -> Result<DateTime<Utc>> {
+        // Treat this function as a critical section. This lock is not used for anything else.
+        let lock = self.time_lock.write().map_err(|e| {
+            // Painful error type that has a reference and lifetime. Convert it to a message string.
+            error::DatastoreTimeLockSnafu {
+                message: e.to_string(),
+            }
+            .build()
+        })?;
+
         let file = "latest_known_time.json";
         // Load the latest known system time, if it exists
         let poss_latest_known_time = self
@@ -110,6 +124,9 @@ impl Datastore {
         // Store the latest known time
         // Serializes RFC3339 time string and store to datastore
         self.create(file, &sys_time)?;
+
+        // Explicitly drop the lock to avoid any compiler optimization.
+        drop(lock);
         Ok(sys_time)
     }
 }
