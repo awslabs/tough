@@ -1,7 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use aws_sdk_kms::{Client, Config, Credentials};
+use aws_sdk_kms::config::{Credentials, Region};
+use aws_sdk_kms::{Client, Config};
 use aws_smithy_client::erase::DynConnector;
 use aws_smithy_client::test_connection::TestConnection;
 use aws_smithy_http::body::SdkBody;
@@ -50,7 +51,7 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
 
     let conf = Config::builder()
         .credentials_provider(creds)
-        .region(aws_sdk_kms::Region::new("us-east-1"))
+        .region(Region::new("us-east-1"))
         .http_connector(conn)
         .build();
 
@@ -85,7 +86,7 @@ pub fn mock_client_with_status(status: u16) -> Client {
 
     let conf = aws_sdk_kms::Config::builder()
         .credentials_provider(creds)
-        .region(aws_sdk_kms::Region::new("us-east-1"))
+        .region(Region::new("us-east-1"))
         .http_connector(conn)
         .build();
 

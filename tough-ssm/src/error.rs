@@ -1,7 +1,6 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use aws_sdk_ssm::error::{GetParameterError, PutParameterError};
 use snafu::{Backtrace, Snafu};
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -35,7 +34,8 @@ pub enum Error {
     SsmGetParameter {
         profile: Option<String>,
         parameter_name: String,
-        source: aws_sdk_ssm::types::SdkError<GetParameterError>,
+        source:
+            aws_sdk_ssm::error::SdkError<aws_sdk_ssm::operation::get_parameter::GetParameterError>,
         backtrace: Backtrace,
     },
 
@@ -59,7 +59,8 @@ pub enum Error {
     SsmPutParameter {
         profile: Option<String>,
         parameter_name: String,
-        source: aws_sdk_ssm::types::SdkError<PutParameterError>,
+        source:
+            aws_sdk_ssm::error::SdkError<aws_sdk_ssm::operation::put_parameter::PutParameterError>,
         backtrace: Backtrace,
     },
 }

@@ -16,9 +16,9 @@ aws-sdk-rust-native-tls = ["aws-config/native-tls", "aws-sdk-ssm/native-tls", "a
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls",]
 
 [dependencies]
-aws-config = "0.54"
-aws-sdk-kms = "0.24"
-aws-sdk-ssm = "0.24"
+aws-config = "0.55"
+aws-sdk-kms = "0.28"
+aws-sdk-ssm = "0.28"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 clap = { version = "3", features = ["derive"] }
 hex = "0.4"

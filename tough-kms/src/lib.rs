@@ -22,7 +22,7 @@
 
 mod client;
 pub mod error;
-use aws_sdk_kms::types::Blob;
+use aws_sdk_kms::primitives::Blob;
 use aws_sdk_kms::Client as KmsClient;
 use ring::digest::{digest, SHA256};
 use ring::rand::SecureRandom;
@@ -43,12 +43,12 @@ pub enum KmsSigningAlgorithm {
 }
 
 impl KmsSigningAlgorithm {
-    fn value(self) -> aws_sdk_kms::model::SigningAlgorithmSpec {
+    fn value(self) -> aws_sdk_kms::types::SigningAlgorithmSpec {
         // Currently we are supporting only single algorithm, but code stub is added to support
         // multiple algorithms in future.
         match self {
             KmsSigningAlgorithm::RsassaPssSha256 => {
-                aws_sdk_kms::model::SigningAlgorithmSpec::RsassaPssSha256
+                aws_sdk_kms::types::SigningAlgorithmSpec::RsassaPssSha256
             }
         }
     }
@@ -194,7 +194,7 @@ impl Sign for KmsRsaKey {
             .sign()
             .key_id(self.key_id.clone())
             .message(blob)
-            .message_type(aws_sdk_kms::model::MessageType::Digest)
+            .message_type(aws_sdk_kms::types::MessageType::Digest)
             .signing_algorithm(self.signing_algorithm.value())
             .send();
 
