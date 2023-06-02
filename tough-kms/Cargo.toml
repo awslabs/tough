@@ -18,7 +18,7 @@ aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-kms/rustls"]
 tough = { version = "0.13", path = "../tough", features = ["http"] }
 ring = { version = "0.16", features = ["std"] }
 aws-sdk-kms = "0.24"
-aws-config = "0.54"
+aws-config = "0.55"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
 pem = "1"
