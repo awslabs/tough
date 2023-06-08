@@ -61,8 +61,14 @@ multiple-versions = "deny"
 wildcards = "deny"
 
 skip = [
-    # clap 3.x is using an old version of hermit-abi
-    { name = "hermit-abi", version = "=0.1.19" }
+    # num_cpus and clap is using old versions of hermit-abi
+    { name = "hermit-abi" },
+    # pem and using an old version of base64
+    { name = "base64", version = "=0.13.1" },
+    # globset is using an old version of aho-corasick
+    { name = "aho-corasick", version = "=0.7.20" },
+    # clap and other crates use an old version of syn
+    { name = "syn", version = "=1" },
 ]
 
 skip-tree = [
@@ -70,7 +76,7 @@ skip-tree = [
     # are using different versions of windows-sys. we skip the
     # dependency tree because windows-sys has many sub-crates
     # that differ in major version.
-    { name = "windows-sys", version = "=0.42.0" },
+    { name = "windows-sys", version = "=0.42" },
 ]
 
 [sources]

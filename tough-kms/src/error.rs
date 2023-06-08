@@ -36,7 +36,8 @@ pub enum Error {
     KmsGetPublicKey {
         profile: Option<String>,
         key_id: String,
-        source: aws_sdk_kms::types::SdkError<aws_sdk_kms::error::GetPublicKeyError>,
+        source:
+            aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::get_public_key::GetPublicKeyError>,
         backtrace: Backtrace,
     },
 
@@ -53,7 +54,7 @@ pub enum Error {
     KmsSignMessage {
         key_id: String,
         profile: Option<String>,
-        source: aws_sdk_kms::types::SdkError<aws_sdk_kms::error::SignError>,
+        source: aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::sign::SignError>,
         backtrace: Backtrace,
     },
 

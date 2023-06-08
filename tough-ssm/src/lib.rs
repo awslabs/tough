@@ -65,7 +65,7 @@ impl KeySource for SsmKeySource {
             .description(key_id_hex.to_owned())
             .set_key_id(self.key_id.as_ref().cloned())
             .overwrite(true)
-            .set_type(Some(aws_sdk_ssm::model::ParameterType::SecureString))
+            .set_type(Some(aws_sdk_ssm::types::ParameterType::SecureString))
             .value(value.to_owned())
             .send();
 

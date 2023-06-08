@@ -30,7 +30,7 @@ url = "2"
 walkdir = "2"
 
 [dev-dependencies]
-hex-literal = "0.3"
+hex-literal = "0.4"
 httptest = "0.15"
 maplit = "1"
 
