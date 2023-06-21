@@ -33,7 +33,7 @@ impl<'a> Read for DigestAdapter<'a> {
 
         let size = self.reader.read(buf)?;
         if size == 0 {
-            let result = std::mem::replace(&mut self.digest, None).unwrap().finish();
+            let result = self.digest.take().unwrap().finish();
             if result.as_ref() != self.hash.as_slice() {
                 error::HashMismatchSnafu {
                     context: self.url.to_string(),
