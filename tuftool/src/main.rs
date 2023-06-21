@@ -49,14 +49,14 @@ static SPEC_VERSION: &str = "1.0.0";
 #[derive(Parser)]
 struct Program {
     /// Set logging verbosity [trace|debug|info|warn|error]
-    #[clap(
+    #[arg(
         name = "log-level",
         short = 'l',
         long = "log-level",
         default_value = "info"
     )]
     log_level: LevelFilter,
-    #[clap(subcommand)]
+    #[command(subcommand)]
     cmd: Command,
 }
 
@@ -85,7 +85,7 @@ enum Command {
     /// Update a TUF repository's metadata and optionally add targets
     Update(Box<update::UpdateArgs>),
     /// Manipulate a root.json metadata file
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Root(root::Command),
     /// Delegation Commands
     Delegation(Delegation),
@@ -173,7 +173,7 @@ fn process_target(path: &Path) -> Result<(TargetName, Target)> {
 }
 
 fn main() -> ! {
-    std::process::exit(match Program::from_args().run() {
+    std::process::exit(match Program::parse().run() {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("{err}");
@@ -192,10 +192,10 @@ fn main() -> ! {
 #[derive(Parser, Debug)]
 struct Delegation {
     /// The signing role
-    #[clap(long = "signing-role", required = true)]
+    #[arg(long = "signing-role", required = true)]
     role: String,
 
-    #[clap(subcommand)]
+    #[command(subcommand)]
     cmd: DelegationCommand,
 }
 

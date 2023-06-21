@@ -14,34 +14,34 @@ use url::Url;
 #[derive(Debug, Parser)]
 pub(crate) struct DownloadArgs {
     /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
+    #[arg(short = 'r', long = "root")]
     root: Option<PathBuf>,
 
     /// Remote root.json version number
-    #[clap(short = 'v', long = "root-version", default_value = "1")]
+    #[arg(short = 'v', long = "root-version", default_value = "1")]
     root_version: NonZeroU64,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[arg(short = 'm', long = "metadata-url")]
     metadata_base_url: Url,
 
     /// TUF repository targets base URL
-    #[clap(short = 't', long = "targets-url")]
+    #[arg(short = 't', long = "targets-url")]
     targets_base_url: Url,
 
     /// Allow downloading the root.json file (unsafe)
-    #[clap(long)]
+    #[arg(long)]
     allow_root_download: bool,
 
     /// Download only these targets, if specified
-    #[clap(short = 'n', long = "target-name")]
+    #[arg(short = 'n', long = "target-name")]
     target_names: Vec<String>,
 
     /// Output directory for targets (will be created and must not already exist)
     outdir: PathBuf,
 
     /// Allow repo download for expired metadata
-    #[clap(long)]
+    #[arg(long)]
     allow_expired_repo: bool,
 }
 

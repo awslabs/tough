@@ -34,12 +34,44 @@
 //! "aws-ssm:///a/key" (notice the 3 slashes after the colon)
 
 use crate::error::{self, Result};
+use clap::error::{ContextValue, ErrorKind};
+use clap::{builder::TypedValueParser, error::ContextKind};
 use snafu::ResultExt;
 use std::path::PathBuf;
 use tough::key_source::{KeySource, LocalKeySource};
 use tough_kms::{KmsKeySource, KmsSigningAlgorithm};
 use tough_ssm::SsmKeySource;
 use url::Url;
+
+#[derive(Clone)]
+pub(crate) struct KeySourceValueParser;
+
+impl TypedValueParser for KeySourceValueParser {
+    type Value = Box<dyn KeySource>;
+
+    fn parse_ref(
+        &self,
+        cmd: &clap::Command,
+        arg: Option<&clap::Arg>,
+        value: &std::ffi::OsStr,
+    ) -> std::result::Result<Self::Value, clap::Error> {
+        let inner = clap::builder::StringValueParser::new();
+        let val = inner.parse_ref(cmd, arg, value).unwrap_or_default();
+
+        if let Ok(ks) = parse_key_source(&val) {
+            Ok(ks)
+        } else {
+            let mut err = clap::Error::new(ErrorKind::ValueValidation).with_cmd(cmd);
+            if let Some(arg) = arg {
+                err.insert(
+                    ContextKind::InvalidValue,
+                    ContextValue::String(arg.to_string()),
+                );
+            }
+            Err(err)
+        }
+    }
+}
 
 /// Parses a user-specified source of signing keys.
 /// Sources are passed to `tuftool` as arguments in string format:

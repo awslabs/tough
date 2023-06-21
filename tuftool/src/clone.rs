@@ -15,47 +15,51 @@ use url::Url;
 #[derive(Debug, Parser)]
 pub(crate) struct CloneArgs {
     /// Path to root.json file for the repository
-    #[clap(
+    #[arg(
         short = 'r',
         long = "root",
-        required_if("allow-root-download", "false")
+        required_if_eq("allow_root_download", "false")
     )]
     root: Option<PathBuf>,
 
     /// Remote root.json version number
-    #[clap(short = 'v', long = "root-version", default_value = "1")]
+    #[arg(short = 'v', long = "root-version", default_value = "1")]
     root_version: NonZeroU64,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[arg(short = 'm', long = "metadata-url")]
     metadata_base_url: Url,
 
     /// TUF repository targets base URL
-    #[clap(short = 't', long = "targets-url", required_unless = "metadata-only")]
+    #[arg(
+        short = 't',
+        long = "targets-url",
+        required_unless_present("metadata_only")
+    )]
     targets_base_url: Option<Url>,
 
     /// Allow downloading the root.json file (unsafe)
-    #[clap(long)]
+    #[arg(long)]
     allow_root_download: bool,
 
     /// Allow repo download for expired metadata (unsafe)
-    #[clap(long)]
+    #[arg(long)]
     allow_expired_repo: bool,
 
     /// Download only these targets, if specified
-    #[clap(short = 'n', long = "target-names", conflicts_with = "metadata-only")]
+    #[arg(short = 'n', long = "target-names", conflicts_with = "metadata_only")]
     target_names: Vec<String>,
 
     /// Output directory of targets
-    #[clap(long, required_unless = "metadata-only")]
+    #[arg(long, required_unless_present("metadata_only"))]
     targets_dir: Option<PathBuf>,
 
     /// Output directory of metadata
-    #[clap(long)]
+    #[arg(long)]
     metadata_dir: PathBuf,
 
     /// Only download the repository metadata, not the targets
-    #[clap(long, conflicts_with_all(&["target-names", "targets-dir", "targets-base-url"]))]
+    #[arg(long, conflicts_with_all(&["target_names", "targets_dir", "targets_base_url"]))]
     metadata_only: bool,
 }
 

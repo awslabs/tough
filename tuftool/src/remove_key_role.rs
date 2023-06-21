@@ -4,7 +4,7 @@
 use crate::common::load_metadata_repo;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
-use crate::source::parse_key_source;
+use crate::source::KeySourceValueParser;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use snafu::ResultExt;
@@ -18,36 +18,36 @@ use url::Url;
 #[derive(Debug, Parser)]
 pub(crate) struct RemoveKeyArgs {
     /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
+    #[arg(short = 'k', long = "key", required = true, value_parser = KeySourceValueParser)]
     keys: Vec<Box<dyn KeySource>>,
 
     /// Key to be removed will look similar to `8ec3a843a0f9328c863cac4046ab1cacbbc67888476ac7acf73d9bcd9a223ada`
-    #[clap(long = "keyid", required = true)]
+    #[arg(long = "keyid", required = true)]
     remove: Decoded<Hex>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[clap(short = 'e', long = "expires", parse(try_from_str = parse_datetime))]
+    #[arg(short = 'e', long = "expires", value_parser = parse_datetime)]
     expires: DateTime<Utc>,
 
     /// Version of role file
-    #[clap(short = 'v', long = "version")]
+    #[arg(short = 'v', long = "version")]
     version: NonZeroU64,
 
     /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
+    #[arg(short = 'r', long = "root")]
     root: PathBuf,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[arg(short = 'm', long = "metadata-url")]
     metadata_base_url: Url,
 
     /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short = 'o', long = "outdir")]
     outdir: PathBuf,
 
     /// The role for the keys to be added to
-    #[clap(long = "delegated-role")]
+    #[arg(long = "delegated-role")]
     delegated_role: Option<String>,
 }
 
