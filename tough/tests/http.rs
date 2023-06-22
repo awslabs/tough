@@ -108,7 +108,7 @@ mod http_integ {
         p
     }
 
-    /// Returns a command object that runs the provided script under BASH , wether we are under cygwin or unix.
+    /// Returns a command object that runs the provided script under BASH, whether we are under cygwin or unix.
     pub fn bash_base() -> Command {
         // if under cygwin, run the bash script under cygwin64 bash
         if cfg!(target_os = "windows") {

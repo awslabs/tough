@@ -451,7 +451,7 @@ impl RepositoryEditor {
         Ok(self)
     }
 
-    /// Changes the targets refered to in `targets_editor` to role
+    /// Changes the targets referred to in `targets_editor` to role
     /// All `Targets` related calls will now be called on the `Targets` role named `role`
     /// Throws error if the `targets_editor` was not cleared using `sign_targets_editor()`
     /// Clones the desired targets from `signed_targets` and creates a `TargetsEditor` for it
