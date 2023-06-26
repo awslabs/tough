@@ -33,7 +33,7 @@ If a new role has been created it can be added to the repository by using `add_r
 Metadata created from `TargetsEditor` will always be signed, but will not create a TUF repository. 
 The metadata from `TargetsEditor` must be loaded using `RepositoryEditor` to create a complete signed repository. 
 To create a new targets metadata simply use `TargetsEditor::new()`. 
-A `TargetsEditor` can also be created from a repository by using `from_repo()` if the `Repository` contianing the delegated targets role is availible. 
+A `TargetsEditor` can also be created from a repository by using `from_repo()` if the `Repository` containing the delegated targets role is available. 
 If just the `Targets` role is available, a `TargetsEditor` can be created from the existing targets using `from_targets()`. 
 To encourage keeping role metadata up to date, `TargetsEditor` throws out the targets old version and expiration. 
 They must be set using `version()` and `expires()` before signing the `TargetsEditor`. 

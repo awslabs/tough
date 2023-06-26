@@ -424,7 +424,7 @@ mod tests {
         Ok(())
     }
 
-    /// This test asserts that the cannonical representation of some real-world data always comes
+    /// This test asserts that the canonical representation of some real-world data always comes
     /// out the same.
     #[allow(clippy::unreadable_literal)]
     #[test]

@@ -945,7 +945,7 @@ fn load_snapshot(
             //   less than or equal to its version number in the new snapshot metadata file.
             //   Furthermore, any targets metadata filename that was listed in the trusted snapshot
             //   metadata file, if any, MUST continue to be listed in the new snapshot metadata
-            //   file. If any of these conditions are not met, discard the new snaphot metadadata
+            //   file. If any of these conditions are not met, discard the new snapshot metadata
             //   file, abort the update cycle, and report the failure.
             if let Some(old_targets_meta) = old_snapshot.signed.meta.get("targets.json") {
                 let targets_meta =

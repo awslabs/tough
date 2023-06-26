@@ -123,7 +123,7 @@ Download command is usually used to download a remote repo using HTTP/S url, but
 for this example we will use a file based url to download from local repo.
 
 ```sh
-# downlaod tuf repo
+# download tuf repo
 tuftool download \
    --root "${ROOT}" \
    -t "file://${WRK}/tuf-repo/targets" \
