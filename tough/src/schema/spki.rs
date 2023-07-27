@@ -44,13 +44,8 @@ pub(super) fn encode(algorithm_oid: &[u64], parameters_oid: Option<&[u64]>, b: &
     let spki = asn1_tag(der::Tag::Sequence, sequence);
 
     pem::encode_config(
-        &pem::Pem {
-            tag: "PUBLIC KEY".to_owned(),
-            contents: spki,
-        },
-        pem::EncodeConfig {
-            line_ending: pem::LineEnding::LF,
-        },
+        &pem::Pem::new("PUBLIC KEY".to_owned(), spki),
+        pem::EncodeConfig::new().set_line_ending(pem::LineEnding::LF),
     )
     .trim()
     .to_owned()
@@ -65,7 +60,7 @@ pub(super) fn decode(
     let pem = pem::parse(input)
         .map_err(Compat)
         .context(error::PemDecodeSnafu)?;
-    Ok(untrusted::Input::from(&pem.contents)
+    Ok(untrusted::Input::from(pem.contents())
         .read_all(ring::error::Unspecified, |input| {
             der::expect_tag_and_get_value(input, der::Tag::Sequence).and_then(|spki| {
                 spki.read_all(ring::error::Unspecified, |input| {

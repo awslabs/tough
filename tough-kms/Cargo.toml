@@ -21,7 +21,7 @@ aws-sdk-kms = "0.28"
 aws-config = "0.55"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
-pem = "1"
+pem = "3"
 
 [dev-dependencies]
 aws-smithy-client = {version = "0.55", features = ["test-util"]}

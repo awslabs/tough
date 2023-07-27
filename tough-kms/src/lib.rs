@@ -97,17 +97,16 @@ impl KeySource for KmsKeySource {
                 profile: self.profile.clone(),
                 key_id: self.key_id.clone(),
             })?;
+
         let key = pem::encode_config(
-            &pem::Pem {
-                tag: String::from("PUBLIC KEY"),
-                contents: response
+            &pem::Pem::new(
+                "PUBLIC KEY".to_owned(),
+                response
                     .public_key
                     .context(error::PublicKeyNoneSnafu)?
                     .into_inner(),
-            },
-            pem::EncodeConfig {
-                line_ending: pem::LineEnding::LF,
-            },
+            ),
+            pem::EncodeConfig::new().set_line_ending(pem::LineEnding::LF),
         );
         ensure!(
             response

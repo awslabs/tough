@@ -165,16 +165,16 @@ pub fn parse_keypair(key: &[u8]) -> Result<impl Sign> {
     {
         Ok(SignKeyPair::ECDSA(ecdsa_key_pair))
     } else if let Ok(pem) = pem::parse(key) {
-        match pem.tag.as_str() {
+        match pem.tag() {
             "PRIVATE KEY" => {
-                if let Ok(rsa_key_pair) = RsaKeyPair::from_pkcs8(&pem.contents) {
+                if let Ok(rsa_key_pair) = RsaKeyPair::from_pkcs8(pem.contents()) {
                     Ok(SignKeyPair::RSA(rsa_key_pair))
                 } else {
                     error::KeyUnrecognizedSnafu.fail()
                 }
             }
             "RSA PRIVATE KEY" => Ok(SignKeyPair::RSA(
-                RsaKeyPair::from_der(&pem.contents).context(error::KeyRejectedSnafu)?,
+                RsaKeyPair::from_der(pem.contents()).context(error::KeyRejectedSnafu)?,
             )),
             _ => error::KeyUnrecognizedSnafu.fail(),
         }
