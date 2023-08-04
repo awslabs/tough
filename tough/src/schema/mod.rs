@@ -697,7 +697,7 @@ impl Targets {
         let mut needed_roles = Vec::new();
         // Copy existing targets into proper places of new_targets
         if let Some(delegations) = &mut new_targets.signed.delegations {
-            for mut role in &mut delegations.roles {
+            for role in &mut delegations.roles {
                 // Check to see if `role.name` has already been loaded
                 if let Ok(targets) = self.delegated_targets(&role.name) {
                     // If it has been loaded, use it as the targets for the role
