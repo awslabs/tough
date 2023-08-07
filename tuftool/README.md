@@ -57,9 +57,9 @@ tuftool root set-threshold "${ROOT}" timestamp 1
 tuftool root gen-rsa-key "${ROOT}" "${WRK}/keys/root.pem" --role root
 
 # for this example we will re-use the same key for the other standard roles
-tuftool root add-key "${ROOT}" "${WRK}/keys/root.pem" --role snapshot
-tuftool root add-key "${ROOT}" "${WRK}/keys/root.pem" --role targets
-tuftool root add-key "${ROOT}" "${WRK}/keys/root.pem" --role timestamp
+tuftool root add-key "${ROOT}" -k "${WRK}/keys/root.pem" --role snapshot
+tuftool root add-key "${ROOT}" -k "${WRK}/keys/root.pem" --role targets
+tuftool root add-key "${ROOT}" -k "${WRK}/keys/root.pem" --role timestamp
 
 # sign root.json
 tuftool root sign "${ROOT}" -k "${WRK}/keys/root.pem"
