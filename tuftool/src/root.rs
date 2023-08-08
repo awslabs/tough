@@ -59,13 +59,13 @@ pub(crate) enum Command {
         /// Version number
         version: NonZeroU64,
     },
-    /// Add a key (public or private) to a role
+    /// Add one or more keys (public or private) to a role
     AddKey {
         /// Path to root.json
         path: PathBuf,
-        /// The new key
-        #[clap(parse(try_from_str = parse_key_source))]
-        key_source: Box<dyn KeySource>,
+        /// The new key to be added
+        #[clap(short = 'k', long = "key", parse(try_from_str = parse_key_source))]
+        key_source: Vec<Box<dyn KeySource>>,
         /// The role to add the key to
         #[clap(short = 'r', long = "role")]
         roles: Vec<RoleType>,
@@ -101,13 +101,13 @@ pub(crate) enum Command {
     Sign {
         /// Path to root.json
         path: PathBuf,
-        ///Key source(s) to sign the file with
-        #[clap(short = 'k', long = "key",parse(try_from_str = parse_key_source))]
+        /// Key source(s) to sign the file with
+        #[clap(short = 'k', long = "key", parse(try_from_str = parse_key_source))]
         key_sources: Vec<Box<dyn KeySource>>,
-        ///Optional - Path of older root.json that contains the key-id
+        /// Optional - Path of older root.json that contains the key-id
         #[clap(short = 'c', long = "cross-sign")]
         cross_sign: Option<PathBuf>,
-        ///Ignore the threshold when signing with fewer keys
+        /// Ignore the threshold when signing with fewer keys
         #[clap(short = 'i', long = "ignore-threshold")]
         ignore_threshold: bool,
     },
@@ -225,15 +225,23 @@ impl Command {
     }
 
     #[allow(clippy::borrowed_box)]
-    fn add_key(path: &Path, roles: &[RoleType], key_source: &Box<dyn KeySource>) -> Result<()> {
+    fn add_key(
+        path: &Path,
+        roles: &[RoleType],
+        key_source: &Vec<Box<dyn KeySource>>,
+    ) -> Result<()> {
         let mut root: Signed<Root> = load_file(path)?;
-        let key_pair = key_source
-            .as_sign()
-            .context(error::KeyPairFromKeySourceSnafu)?
-            .tuf_key();
-        let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair)?);
         clear_sigs(&mut root);
-        println!("{key_id}");
+
+        for ks in key_source {
+            let key_pair = ks
+                .as_sign()
+                .context(error::KeyPairFromKeySourceSnafu)?
+                .tuf_key();
+            let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair)?);
+            println!("Added key: {key_id}");
+        }
+
         write_file(path, &root)
     }
 
