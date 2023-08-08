@@ -136,15 +136,7 @@ fn get_sign_len(root_json: &str) -> usize {
 
 fn check_signature_exists(root_json: &str, key_id: Decoded<Hex>) -> bool {
     let root = get_signed_root(root_json);
-    if root
-        .signatures
-        .iter()
-        .find(|sig| sig.keyid == key_id)
-        .is_none()
-    {
-        return false;
-    }
-    true
+    root.signatures.iter().any(|sig| sig.keyid == key_id)
 }
 
 fn get_version(root_json: &str) -> NonZeroU64 {
