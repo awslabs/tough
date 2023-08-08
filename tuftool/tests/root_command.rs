@@ -176,6 +176,46 @@ fn create_root() {
 }
 
 #[test]
+fn create_root_to_version() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let version = NonZeroU64::new(99).unwrap();
+
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args([
+            "root",
+            "init",
+            root_json.to_str().unwrap(),
+            "--version",
+            "99",
+        ])
+        .assert()
+        .success();
+
+    // validate version number
+    assert_eq!(get_version(root_json.to_str().unwrap()), version);
+}
+
+#[test]
+fn create_root_invalid_version() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args([
+            "root",
+            "init",
+            root_json.to_str().unwrap(),
+            "--version",
+            "0",
+        ])
+        .assert()
+        .failure();
+}
+
+#[test]
 // Ensure creating an unstable root throws error
 fn create_unstable_root() {
     let out_dir = TempDir::new().unwrap();
@@ -351,13 +391,13 @@ fn set_version_root() {
     initialize_root_json(root_json.to_str().unwrap());
     let version = NonZeroU64::new(5).unwrap();
 
-    //set version to 5
+    // set version to 5
     Command::cargo_bin("tuftool")
         .unwrap()
         .args(["root", "set-version", root_json.to_str().unwrap(), "5"])
         .assert()
         .success();
 
-    //validate version number
+    // validate version number
     assert_eq!(get_version(root_json.to_str().unwrap()), version);
 }

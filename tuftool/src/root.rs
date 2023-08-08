@@ -28,6 +28,9 @@ pub(crate) enum Command {
     Init {
         /// Path to new root.json
         path: PathBuf,
+        /// Initial metadata file version
+        #[clap(long)]
+        version: Option<u64>,
     },
     /// Increment the version
     BumpVersion {
@@ -131,7 +134,7 @@ macro_rules! role_keys {
 impl Command {
     pub(crate) fn run(self) -> Result<()> {
         match self {
-            Command::Init { path } => Command::init(&path),
+            Command::Init { path, version } => Command::init(&path, version),
             Command::BumpVersion { path } => Command::bump_version(&path),
             Command::Expire { path, time } => Command::expire(&path, &time),
             Command::SetThreshold {
@@ -162,14 +165,15 @@ impl Command {
         }
     }
 
-    fn init(path: &Path) -> Result<()> {
+    fn init(path: &Path, version: Option<u64>) -> Result<()> {
+        let init_version = version.unwrap_or(1);
         write_file(
             path,
             &Signed {
                 signed: Root {
                     spec_version: crate::SPEC_VERSION.to_owned(),
                     consistent_snapshot: true,
-                    version: NonZeroU64::new(1).unwrap(),
+                    version: NonZeroU64::new(init_version).unwrap(),
                     expires: round_time(Utc::now()),
                     keys: HashMap::new(),
                     roles: hashmap! {
