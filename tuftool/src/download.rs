@@ -14,19 +14,19 @@ use url::Url;
 #[derive(Debug, Parser)]
 pub(crate) struct DownloadArgs {
     /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
+    #[clap(short, long)]
     root: Option<PathBuf>,
 
     /// Remote root.json version number
-    #[clap(short = 'v', long = "root-version", default_value = "1")]
+    #[clap(short = 'v', long, default_value = "1")]
     root_version: NonZeroU64,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[clap(short, long = "metadata-url")]
     metadata_base_url: Url,
 
     /// TUF repository targets base URL
-    #[clap(short = 't', long = "targets-url")]
+    #[clap(short, long = "targets-url")]
     targets_base_url: Url,
 
     /// Allow downloading the root.json file (unsafe)

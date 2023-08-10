@@ -29,7 +29,7 @@ pub(crate) enum Command {
         /// Path to new root.json
         path: PathBuf,
         /// Initial metadata file version
-        #[clap(long)]
+        #[arg(long)]
         version: Option<u64>,
     },
     /// Increment the version
@@ -43,7 +43,7 @@ pub(crate) enum Command {
         path: PathBuf,
         /// Expiration of root; can be in full RFC 3339 format, or something like 'in
         /// 7 days'
-        #[clap(parse(try_from_str = parse_datetime))]
+        #[arg(value_parser = parse_datetime)]
         time: DateTime<Utc>,
     },
     /// Set the signature count threshold for a role
@@ -67,10 +67,10 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// The new key to be added
-        #[clap(short = 'k', long = "key", parse(try_from_str = parse_key_source))]
+        #[arg(short, long = "key", value_parser = parse_key_source)]
         key_source: Vec<Box<dyn KeySource>>,
         /// The role to add the key to
-        #[clap(short = 'r', long = "role")]
+        #[arg(short, long = "role")]
         roles: Vec<RoleType>,
     },
     /// Remove a key ID, either entirely or from a single role
@@ -88,16 +88,16 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// Where to write the new key
-        #[clap(parse(try_from_str = parse_key_source))]
+        #[arg(value_parser = parse_key_source)]
         key_source: Box<dyn KeySource>,
         /// Bit length of new key
-        #[clap(short = 'b', long = "bits", default_value = "2048")]
+        #[arg(short, long, default_value = "2048")]
         bits: u16,
         /// Public exponent of new key
-        #[clap(short = 'e', long = "exp", default_value = "65537")]
+        #[arg(short, long = "exp", default_value = "65537")]
         exponent: u32,
         /// The role to add the key to
-        #[clap(short = 'r', long = "role")]
+        #[arg(short, long = "role")]
         roles: Vec<RoleType>,
     },
     /// Sign the given root.json
@@ -105,13 +105,13 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// Key source(s) to sign the file with
-        #[clap(short = 'k', long = "key", parse(try_from_str = parse_key_source))]
+        #[arg(short, long = "key", value_parser = parse_key_source)]
         key_sources: Vec<Box<dyn KeySource>>,
         /// Optional - Path of older root.json that contains the key-id
-        #[clap(short = 'c', long = "cross-sign")]
+        #[arg(short, long)]
         cross_sign: Option<PathBuf>,
         /// Ignore the threshold when signing with fewer keys
-        #[clap(short = 'i', long = "ignore-threshold")]
+        #[arg(short, long)]
         ignore_threshold: bool,
     },
 }

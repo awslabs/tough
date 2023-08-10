@@ -20,36 +20,36 @@ use url::Url;
 #[derive(Debug, Parser)]
 pub(crate) struct UpdateTargetsArgs {
     /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
+    #[arg(short, long = "key", required = true, value_parser = parse_key_source)]
     keys: Vec<Box<dyn KeySource>>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[clap(short = 'e', long = "expires", parse(try_from_str = parse_datetime))]
+    #[arg(short, long, value_parser = parse_datetime)]
     expires: DateTime<Utc>,
 
     /// Version of targets.json file
-    #[clap(short = 'v', long = "version")]
+    #[arg(short, long)]
     version: NonZeroU64,
 
     /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
+    #[arg(short, long)]
     root: PathBuf,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[arg(short, long = "metadata-url")]
     metadata_base_url: Url,
 
     /// Directory of targets
-    #[clap(short = 't', long = "add-targets")]
+    #[arg(short, long = "add-targets")]
     targets_indir: Option<PathBuf>,
 
     /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short, long)]
     outdir: PathBuf,
 
     /// Follow symbolic links in the given directory when adding targets
-    #[clap(short = 'f', long = "follow")]
+    #[arg(short, long)]
     follow: bool,
 
     /// Number of target hashing threads to run when adding targets
@@ -57,13 +57,13 @@ pub(crate) struct UpdateTargetsArgs {
     // No default is specified in structopt here. This is because rayon
     // automatically spawns the same number of threads as cores when any
     // of its parallel methods are called.
-    #[clap(short = 'j', long = "jobs")]
+    #[arg(short, long)]
     jobs: Option<NonZeroUsize>,
 
     /// Behavior when a target exists with the same name and hash in the desired repository
     /// directory, for example from another repository when you're sharing target directories.
     /// Options are "replace", "fail", and "skip"
-    #[clap(long = "target-path-exists", default_value = "skip")]
+    #[arg(long, default_value = "skip")]
     target_path_exists: PathExists,
 }
 

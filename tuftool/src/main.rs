@@ -49,12 +49,7 @@ static SPEC_VERSION: &str = "1.0.0";
 #[derive(Parser)]
 struct Program {
     /// Set logging verbosity [trace|debug|info|warn|error]
-    #[clap(
-        name = "log-level",
-        short = 'l',
-        long = "log-level",
-        default_value = "info"
-    )]
+    #[clap(name = "log-level", short, long, default_value = "info")]
     log_level: LevelFilter,
     #[clap(subcommand)]
     cmd: Command,
@@ -173,7 +168,7 @@ fn process_target(path: &Path) -> Result<(TargetName, Target)> {
 }
 
 fn main() -> ! {
-    std::process::exit(match Program::from_args().run() {
+    std::process::exit(match Program::parse().run() {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("{err}");

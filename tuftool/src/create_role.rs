@@ -19,20 +19,20 @@ use tough::schema::key::Key;
 #[derive(Debug, Parser)]
 pub(crate) struct CreateRoleArgs {
     /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
+    #[arg(short, long, required = true, value_parser = parse_key_source)]
     keys: Vec<Box<dyn KeySource>>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[clap(short = 'e', long = "expires", required = true, parse(try_from_str = parse_datetime))]
+    #[arg(short, long, required = true, value_parser = parse_datetime)]
     expires: DateTime<Utc>,
 
     /// Version of targets.json file
-    #[clap(short = 'v', long = "version")]
+    #[arg(short, long)]
     version: NonZeroU64,
 
     /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short, long)]
     outdir: PathBuf,
 }
 

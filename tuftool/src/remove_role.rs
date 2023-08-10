@@ -17,36 +17,36 @@ use url::Url;
 #[derive(Debug, Parser)]
 pub(crate) struct RemoveRoleArgs {
     /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
+    #[arg(short, long = "key", required = true, value_parser = parse_key_source)]
     keys: Vec<Box<dyn KeySource>>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[clap(short = 'e', long = "expires", parse(try_from_str = parse_datetime))]
+    #[arg(short, long, value_parser = parse_datetime)]
     expires: DateTime<Utc>,
 
     /// Version of role file
-    #[clap(short = 'v', long = "version")]
+    #[arg(short, long)]
     version: NonZeroU64,
 
     /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
+    #[arg(short, long)]
     root: PathBuf,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[arg(short, long = "metadata-url")]
     metadata_base_url: Url,
 
     /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short, long)]
     outdir: PathBuf,
 
     /// The role to be removed
-    #[clap(long = "delegated-role")]
+    #[arg(long)]
     delegated_role: String,
 
     /// Determine if the role should be removed even if it's not a direct delegatee
-    #[clap(long = "recursive")]
+    #[arg(long)]
     recursive: bool,
 }
 
