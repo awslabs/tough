@@ -50,12 +50,7 @@ static SPEC_VERSION: &str = "1.0.0";
 #[derive(Parser)]
 struct Program {
     /// Set logging verbosity [trace|debug|info|warn|error]
-    #[clap(
-        name = "log-level",
-        short = 'l',
-        long = "log-level",
-        default_value = "info"
-    )]
+    #[clap(name = "log-level", short, long, default_value = "info")]
     log_level: LevelFilter,
     #[clap(subcommand)]
     cmd: Command,
@@ -79,21 +74,21 @@ impl Program {
 
 #[derive(Debug, Parser)]
 enum Command {
+    /// Clone a TUF repository, including metadata and some or all targets
+    Clone(clone::CloneArgs),
     /// Create a TUF repository
     Create(create::CreateArgs),
+    /// Delegation Commands
+    Delegation(Delegation),
     /// Download a TUF repository's targets
     Download(download::DownloadArgs),
-    /// Update a TUF repository's metadata and optionally add targets
-    Update(Box<update::UpdateArgs>),
     /// Manipulate a root.json metadata file
     #[clap(subcommand)]
     Root(root::Command),
-    /// Delegation Commands
-    Delegation(Delegation),
-    /// Clone a TUF repository, including metadata and some or all targets
-    Clone(clone::CloneArgs),
     /// Transfer a TUF repository's metadata from a previous root to a new root
     TransferMetadata(transfer_metadata::TransferMetadataArgs),
+    /// Update a TUF repository's metadata and optionally add targets
+    Update(Box<update::UpdateArgs>),
 }
 
 impl Command {
@@ -177,7 +172,7 @@ fn process_target(path: &Path) -> Result<(TargetName, Target)> {
 }
 
 fn main() -> ! {
-    std::process::exit(match Program::from_args().run() {
+    std::process::exit(match Program::parse().run() {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("{err}");
@@ -211,18 +206,18 @@ impl Delegation {
 
 #[derive(Debug, Parser)]
 enum DelegationCommand {
-    /// Creates a delegated role
-    CreateRole(Box<create_role::CreateRoleArgs>),
-    /// Add delegated role
-    AddRole(Box<add_role::AddRoleArgs>),
-    /// Update Delegated targets
-    UpdateDelegatedTargets(Box<update_targets::UpdateTargetsArgs>),
     /// Add a key to a delegated role
     AddKey(Box<add_key_role::AddKeyArgs>),
-    /// Remove a key from a delegated role
-    RemoveKey(Box<remove_key_role::RemoveKeyArgs>),
+    /// Add delegated role
+    AddRole(Box<add_role::AddRoleArgs>),
+    /// Creates a delegated role
+    CreateRole(Box<create_role::CreateRoleArgs>),
     /// Remove a role
     Remove(Box<remove_role::RemoveRoleArgs>),
+    /// Remove a key from a delegated role
+    RemoveKey(Box<remove_key_role::RemoveKeyArgs>),
+    /// Update Delegated targets
+    UpdateDelegatedTargets(Box<update_targets::UpdateTargetsArgs>),
 }
 
 impl DelegationCommand {

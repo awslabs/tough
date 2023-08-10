@@ -11,63 +11,62 @@ use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use tough::editor::RepositoryEditor;
-use tough::key_source::KeySource;
 use tough::{ExpirationEnforcement, RepositoryLoader};
 use url::Url;
 
 #[derive(Debug, Parser)]
 pub(crate) struct TransferMetadataArgs {
+    /// Allow repo update from expired metadata
+    #[arg(long)]
+    allow_expired_repo: bool,
+
     /// Key file to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
-    keys: Vec<Box<dyn KeySource>>,
+    #[arg(short, long = "key", required = true)]
+    keys: Vec<String>,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[arg(short, long = "metadata-url")]
     metadata_base_url: Url,
 
-    /// TUF repository targets base URL
-    #[clap(short = 't', long = "targets-url")]
-    targets_base_url: Url,
-
-    /// Version of snapshot.json file
-    #[clap(long = "snapshot-version")]
-    snapshot_version: NonZeroU64,
-    /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
-    /// 7 days'
-    #[clap(long = "snapshot-expires", parse(try_from_str = parse_datetime))]
-    snapshot_expires: DateTime<Utc>,
-
-    /// Version of targets.json file
-    #[clap(long = "targets-version")]
-    targets_version: NonZeroU64,
-    /// Expiration of targets.json file; can be in full RFC 3339 format, or something like 'in
-    /// 7 days'
-    #[clap(long = "targets-expires", parse(try_from_str = parse_datetime))]
-    targets_expires: DateTime<Utc>,
-
-    /// Version of timestamp.json file
-    #[clap(long = "timestamp-version")]
-    timestamp_version: NonZeroU64,
-    /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
-    /// 7 days'
-    #[clap(long = "timestamp-expires", parse(try_from_str = parse_datetime))]
-    timestamp_expires: DateTime<Utc>,
-
-    /// Path to existing root.json file for the repository
-    #[clap(short = 'r', long = "current-root")]
-    current_root: PathBuf,
-
     /// Path to new root.json file to be updated
-    #[clap(short = 'n', long = "new-root")]
+    #[arg(short, long = "new-root")]
     new_root: PathBuf,
 
     /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short, long)]
     outdir: PathBuf,
 
-    /// Allow repo update from expired metadata
-    #[clap(long)]
-    allow_expired_repo: bool,
+    /// Path to existing root.json file for the repository
+    #[arg(short = 'r', long = "current-root")]
+    current_root: PathBuf,
+
+    /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[arg(long = "snapshot-expires", value_parser = parse_datetime)]
+    snapshot_expires: DateTime<Utc>,
+    /// Version of snapshot.json file
+    #[arg(long = "snapshot-version")]
+    snapshot_version: NonZeroU64,
+
+    /// TUF repository targets base URL
+    #[arg(short, long = "targets-url")]
+    targets_base_url: Url,
+
+    /// Expiration of targets.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[arg(long = "targets-expires", value_parser = parse_datetime)]
+    targets_expires: DateTime<Utc>,
+    /// Version of targets.json file
+    #[arg(long = "targets-version")]
+    targets_version: NonZeroU64,
+
+    /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[arg(long = "timestamp-expires", value_parser = parse_datetime)]
+    timestamp_expires: DateTime<Utc>,
+    /// Version of timestamp.json file
+    #[arg(long = "timestamp-version")]
+    timestamp_version: NonZeroU64,
 }
 
 fn expired_repo_warning<P: AsRef<Path>>(from_path: P, to_path: P) {
@@ -83,6 +82,12 @@ WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establis
 
 impl TransferMetadataArgs {
     pub(crate) fn run(&self) -> Result<()> {
+        let mut keys = Vec::new();
+        for source in &self.keys {
+            let key_source = parse_key_source(source)?;
+            keys.push(key_source);
+        }
+
         let current_root = &self.current_root;
         let new_root = &self.new_root;
 
@@ -124,7 +129,7 @@ impl TransferMetadataArgs {
                 .context(error::DelegationStructureSnafu)?;
         }
 
-        let signed_repo = editor.sign(&self.keys).context(error::SignRepoSnafu)?;
+        let signed_repo = editor.sign(&keys).context(error::SignRepoSnafu)?;
 
         let metadata_dir = &self.outdir.join("metadata");
         signed_repo

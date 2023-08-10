@@ -14,85 +14,87 @@ use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
-use tough::key_source::KeySource;
 use tough::{ExpirationEnforcement, RepositoryLoader};
 use url::Url;
 
 #[derive(Debug, Parser)]
 pub(crate) struct UpdateArgs {
-    /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
-    keys: Vec<Box<dyn KeySource>>,
-
-    /// Version of snapshot.json file
-    #[clap(long = "snapshot-version")]
-    snapshot_version: NonZeroU64,
-    /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
-    /// 7 days'
-    #[clap(long = "snapshot-expires", parse(try_from_str = parse_datetime))]
-    snapshot_expires: DateTime<Utc>,
-
-    /// Version of targets.json file
-    #[clap(long = "targets-version")]
-    targets_version: NonZeroU64,
-    /// Expiration of targets.json file; can be in full RFC 3339 format, or something like 'in
-    /// 7 days'
-    #[clap(long = "targets-expires", parse(try_from_str = parse_datetime))]
-    targets_expires: DateTime<Utc>,
-
-    /// Version of timestamp.json file
-    #[clap(long = "timestamp-version")]
-    timestamp_version: NonZeroU64,
-    /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
-    /// 7 days'
-    #[clap(long = "timestamp-expires", parse(try_from_str = parse_datetime))]
-    timestamp_expires: DateTime<Utc>,
-
-    /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
-    root: PathBuf,
-
-    /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
-    metadata_base_url: Url,
-
-    /// Directory of targets
-    #[clap(short = 't', long = "add-targets")]
-    targets_indir: Option<PathBuf>,
-
-    /// Behavior when a target exists with the same name and hash in the desired repository
-    /// directory, for example from another repository when you're sharing target directories.
-    /// Options are "replace", "fail", and "skip"
-    #[clap(long = "target-path-exists", default_value = "skip")]
-    target_path_exists: PathExists,
+    /// Allow repo download for expired metadata
+    #[arg(long)]
+    allow_expired_repo: bool,
 
     /// Follow symbolic links in the given directory when adding targets
-    #[clap(short = 'f', long = "follow")]
+    #[arg(short, long)]
     follow: bool,
+
+    /// Incoming metadata from delegatee
+    #[arg(short, long = "incoming-metadata")]
+    indir: Option<Url>,
 
     /// Number of target hashing threads to run when adding targets
     /// (default: number of cores)
     // No default is specified in structopt here. This is because rayon
     // automatically spawns the same number of threads as cores when any
     // of its parallel methods are called.
-    #[clap(short = 'j', long = "jobs")]
+    #[arg(short, long)]
     jobs: Option<NonZeroUsize>,
 
+    /// Key files to sign with
+    #[arg(short, long = "key", required = true)]
+    keys: Vec<String>,
+
+    /// TUF repository metadata base URL
+    #[arg(short, long = "metadata-url")]
+    metadata_base_url: Url,
+
     /// The directory where the updated repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short, long)]
     outdir: PathBuf,
 
-    /// Incoming metadata from delegatee
-    #[clap(short = 'i', long = "incoming-metadata")]
-    indir: Option<Url>,
+    /// Path to root.json file for the repository
+    #[arg(short, long)]
+    root: PathBuf,
 
     /// Role of incoming metadata
-    #[clap(long = "role")]
+    #[arg(long)]
     role: Option<String>,
 
-    /// Allow repo download for expired metadata
-    #[clap(long)]
-    allow_expired_repo: bool,
+    /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[arg(long, value_parser = parse_datetime)]
+    snapshot_expires: DateTime<Utc>,
+
+    /// Version of snapshot.json file
+    #[arg(long)]
+    snapshot_version: NonZeroU64,
+
+    /// Directory of targets
+    #[arg(short, long = "add-targets")]
+    targets_indir: Option<PathBuf>,
+
+    /// Behavior when a target exists with the same name and hash in the desired repository
+    /// directory, for example from another repository when you're sharing target directories.
+    /// Options are "replace", "fail", and "skip"
+    #[arg(long, default_value = "skip")]
+    target_path_exists: PathExists,
+
+    /// Expiration of targets.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[arg(long, value_parser = parse_datetime)]
+    targets_expires: DateTime<Utc>,
+
+    /// Version of targets.json file
+    #[arg(long)]
+    targets_version: NonZeroU64,
+
+    /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
+    /// 7 days'
+    #[arg(long, value_parser = parse_datetime)]
+    timestamp_expires: DateTime<Utc>,
+
+    /// Version of timestamp.json file
+    #[arg(long)]
+    timestamp_version: NonZeroU64,
 }
 
 fn expired_repo_warning<P: AsRef<Path>>(path: P) {
@@ -128,6 +130,12 @@ impl UpdateArgs {
     }
 
     fn update_metadata(&self, mut editor: RepositoryEditor) -> Result<()> {
+        let mut keys = Vec::new();
+        for source in &self.keys {
+            let key_source = parse_key_source(source)?;
+            keys.push(key_source);
+        }
+
         editor
             .targets_version(self.targets_version)
             .context(error::DelegationStructureSnafu)?
@@ -161,7 +169,7 @@ impl UpdateArgs {
         // If a `Targets` metadata needs to be updated
         if self.role.is_some() && self.indir.is_some() {
             editor
-                .sign_targets_editor(&self.keys)
+                .sign_targets_editor(&keys)
                 .context(error::DelegationStructureSnafu)?
                 .update_delegated_targets(
                     self.role.as_ref().context(error::MissingSnafu {
@@ -180,7 +188,7 @@ impl UpdateArgs {
         }
 
         // Sign the repo
-        let signed_repo = editor.sign(&self.keys).context(error::SignRepoSnafu)?;
+        let signed_repo = editor.sign(&keys).context(error::SignRepoSnafu)?;
 
         // Symlink any targets that were added
         if let Some(ref targets_indir) = self.targets_indir {

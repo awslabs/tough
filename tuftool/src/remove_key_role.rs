@@ -11,44 +11,43 @@ use snafu::ResultExt;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tough::editor::targets::TargetsEditor;
-use tough::key_source::KeySource;
 use tough::schema::decoded::{Decoded, Hex};
 use url::Url;
 
 #[derive(Debug, Parser)]
 pub(crate) struct RemoveKeyArgs {
-    /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
-    keys: Vec<Box<dyn KeySource>>,
-
-    /// Key to be removed will look similar to `8ec3a843a0f9328c863cac4046ab1cacbbc67888476ac7acf73d9bcd9a223ada`
-    #[clap(long = "keyid", required = true)]
-    remove: Decoded<Hex>,
+    /// The role for the keys to be added to
+    #[arg(long)]
+    delegated_role: Option<String>,
 
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[clap(short = 'e', long = "expires", parse(try_from_str = parse_datetime))]
+    #[arg(short, long, value_parser = parse_datetime)]
     expires: DateTime<Utc>,
 
-    /// Version of role file
-    #[clap(short = 'v', long = "version")]
-    version: NonZeroU64,
+    /// Key files to sign with
+    #[arg(short, long = "key", required = true)]
+    keys: Vec<String>,
 
-    /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
-    root: PathBuf,
+    /// Key to be removed will look similar to `8ec3a843a0f9328c863cac4046ab1cacbbc67888476ac7acf73d9bcd9a223ada`
+    #[arg(long = "keyid", required = true)]
+    remove: Decoded<Hex>,
 
     /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
+    #[arg(short, long = "metadata-url")]
     metadata_base_url: Url,
 
     /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short, long)]
     outdir: PathBuf,
 
-    /// The role for the keys to be added to
-    #[clap(long = "delegated-role")]
-    delegated_role: Option<String>,
+    /// Path to root.json file for the repository
+    #[arg(short, long)]
+    root: PathBuf,
+
+    /// Version of role file
+    #[arg(short, long)]
+    version: NonZeroU64,
 }
 
 impl RemoveKeyArgs {
@@ -63,12 +62,18 @@ impl RemoveKeyArgs {
 
     /// Removes keys from a delegated role using targets Editor
     fn remove_key(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
+        let mut keys = Vec::new();
+        for source in &self.keys {
+            let key_source = parse_key_source(source)?;
+            keys.push(key_source);
+        }
+
         let updated_role = editor
             .remove_key(&self.remove, self.delegated_role.as_deref())
             .context(error::LoadMetadataSnafu)?
             .version(self.version)
             .expires(self.expires)
-            .sign(&self.keys)
+            .sign(&keys)
             .context(error::SignRepoSnafu)?;
         let metadata_destination_out = &self.outdir.join("metadata");
         updated_role
