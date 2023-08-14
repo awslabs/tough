@@ -26,6 +26,7 @@ mod remove_key_role;
 mod remove_role;
 mod root;
 mod source;
+mod transfer_metadata;
 mod update;
 mod update_targets;
 
@@ -91,6 +92,8 @@ enum Command {
     Delegation(Delegation),
     /// Clone a TUF repository, including metadata and some or all targets
     Clone(clone::CloneArgs),
+    /// Transfer a TUF repository's metadata from a previous root to a new root
+    TransferMetadata(transfer_metadata::TransferMetadataArgs),
 }
 
 impl Command {
@@ -102,6 +105,7 @@ impl Command {
             Command::Update(args) => args.run(),
             Command::Delegation(cmd) => cmd.run(),
             Command::Clone(cmd) => cmd.run(),
+            Command::TransferMetadata(cmd) => cmd.run(),
         }
     }
 }
