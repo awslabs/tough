@@ -55,6 +55,7 @@ impl KmsSigningAlgorithm {
 }
 
 /// Implements the `KeySource` trait for keys that live in AWS KMS
+#[derive(Clone)]
 pub struct KmsKeySource {
     /// Identifies AWS account named profile, if not provided default AWS profile is used.
     pub profile: Option<String>,

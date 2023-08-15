@@ -12,7 +12,7 @@ use std::result::Result;
 
 /// This trait should be implemented for each source of signing keys. Examples
 /// of sources include: files, AWS SSM, etc.
-pub trait KeySource: Debug + Send + Sync {
+pub trait KeySource: Debug + Send + Sync + KeySourceClone {
     /// Returns an object that implements the `Sign` trait
     fn as_sign(&self) -> Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
@@ -24,8 +24,29 @@ pub trait KeySource: Debug + Send + Sync {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>;
 }
 
+/// Intermediary trait to allow cloning `KeySources`.
+pub trait KeySourceClone {
+    /// Get a Boxed clone.
+    fn clone_box(&self) -> Box<dyn KeySource>;
+}
+
+impl<T> KeySourceClone for T
+where
+    T: 'static + KeySource + Clone,
+{
+    fn clone_box(&self) -> Box<dyn KeySource> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn KeySource> {
+    fn clone(&self) -> Box<dyn KeySource> {
+        self.clone_box()
+    }
+}
+
 /// Points to a local key using a filesystem path.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LocalKeySource {
     /// The path to a local key file in PEM pkcs8 or RSA format.
     pub path: PathBuf,

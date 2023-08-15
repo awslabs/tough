@@ -9,7 +9,7 @@ use tough::key_source::KeySource;
 use tough::sign::{parse_keypair, Sign};
 
 /// Implements the KeySource trait for keys that live in AWS SSM.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SsmKeySource {
     pub profile: Option<String>,
     pub parameter_name: String,
