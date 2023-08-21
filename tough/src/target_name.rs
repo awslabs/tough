@@ -137,8 +137,8 @@ fn clean_name(name: &str) -> Result<String> {
                 .context(error::TargetNameComponentsEmptySnafu { name })?
                 .as_os_str();
 
-            // If the first component isn't the main separator ( unix `/`, windows '\' ) then there is a bug or behavior change in
-            // absolutize_from.
+            // If the first component isn't the main separator ( unix `/`, windows '\' ) 
+            // then there is a bug or behavior change in absolutize_from.
             ensure!(
                 first_component == std::path::MAIN_SEPARATOR_STR,
                 error::TargetNameRootMissingSnafu { name }
