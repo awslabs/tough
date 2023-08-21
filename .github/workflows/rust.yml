@@ -5,23 +5,29 @@ on:
       - "**.md"
       - ".github/dependabot.yml"
     branches: [develop]
+
+env:
+  # From-scratch builds with incremental compilation enabled adds unneeded performance and disk overhead. 
+  CARGO_INCREMENTAL: "0"
+
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         make_target: ["check-licenses", "build", "integ"]
-    runs-on: ubuntu-latest
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: |
             .cargo
-            target
           # you can edit the .github/cache_bust file if you need to clear the cache
           key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-
+            ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}
       - run: rustup default 1.71.1
       - run: rustup component add rustfmt
       - run: rustup component add clippy
