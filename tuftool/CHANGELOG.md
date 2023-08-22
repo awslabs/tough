@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2023-08-22
+### Changes
+- Bump AWS SDK for Rust [#610]
+- Allow providing multiple keys to root add-key [#645]
+- Add transfer-metadata command [#653]
+- Remove indirect deps from Cargo.toml [#654]
+- Various dependency updates
+
+[#610]: https://github.com/awslabs/tough/pull/610
+[#645]: https://github.com/awslabs/tough/pull/645
+[#653]: https://github.com/awslabs/tough/pull/653
+[#654]: https://github.com/awslabs/tough/pull/654
+
 ## [0.9.0] - 2023-03-02
 ### Changes
 - Remove rust openssl dependencies in tuftool [#569]
@@ -205,7 +218,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.9.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.10.0...develop
+[0.10.0]: https://github.com/awslabs/tough/compare/tuftool-v0.9.0...tuftool-v0.10.0
 [0.9.0]: https://github.com/awslabs/tough/compare/tuftool-v0.8.2...tuftool-v0.9.0
 [0.8.2]: https://github.com/awslabs/tough/compare/tuftool-v0.8.1...tuftool-v0.8.2
 [0.8.1]: https://github.com/awslabs/tough/compare/tuftool-v0.8.0...tuftool-v0.8.1
