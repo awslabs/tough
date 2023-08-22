@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2023-08-22
+### Security Fixes
+- Bump openssl from 0.10.45 to 0.10.55 [#596], [#610], [#644]
+
+### Changes
+- Fix race condition in system_time [#591], [#609]
+- Bump AWS SDK for Rust [#610]
+- Addressed new clippy lints [#644]
+- Fix up path prefix check for Windows, thanks @jon-zu [#656]
+- Various dependency updates
+
+[#591]: https://github.com/awslabs/tough/pull/591
+[#596]: https://github.com/awslabs/tough/pull/596
+[#609]: https://github.com/awslabs/tough/pull/609
+[#610]: https://github.com/awslabs/tough/pull/610
+[#644]: https://github.com/awslabs/tough/pull/644
+[#656]: https://github.com/awslabs/tough/pull/656
+
 ## [0.13.0] - 2023-03-02
 ### Breaking Changes
 - Add a lifetime parameter to Transport::fetch and Repository::read_target, thanks @sunshowers [#563]
@@ -223,7 +241,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.13.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.14.0...develop
+[0.14.0]: https://github.com/awslabs/tough/compare/tough-v0.13.0...tough-v0.14.0
 [0.13.0]: https://github.com/awslabs/tough/compare/tough-v0.12.5...tough-v0.13.0
 [0.12.5]: https://github.com/awslabs/tough/compare/tough-v0.12.4...tough-v0.12.5
 [0.12.4]: https://github.com/awslabs/tough/compare/tough-v0.12.3...tough-v0.12.4
