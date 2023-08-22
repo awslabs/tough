@@ -34,9 +34,10 @@
 //! "aws-ssm:///a/key" (notice the 3 slashes after the colon)
 
 use crate::error::{self, Result};
-use snafu::ResultExt;
-use std::path::PathBuf;
+use snafu::{OptionExt, ResultExt};
+use std::path::Path;
 use tough::key_source::{KeySource, LocalKeySource};
+use tough::SafeUrlPath;
 use tough_kms::{KmsKeySource, KmsSigningAlgorithm};
 use tough_ssm::SsmKeySource;
 use url::Url;
@@ -50,16 +51,19 @@ use url::Url;
 /// the `KeySource` trait in the `tough` library. A user can then add
 /// to this parser to support them in `tuftool`.
 pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
-    let pwd_url =
-        Url::from_directory_path(std::env::current_dir().context(error::CurrentDirSnafu)?)
-            .expect("expected current directory to be absolute");
-    let url = Url::options()
-        .base_url(Some(&pwd_url))
-        .parse(input)
-        .context(error::UrlParseSnafu { url: input })?;
+    let input_as_path = Path::new(input);
+    let url = if input_as_path.exists() {
+        Url::from_file_path(input)
+            .ok() // dump unhelpful `()` error
+            .context(error::FileUrlSnafu {
+                path: input_as_path.to_owned(),
+            })?
+    } else {
+        Url::parse(input).context(error::UrlParseSnafu { url: input })?
+    };
     match url.scheme() {
         "file" => Ok(Box::new(LocalKeySource {
-            path: PathBuf::from(url.path()),
+            path: url.safe_url_filepath(),
         })),
         #[cfg(any(feature = "aws-sdk-rust-native-tls", feature = "aws-sdk-rust-rustls"))]
         "aws-ssm" => Ok(Box::new(SsmKeySource {

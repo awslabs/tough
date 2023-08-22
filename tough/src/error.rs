@@ -306,6 +306,12 @@ pub enum Error {
     #[snafu(display("Path {} is not valid UTF-8", path.display()))]
     PathUtf8 { path: PathBuf, backtrace: Backtrace },
 
+    #[snafu(display("Path {} is not valid UTF-8", path.display()))]
+    UnixPathUtf8 {
+        path: typed_path::UnixPathBuf,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("Failed to remove existing target path '{}': {}", path.display(), source))]
     RemoveTarget {
         path: PathBuf,
