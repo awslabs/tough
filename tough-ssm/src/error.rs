@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use snafu::{Backtrace, Snafu};
+use std::error::Error as _;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -29,7 +30,7 @@ pub enum Error {
         "Failed to get aws-ssm://{}{}: {}",
         profile.as_deref().unwrap_or(""),
         parameter_name,
-        source,
+        source.source().map_or("unknown".to_string(), std::string::ToString::to_string),
     ))]
     SsmGetParameter {
         profile: Option<String>,
@@ -54,7 +55,7 @@ pub enum Error {
         "Failed to put aws-ssm://{}{}: {}",
         profile.as_deref().unwrap_or(""),
         parameter_name,
-        source,
+        source.source().map_or("unknown".to_string(), std::string::ToString::to_string),
     ))]
     SsmPutParameter {
         profile: Option<String>,
