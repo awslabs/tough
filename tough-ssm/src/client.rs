@@ -1,6 +1,8 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use aws_config::default_provider::credentials::DefaultCredentialsChain;
+use aws_config::default_provider::region::DefaultRegionChain;
 use aws_sdk_ssm::Client as SsmClient;
 use snafu::ResultExt;
 use std::thread;
@@ -25,17 +27,19 @@ pub(crate) fn build_client(profile: Option<&str>) -> Result<SsmClient> {
 async fn async_build_client(profile: Option<String>) -> SsmClient {
     let config = aws_config::from_env();
     let client_config = if let Some(profile) = profile {
+        let region = DefaultRegionChain::builder()
+            .profile_name(&profile)
+            .build()
+            .region()
+            .await;
+        let creds = DefaultCredentialsChain::builder()
+            .profile_name(&profile)
+            .region(region.clone())
+            .build()
+            .await;
         config
-            .region(
-                aws_config::profile::ProfileFileRegionProvider::builder()
-                    .profile_name(&profile)
-                    .build(),
-            )
-            .credentials_provider(
-                aws_config::profile::ProfileFileCredentialsProvider::builder()
-                    .profile_name(profile)
-                    .build(),
-            )
+            .credentials_provider(creds)
+            .region(region)
             .load()
             .await
     } else {

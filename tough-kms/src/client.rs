@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::error::{self, Result};
+use aws_config::default_provider::credentials::DefaultCredentialsChain;
+use aws_config::default_provider::region::DefaultRegionChain;
 use aws_sdk_kms::Client as KmsClient;
 use snafu::ResultExt;
 use std::thread;
@@ -24,17 +26,19 @@ pub(crate) fn build_client_kms(profile: Option<&str>) -> Result<KmsClient> {
 async fn async_build_client_kms(profile: Option<String>) -> KmsClient {
     let config = aws_config::from_env();
     let client_config = if let Some(profile) = profile {
+        let region = DefaultRegionChain::builder()
+            .profile_name(&profile)
+            .build()
+            .region()
+            .await;
+        let creds = DefaultCredentialsChain::builder()
+            .profile_name(&profile)
+            .region(region.clone())
+            .build()
+            .await;
         config
-            .region(
-                aws_config::profile::ProfileFileRegionProvider::builder()
-                    .profile_name(&profile)
-                    .build(),
-            )
-            .credentials_provider(
-                aws_config::profile::ProfileFileCredentialsProvider::builder()
-                    .profile_name(&profile)
-                    .build(),
-            )
+            .credentials_provider(creds)
+            .region(region)
             .load()
             .await
     } else {
