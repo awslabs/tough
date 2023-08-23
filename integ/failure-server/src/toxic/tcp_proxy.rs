@@ -8,6 +8,7 @@ use std::net::ToSocketAddrs;
 use std::process::Command;
 use std::{fmt::Debug, net::SocketAddr};
 use tempfile::NamedTempFile;
+use tokio_retry::{strategy::ExponentialBackoff, Retry};
 
 /// A TCP proxy server that introduces artificial faults at the TCP layer.
 #[derive(Debug)]
@@ -24,6 +25,10 @@ pub(crate) struct ToxicTcpProxy {
     running_server: Option<std::process::Child>,
     /// The list of toxics to apply to connections.
     toxics: Vec<Toxic>,
+}
+
+fn retry_strategy() -> impl Iterator<Item = std::time::Duration> {
+    ExponentialBackoff::from_millis(500).take(10)
 }
 
 impl ToxicTcpProxy {
@@ -92,15 +97,21 @@ impl ToxicTcpProxy {
 
         // Configure toxics
         let client = Client::new(&self.api_listen.to_string());
-        let proxy = client.proxy(&self.name).await.context(format!(
-            "Failed to find our configured proxy '{}'",
-            self.name
-        ))?;
+        let proxy = Retry::spawn(retry_strategy(), || async {
+            client.proxy(&self.name).await.context(format!(
+                "Failed to find our configured proxy '{}'",
+                self.name
+            ))
+        })
+        .await?;
         for toxic in &self.toxics {
-            proxy.add_toxic(toxic).await.context(format!(
-                "Failed to apply toxic {:?} to proxy '{}'",
-                toxic, self.name
-            ))?;
+            Retry::spawn(retry_strategy(), || async {
+                proxy.add_toxic(toxic).await.context(format!(
+                    "Failed to apply toxic {:?} to proxy '{}'",
+                    toxic, self.name
+                ))
+            })
+            .await?;
         }
 
         Ok(())
