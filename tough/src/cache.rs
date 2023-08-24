@@ -41,7 +41,7 @@ impl Repository {
 
         // Fetch targets and save them to the outdir
         if let Some(target_list) = targets_subset {
-            for raw_name in target_list.iter() {
+            for raw_name in target_list {
                 let target_name = TargetName::new(raw_name.as_ref())?;
                 self.cache_target(&targets_outdir, &target_name)?;
             }

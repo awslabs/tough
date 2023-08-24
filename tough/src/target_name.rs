@@ -258,7 +258,7 @@ fn resolved_8() {
 
 #[test]
 fn uncleaned_1() {
-    let name = r#"~/\.\."#;
+    let name = r"~/\.\.";
     let actual = clean_name(name).unwrap();
     let expected = name;
     assert_eq!(expected, &actual);
@@ -266,7 +266,7 @@ fn uncleaned_1() {
 
 #[test]
 fn uncleaned_2() {
-    let name = r#"funky\/\.\.\/name"#;
+    let name = r"funky\/\.\.\/name";
     let actual = clean_name(name).unwrap();
     let expected = name;
     assert_eq!(expected, &actual);
