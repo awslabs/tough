@@ -79,7 +79,7 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("The a file or directory already exists at '{}'", path.display()))]
+    #[snafu(display("A file or directory already exists at '{}'", path.display()))]
     DownloadOutdirExists { path: PathBuf, backtrace: Backtrace },
 
     #[snafu(display(
