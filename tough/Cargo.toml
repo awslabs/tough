@@ -25,7 +25,7 @@ serde_plain = "1"
 snafu = "0.7"
 tempfile = "3"
 typed-path = "0.4"
-untrusted = "0.7"
+untrusted = "0.9"
 url = "2"
 walkdir = "2"
 
