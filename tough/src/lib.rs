@@ -14,7 +14,7 @@
 //! # Testing
 //!
 //! Unit tests are run in the usual manner: `cargo test`.
-//! Integration tests require docker and are disabled by default behind a feature named `integ`.
+//! Integration tests require `noxious-server` and are disabled by default behind a feature named `integ`.
 //! To run all tests, including integration tests: `cargo test --all-features` or
 //! `cargo test --features 'http,integ'`.
 
@@ -43,6 +43,7 @@ pub mod schema;
 pub mod sign;
 mod target_name;
 mod transport;
+mod urlpath;
 
 use crate::datastore::Datastore;
 use crate::error::Result;
@@ -57,6 +58,7 @@ pub use crate::target_name::TargetName;
 pub use crate::transport::{
     DefaultTransport, FilesystemTransport, Transport, TransportError, TransportErrorKind,
 };
+pub use crate::urlpath::SafeUrlPath;
 use chrono::{DateTime, Utc};
 use log::warn;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};

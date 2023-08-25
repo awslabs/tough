@@ -1,10 +1,10 @@
+use crate::SafeUrlPath;
 #[cfg(feature = "http")]
 use crate::{HttpTransport, HttpTransportBuilder};
 use dyn_clone::DynClone;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{ErrorKind, Read};
-use std::path::PathBuf;
 use url::Url;
 
 /// A trait to abstract over the method/protocol by which files are obtained.
@@ -149,10 +149,7 @@ impl Transport for FilesystemTransport {
             ));
         }
 
-        // Convert the file URL into a file path. We need to use url.path() and not
-        // url.to_file_path() because to_file_path will decode the percent encoding which could
-        // restore path traversal characters.
-        let file_path = PathBuf::from(url.path());
+        let file_path = url.safe_url_filepath();
 
         // And open the file
         let f = std::fs::File::open(file_path).map_err(|e| {

@@ -95,30 +95,11 @@ mod http_happy {
 #[cfg(feature = "integ")]
 mod http_integ {
     use crate::test_utils::test_data;
+    use failure_server::IntegServers;
     use std::fs::File;
     use std::path::PathBuf;
-    use std::process::{Command, Stdio};
     use tough::{HttpTransportBuilder, RepositoryLoader};
     use url::Url;
-
-    pub fn integ_dir() -> PathBuf {
-        let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.pop();
-        p = p.join("integ");
-        p
-    }
-
-    /// Returns a command object that runs the provided script under BASH, whether we are under cygwin or unix.
-    pub fn bash_base() -> Command {
-        // if under cygwin, run the bash script under cygwin64 bash
-        if cfg!(target_os = "windows") {
-            let mut command = Command::new("c:\\cygwin64\\bin\\bash");
-            command.arg("-l");
-            return command;
-        } else {
-            return Command::new("bash");
-        }
-    }
 
     pub fn tuf_reference_impl() -> PathBuf {
         test_data().join("tuf-reference-impl")
@@ -134,73 +115,53 @@ mod http_integ {
 
     /// Test `tough` using faulty HTTP connections.
     ///
-    /// This test requires `docker` and should be disabled for PRs because it will not work with our
-    /// current CI setup. It works by starting HTTP services in containers which serve the tuf-
-    /// reference-impl through fault-ridden HTTP. We load the repo many times in a loop, and
-    /// statistically exercise many of the retry code paths. In particular, the server aborts during
-    /// the send which exercises the range-header retry in the `Read` loop, and 5XX's are also sent
-    /// triggering retries in the `fetch` loop.
-    #[test]
-    fn test_retries() {
-        use std::ffi::OsString;
-        // run docker images to create a faulty http representation of tuf-reference-impl
+    /// This works by starting HTTP services which serve the tuf-reference-impl through fault-ridden
+    /// HTTP. We load the repo many times in a loop, and statistically exercise many of the retry
+    /// code paths. In particular, the server aborts during the send which exercises the
+    /// range-header retry in the `Read` loop, and 5XX's are also sent triggering retries in the
+    /// `fetch` loop.
+    #[tokio::test]
+    async fn test_retries() {
+        // create a faulty http representation of tuf-reference-impl
+        let tuf_reference_path = tuf_reference_impl();
+        let mut integ_servers = IntegServers::new(tuf_reference_path).unwrap();
+        integ_servers
+            .run()
+            .await
+            .expect("Failed to run integration test HTTP servers");
 
-        // Get the "run.sh" path
-        let script_path = integ_dir()
-            .join("failure-server")
-            .join("run.sh")
-            .into_os_string()
-            .into_string()
-            .unwrap();
+        // Load the tuf-reference-impl repo via http repeatedly through faulty proxies.
+        // We avoid nested tokio runtimes from `reqwest::blocking` by sequestering it to another
+        // thread in a blocking task.
+        tokio::task::spawn_blocking(move || {
+            for i in 0..5 {
+                let transport = HttpTransportBuilder::new()
+                    // the service we have created is very toxic with many failures, so we will do a
+                    // large number of retries, enough that we can be reasonably assured that we
+                    // will always succeed.
+                    .tries(200)
+                    // we don't want the test to take forever so we use small pauses
+                    .initial_backoff(std::time::Duration::from_nanos(100))
+                    .max_backoff(std::time::Duration::from_millis(1))
+                    .build();
+                let root_path = tuf_reference_impl_root_json();
 
-        // Run it under BASH
-        let output = bash_base()
-            .arg(OsString::from(script_path))
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .expect("failed to start server with docker containers");
+                RepositoryLoader::new(
+                    File::open(&root_path).unwrap(),
+                    Url::parse("http://localhost:10102/metadata").unwrap(),
+                    Url::parse("http://localhost:10102/targets").unwrap(),
+                )
+                .transport(transport)
+                .load()
+                .unwrap();
+                println!("{}:{} SUCCESSFULLY LOADED THE REPO {}", file!(), line!(), i,);
+            }
+        })
+        .await
+        .expect("Failed to load the repo through faulty proxies");
 
-        if !output.status.success() {
-            panic!("Failed to run integration test HTTP servers, is docker running?");
-        }
-
-        // load the tuf-reference-impl repo via http repeatedly through faulty proxies
-        for i in 0..5 {
-            let transport = HttpTransportBuilder::new()
-                // the service we have created is very toxic with many failures, so we will do a
-                // large number of retries, enough that we can be reasonably assured that we will
-                // always succeed.
-                .tries(200)
-                // we don't want the test to take forever so we use small pauses
-                .initial_backoff(std::time::Duration::from_nanos(100))
-                .max_backoff(std::time::Duration::from_millis(1))
-                .build();
-            let root_path = tuf_reference_impl_root_json();
-
-            RepositoryLoader::new(
-                File::open(&root_path).unwrap(),
-                Url::parse("http://localhost:10103/metadata").unwrap(),
-                Url::parse("http://localhost:10103/targets").unwrap(),
-            )
-            .transport(transport)
-            .load()
-            .unwrap();
-            println!("{}:{} SUCCESSFULLY LOADED THE REPO {}", file!(), line!(), i,);
-        }
-
-        // stop and delete the docker containers, images and network
-        let output = bash_base()
-            .arg(
-                integ_dir()
-                    .join("failure-server")
-                    .join("teardown.sh")
-                    .into_os_string(),
-            )
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .expect("failed to delete docker objects");
-        assert!(output.status.success());
+        integ_servers
+            .teardown()
+            .expect("failed to stop HTTP servers");
     }
 }

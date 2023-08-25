@@ -1,4 +1,0 @@
-# Denote bash scripts as binary so they will not be modified by autocrlf.
-# (Bash doens't seem to like CRLF-encoded scripts | Just to be sure)
-run.sh binary
-teardown.sh binary

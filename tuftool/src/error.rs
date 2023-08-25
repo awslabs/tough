@@ -127,6 +127,9 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("Can't build URL from path '{}'", path.display()))]
+    FileUrl { path: PathBuf, backtrace: Backtrace },
+
     #[snafu(display("Failed to write to {}: {}", path.display(), source))]
     FileWrite {
         path: PathBuf,

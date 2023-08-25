@@ -1,11 +1,10 @@
 use crate::error::{self, Result};
-use path_absolutize::Absolutize;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use snafu::{ensure, OptionExt, ResultExt};
+use snafu::{ensure, OptionExt};
 use std::convert::TryFrom;
-use std::path::PathBuf;
 use std::str::FromStr;
+use typed_path::{Component, UnixPath, UnixPathBuf};
 
 /// Represents the name of a target in the repository. Path-like constructs are resolved (e.g.
 /// `foo/../bar` becomes `bar`). Certain unsafe names are rejected when constructing a `TargetName`.
@@ -113,13 +112,11 @@ fn clean_name(name: &str) -> Result<String> {
     ensure!(!name.is_empty(), error::UnsafeTargetNameEmptySnafu { name });
 
     // If our name starts with absolute, then we need to remember this so we can restore it later.
-    let name_path = PathBuf::from(name);
+    let name_path = UnixPathBuf::from(name);
     let absolute = name_path.is_absolute();
 
     let clean = {
-        let proposed = name_path
-            .absolutize_from(&PathBuf::from("/"))
-            .context(error::TargetNameResolveSnafu { name })?;
+        let proposed = UnixPath::new("/").join(name_path).normalize();
 
         // `absolutize_from` will give us a path that starts with `/`, so we remove it if the
         // original name did not start with `/`
@@ -135,12 +132,12 @@ fn clean_name(name: &str) -> Result<String> {
                 .next()
                 // If this error occurs then there is a bug or behavior change in absolutize_from.
                 .context(error::TargetNameComponentsEmptySnafu { name })?
-                .as_os_str();
+                .as_bytes();
 
             // If the first component isn't the main separator ( unix `/`, windows '\' )
             // then there is a bug or behavior change in absolutize_from.
             ensure!(
-                first_component == std::path::MAIN_SEPARATOR_STR,
+                first_component == typed_path::unix::SEPARATOR_STR.as_bytes(),
                 error::TargetNameRootMissingSnafu { name }
             );
 
@@ -149,9 +146,8 @@ fn clean_name(name: &str) -> Result<String> {
     };
 
     let final_name = clean
-        .as_os_str()
         .to_str()
-        .context(error::PathUtf8Snafu { path: &clean })?
+        .context(error::UnixPathUtf8Snafu { path: &clean })?
         .to_string();
 
     // Check again to make sure we didn't end up with an empty string.

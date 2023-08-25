@@ -15,7 +15,6 @@ globset = { version = "0.4" }
 hex = "0.4"
 log = "0.4"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
-path-absolutize = "3"
 pem = "1"
 percent-encoding = "2"
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["blocking"] }
@@ -25,17 +24,20 @@ serde_json = "1"
 serde_plain = "1"
 snafu = "0.7"
 tempfile = "3"
+typed-path = "0.4"
 untrusted = "0.7"
 url = "2"
 walkdir = "2"
 
 [dev-dependencies]
+failure-server = { path = "../integ/failure-server", version = "0.1.0" }
 hex-literal = "0.4"
 httptest = "0.15"
 maplit = "1"
+tokio = { version = "1.0", features = ["rt-multi-thread"] }
 
 [features]
 http = ["reqwest"]
 
-# The `integ` feature enables integration tests. These tests require docker to be running on the host.
+# The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.
 integ = []
