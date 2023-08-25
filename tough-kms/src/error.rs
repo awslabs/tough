@@ -6,6 +6,7 @@
 #![allow(clippy::default_trait_access)]
 
 use snafu::{Backtrace, Snafu};
+use std::error::Error as _;
 
 /// Alias for `Result<T, Error>`.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -31,7 +32,7 @@ pub enum Error {
     "Failed to get public key for aws-kms://{}/{} : {}",
     profile.as_deref().unwrap_or(""),
     key_id,
-    source,
+    source.source().map_or("unknown".to_string(), std::string::ToString::to_string),
     ))]
     KmsGetPublicKey {
         profile: Option<String>,
@@ -50,7 +51,11 @@ pub enum Error {
     PublicKeyParse { source: tough::schema::Error },
 
     /// The library failed to get the message signature from AWS KMS
-    #[snafu(display("Error while signing message for aws-kms://{}/{} : {}", profile.as_deref().unwrap_or(""), key_id, source))]
+    #[snafu(display("Error while signing message for aws-kms://{}/{} : {}",
+    profile.as_deref().unwrap_or(""),
+    key_id,
+    source.source().map_or("unknown".to_string(), std::string::ToString::to_string)
+    ))]
     KmsSignMessage {
         key_id: String,
         profile: Option<String>,
