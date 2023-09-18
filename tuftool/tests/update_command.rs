@@ -6,7 +6,6 @@ mod test_utils;
 use assert_cmd::assert::Assert;
 use assert_cmd::Command;
 use chrono::{DateTime, Duration, Utc};
-use std::fs::File;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
@@ -55,9 +54,9 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
         .success();
 }
 
-#[test]
+#[tokio::test]
 // Ensure we can read a repo that has had its metadata updated by `tuftool create`
-fn update_command_without_new_targets() {
+async fn update_command_without_new_targets() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let repo_dir = TempDir::new().unwrap();
@@ -106,11 +105,12 @@ fn update_command_without_new_targets() {
 
     // Load the updated repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Ensure all the existing targets are accounted for
@@ -125,10 +125,10 @@ fn update_command_without_new_targets() {
     assert_eq!(repo.timestamp().signed.expires, new_timestamp_expiration);
 }
 
-#[test]
+#[tokio::test]
 // Ensure we can read a repo that has had its metadata and targets updated
 // by `tuftool create`
-fn update_command_with_new_targets() {
+async fn update_command_with_new_targets() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let repo_dir = TempDir::new().unwrap();
@@ -180,11 +180,12 @@ fn update_command_with_new_targets() {
 
     // Load the updated repo.
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Ensure all the targets (new and existing) are accounted for
@@ -193,17 +194,17 @@ fn update_command_with_new_targets() {
     // Ensure we can read the newly added targets
     let file4 = TargetName::new("file4.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file4).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file4).await.unwrap().unwrap()).await,
         &b"This is an example target file."[..]
     );
     let file5 = TargetName::new("file5.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file5).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file5).await.unwrap().unwrap()).await,
         &b"This is another example target file."[..]
     );
     let file6 = TargetName::new("file6.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file6).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file6).await.unwrap().unwrap()).await,
         &b"This is yet another example target file."[..]
     );
 
@@ -357,9 +358,9 @@ fn update_command_expired_repo_fail() {
     update_expected.0.failure();
 }
 
-#[test]
+#[tokio::test]
 // Ensure we can update a repo that has its metadata expired but --allow-expired-repo flag is passed
-fn update_command_expired_repo_allow() {
+async fn update_command_expired_repo_allow() {
     let outdir = TempDir::new().unwrap();
     let repo_dir = TempDir::new().unwrap();
     // Create a expired repo using tuftool and the reference tuf implementation data
@@ -370,11 +371,12 @@ fn update_command_expired_repo_allow() {
     // Load the updated repo
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(outdir.path().join("metadata")),
         dir_url(outdir.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
     // Ensure all the existing targets are accounted for
     assert_eq!(repo.targets().signed.targets.len(), 3);

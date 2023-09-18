@@ -5,7 +5,6 @@ mod test_utils;
 
 use assert_cmd::Command;
 use chrono::{Duration, Utc};
-use std::fs::File;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
@@ -54,10 +53,10 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
         .success();
 }
 
-#[test]
+#[tokio::test]
 // Ensure we can create a role, add the role to parent metadata, and sign repo
 // Structure targets -> A -> B
-fn create_add_role_command() {
+async fn create_add_role_command() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let targets_key = test_utils::test_data().join("targetskey");
@@ -144,11 +143,12 @@ fn create_add_role_command() {
     let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let updated_targets_base_url = &dir_url(new_repo_dir.path().join("targets"));
     let repo = RepositoryLoader::new(
-        File::open(&root_json).unwrap(),
+        &tokio::fs::read(&root_json).await.unwrap(),
         updated_metadata_base_url.clone(),
         updated_targets_base_url.clone(),
     )
     .load()
+    .await
     .unwrap();
     // Make sure `A` is added as a role
     assert!(repo.delegated_role("A").is_some());
@@ -244,19 +244,20 @@ fn create_add_role_command() {
 
     // Load the updated repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Make sure `B` is added as a role
     assert!(repo.delegated_role("B").is_some());
 }
-#[test]
+#[tokio::test]
 // Ensure we can update targets of delegated roles
-fn update_target_command() {
+async fn update_target_command() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let targets_key = test_utils::test_data().join("targetskey");
@@ -415,25 +416,26 @@ fn update_target_command() {
 
     // Load the updated repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Make sure we can read new target
     let file4 = TargetName::new("file4.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file4).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file4).await.unwrap().unwrap()).await,
         &b"This is an example target file."[..]
     );
 }
 
-#[test]
+#[tokio::test]
 // Ensure we can add keys to A and B
 // Adds new key to A and signs with it
-fn add_key_command() {
+async fn add_key_command() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let targets_key = test_utils::test_data().join("targetskey");
@@ -669,11 +671,12 @@ fn add_key_command() {
 
     // Load the updated repo
     let _repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 }
 
@@ -881,9 +884,9 @@ fn remove_key_command() {
         .failure();
 }
 
-#[test]
+#[tokio::test]
 // Ensure we can remove a role
-fn remove_role_command() {
+async fn remove_role_command() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let targets_key = test_utils::test_data().join("targetskey");
@@ -966,11 +969,12 @@ fn remove_role_command() {
     let updated_metadata_base_url = dir_url(new_repo_dir.path().join("metadata"));
     let updated_targets_base_url = dir_url(new_repo_dir.path().join("targets"));
     let repo = RepositoryLoader::new(
-        File::open(&root_json).unwrap(),
+        &tokio::fs::read(&root_json).await.unwrap(),
         updated_metadata_base_url.clone(),
         updated_targets_base_url,
     )
     .load()
+    .await
     .unwrap();
     // Make sure `A` is added as a role
     assert!(repo.delegated_role("A").is_some());
@@ -1145,20 +1149,21 @@ fn remove_role_command() {
 
     // Load the updated repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Make sure `B` is removed
     assert!(repo.delegated_role("B").is_none());
 }
 
-#[test]
+#[tokio::test]
 // Ensure we can remove a role
-fn remove_role_recursive_command() {
+async fn remove_role_recursive_command() {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     let targets_key = test_utils::test_data().join("targetskey");
@@ -1240,11 +1245,12 @@ fn remove_role_recursive_command() {
     // Load the updated repo
     let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let repo = RepositoryLoader::new(
-        File::open(&root_json).unwrap(),
+        &tokio::fs::read(&root_json).await.unwrap(),
         updated_metadata_base_url.clone(),
         dir_url(new_repo_dir.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
     // Make sure `A` is added as a role
     assert!(repo.delegated_role("A").is_some());
@@ -1420,11 +1426,12 @@ fn remove_role_recursive_command() {
 
     // Load the updated repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Make sure `A` and `B` are removed
@@ -1432,10 +1439,10 @@ fn remove_role_recursive_command() {
     assert!(repo.delegated_role("B").is_none());
 }
 
-#[test]
+#[tokio::test]
 /// Ensure we that we percent encode path traversal characters when adding a role name such as
 /// `../../strange/role/../name` and that we don't write files in unexpected places.
-fn dubious_role_name() {
+async fn dubious_role_name() {
     let dubious_role_name = "../../strange/role/../name";
     let dubious_name_encoded = "..%2F..%2Fstrange%2Frole%2F..%2Fname";
     let funny_role_name = "../🍺/( ͡° ͜ʖ ͡°)";
@@ -1527,11 +1534,12 @@ fn dubious_role_name() {
     let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let updated_targets_base_url = &dir_url(new_repo_dir.path().join("targets"));
     let repo = RepositoryLoader::new(
-        File::open(&root_json).unwrap(),
+        &tokio::fs::read(&root_json).await.unwrap(),
         updated_metadata_base_url.clone(),
         updated_targets_base_url.clone(),
     )
     .load()
+    .await
     .unwrap();
     // Make sure `A` is added as a role
     assert!(repo.delegated_role(dubious_role_name).is_some());
@@ -1639,11 +1647,12 @@ fn dubious_role_name() {
 
     // Load the updated repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(update_out.path().join("metadata")),
         dir_url(update_out.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Make sure `B` is added as a role

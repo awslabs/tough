@@ -9,7 +9,6 @@ use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use snafu::{OptionExt, ResultExt};
-use std::fs::File;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use tough::editor::signed::PathExists;
@@ -108,7 +107,7 @@ WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establis
 }
 
 impl UpdateArgs {
-    pub(crate) fn run(&self) -> Result<()> {
+    pub(crate) async fn run(&self) -> Result<()> {
         let expiration_enforcement = if self.allow_expired_repo {
             expired_repo_warning(&self.outdir);
             ExpirationEnforcement::Unsafe
@@ -116,20 +115,25 @@ impl UpdateArgs {
             ExpirationEnforcement::Safe
         };
         let repository = RepositoryLoader::new(
-            File::open(&self.root).context(error::OpenRootSnafu { path: &self.root })?,
+            &tokio::fs::read(&self.root)
+                .await
+                .context(error::OpenRootSnafu { path: &self.root })?,
             self.metadata_base_url.clone(),
             Url::parse(UNUSED_URL).context(error::UrlParseSnafu { url: UNUSED_URL })?,
         )
         .expiration_enforcement(expiration_enforcement)
         .load()
+        .await
         .context(error::RepoLoadSnafu)?;
         self.update_metadata(
             RepositoryEditor::from_repo(&self.root, repository)
+                .await
                 .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
+        .await
     }
 
-    fn update_metadata(&self, mut editor: RepositoryEditor) -> Result<()> {
+    async fn update_metadata(&self, mut editor: RepositoryEditor) -> Result<()> {
         let mut keys = Vec::new();
         for source in &self.keys {
             let key_source = parse_key_source(source)?;
@@ -157,7 +161,7 @@ impl UpdateArgs {
                     .context(error::InitializeThreadPoolSnafu)?;
             }
 
-            let new_targets = build_targets(targets_indir, self.follow)?;
+            let new_targets = build_targets(targets_indir, self.follow).await?;
 
             for (target_name, target) in new_targets {
                 editor
@@ -170,6 +174,7 @@ impl UpdateArgs {
         if self.role.is_some() && self.indir.is_some() {
             editor
                 .sign_targets_editor(&keys)
+                .await
                 .context(error::DelegationStructureSnafu)?
                 .update_delegated_targets(
                     self.role.as_ref().context(error::MissingSnafu {
@@ -182,19 +187,21 @@ impl UpdateArgs {
                         })?
                         .as_str(),
                 )
+                .await
                 .context(error::DelegateeNotFoundSnafu {
                     role: self.role.as_ref().unwrap().clone(),
                 })?;
         }
 
         // Sign the repo
-        let signed_repo = editor.sign(&keys).context(error::SignRepoSnafu)?;
+        let signed_repo = editor.sign(&keys).await.context(error::SignRepoSnafu)?;
 
         // Symlink any targets that were added
         if let Some(ref targets_indir) = self.targets_indir {
             let targets_outdir = &self.outdir.join("targets");
             signed_repo
                 .link_targets(targets_indir, targets_outdir, self.target_path_exists)
+                .await
                 .context(error::LinkTargetsSnafu {
                     indir: &targets_indir,
                     outdir: targets_outdir,
@@ -205,6 +212,7 @@ impl UpdateArgs {
         let metadata_dir = &self.outdir.join("metadata");
         signed_repo
             .write(metadata_dir)
+            .await
             .context(error::WriteRepoSnafu {
                 directory: metadata_dir,
             })?;

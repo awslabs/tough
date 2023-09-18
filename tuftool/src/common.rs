@@ -1,7 +1,6 @@
 /// This module is for code that is re-used by different `tuftool` subcommands.
 use crate::error::{self, Result};
 use snafu::ResultExt;
-use std::fs::File;
 use std::path::Path;
 use tough::{Repository, RepositoryLoader};
 use url::Url;
@@ -17,13 +16,15 @@ pub(crate) const UNUSED_URL: &str = "file:///unused/url";
 /// - `root` must be a path to a file that can be opened with `File::open`.
 /// - `metadata_url` can be local or remote.
 ///
-pub(crate) fn load_metadata_repo<P>(root: P, metadata_url: Url) -> Result<Repository>
+pub(crate) async fn load_metadata_repo<P>(root: P, metadata_url: Url) -> Result<Repository>
 where
     P: AsRef<Path>,
 {
     let root = root.as_ref();
     RepositoryLoader::new(
-        File::open(root).context(error::OpenRootSnafu { path: root })?,
+        &tokio::fs::read(root)
+            .await
+            .context(error::OpenRootSnafu { path: root })?,
         metadata_url,
         // we don't do anything with the targets url for metadata operations
         Url::parse(UNUSED_URL).with_context(|_| error::UrlParseSnafu {
@@ -31,5 +32,6 @@ where
         })?,
     )
     .load()
+    .await
     .context(error::RepoLoadSnafu)
 }

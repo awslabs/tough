@@ -29,6 +29,7 @@ use ring::rand::SecureRandom;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fmt;
+use tough::async_trait;
 use tough::key_source::KeySource;
 use tough::schema::decoded::{Decoded, RsaPem};
 use tough::schema::key::{Key, RsaKey, RsaScheme};
@@ -76,23 +77,22 @@ impl fmt::Debug for KmsKeySource {
 }
 
 /// Implement the `KeySource` trait.
+#[async_trait]
 impl KeySource for KmsKeySource {
-    fn as_sign(
+    async fn as_sign(
         &self,
     ) -> std::result::Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>>
     {
         let kms_client = match self.client.clone() {
             Some(value) => value,
-            None => client::build_client_kms(self.profile.as_deref())?,
+            None => client::build_client_kms(self.profile.as_deref()).await,
         };
         // Get the public key from AWS KMS
-        let fut = kms_client
+        let response = kms_client
             .get_public_key()
             .key_id(self.key_id.clone())
-            .send();
-        let response = tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreationSnafu)?
-            .block_on(fut)
+            .send()
+            .await
             .context(error::KmsGetPublicKeySnafu {
                 profile: self.profile.clone(),
                 key_id: self.key_id.clone(),
@@ -131,7 +131,7 @@ impl KeySource for KmsKeySource {
         }))
     }
 
-    fn write(
+    async fn write(
         &self,
         _value: &str,
         _key_id_hex: &str,
@@ -166,6 +166,7 @@ impl fmt::Debug for KmsRsaKey {
     }
 }
 
+#[async_trait]
 impl Sign for KmsRsaKey {
     fn tuf_key(&self) -> Key {
         // Create a Key struct for the public key
@@ -179,27 +180,24 @@ impl Sign for KmsRsaKey {
         }
     }
 
-    fn sign(
+    async fn sign(
         &self,
         msg: &[u8],
-        _rng: &dyn SecureRandom,
+        _rng: &(dyn SecureRandom + Sync),
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let kms_client = match self.client.clone() {
             Some(value) => value,
-            None => client::build_client_kms(self.profile.as_deref())?,
+            None => client::build_client_kms(self.profile.as_deref()).await,
         };
         let blob = Blob::new(digest(&SHA256, msg).as_ref().to_vec());
-        let sign_fut = kms_client
+        let response = kms_client
             .sign()
             .key_id(self.key_id.clone())
             .message(blob)
             .message_type(aws_sdk_kms::types::MessageType::Digest)
             .signing_algorithm(self.signing_algorithm.value())
-            .send();
-
-        let response = tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreationSnafu)?
-            .block_on(sign_fut)
+            .send()
+            .await
             .context(error::KmsSignMessageSnafu {
                 profile: self.profile.clone(),
                 key_id: self.key_id.clone(),

@@ -20,7 +20,7 @@ use crate::schema::{
     Hashes, KeyHolder, PathSet, Role, RoleType, Root, Signed, Snapshot, SnapshotMeta, Target,
     Targets, Timestamp, TimestampMeta,
 };
-use crate::transport::Transport;
+use crate::transport::{IntoVec, Transport};
 use crate::{encode_filename, Limits};
 use crate::{Repository, TargetName};
 use chrono::{DateTime, Utc};
@@ -87,15 +87,16 @@ pub struct RepositoryEditor {
 
 impl RepositoryEditor {
     /// Create a new, bare `RepositoryEditor`
-    pub fn new<P>(root_path: P) -> Result<Self>
+    pub async fn new<P>(root_path: P) -> Result<Self>
     where
         P: AsRef<Path>,
     {
         // Read and parse the root.json. Without a good root, it doesn't
         // make sense to continue
         let root_path = root_path.as_ref();
-        let root_buf =
-            std::fs::read(root_path).context(error::FileReadSnafu { path: root_path })?;
+        let root_buf = tokio::fs::read(root_path)
+            .await
+            .context(error::FileReadSnafu { path: root_path })?;
         let root_buf_len = root_buf.len() as u64;
         let root = serde_json::from_slice::<Signed<Root>>(&root_buf)
             .context(error::FileParseJsonSnafu { path: root_path })?;
@@ -143,11 +144,11 @@ impl RepositoryEditor {
     /// `RepositoryEditor`. This `RepositoryEditor` will include all of the targets
     /// and bits of _extra metadata from the roles included. It will not, however,
     /// include the versions or expirations and the user is expected to set them.
-    pub fn from_repo<P>(root_path: P, repo: Repository) -> Result<RepositoryEditor>
+    pub async fn from_repo<P>(root_path: P, repo: Repository) -> Result<RepositoryEditor>
     where
         P: AsRef<Path>,
     {
-        let mut editor = RepositoryEditor::new(root_path)?;
+        let mut editor = RepositoryEditor::new(root_path).await?;
         editor.targets(repo.targets)?;
         editor.snapshot(repo.snapshot.signed)?;
         editor.timestamp(repo.timestamp.signed)?;
@@ -162,11 +163,11 @@ impl RepositoryEditor {
     /// While `RepositoryEditor`s fields are all `Option`s, this step requires,
     /// at the very least, that the "version" and "expiration" field is set for
     /// each role; e.g. `targets_version`, `targets_expires`, etc.
-    pub fn sign(mut self, keys: &[Box<dyn KeySource>]) -> Result<SignedRepository> {
+    pub async fn sign(mut self, keys: &[Box<dyn KeySource>]) -> Result<SignedRepository> {
         let rng = SystemRandom::new();
         let root = KeyHolder::Root(self.signed_root.signed.signed.clone());
         // Sign the targets editor if able to with the provided keys
-        self.sign_targets_editor(keys)?;
+        self.sign_targets_editor(keys).await?;
         let targets = self.signed_targets.clone().context(error::NoTargetsSnafu)?;
         let delegated_targets = targets.signed.signed_delegated_targets();
         let signed_targets = SignedRole::from_signed(targets)?;
@@ -189,12 +190,10 @@ impl RepositoryEditor {
             })
         };
 
-        let signed_snapshot = self
-            .build_snapshot(&signed_targets, &signed_delegated_targets)
-            .and_then(|snapshot| SignedRole::new(snapshot, &root, keys, &rng))?;
-        let signed_timestamp = self
-            .build_timestamp(&signed_snapshot)
-            .and_then(|timestamp| SignedRole::new(timestamp, &root, keys, &rng))?;
+        let signed_snapshot = self.build_snapshot(&signed_targets, &signed_delegated_targets)?;
+        let signed_snapshot = SignedRole::new(signed_snapshot, &root, keys, &rng).await?;
+        let signed_timestamp = self.build_timestamp(&signed_snapshot)?;
+        let signed_timestamp = SignedRole::new(signed_timestamp, &root, keys, &rng).await?;
 
         // This validation can only be done from the top level targets.json role. This check verifies
         // that each target's delegate hierarchy is a match (i.e. its delegate ownership is valid).
@@ -289,11 +288,11 @@ impl RepositoryEditor {
     /// no multithreading or parallelism is used. If you have a large number
     /// of targets to add, and require advanced performance, you may want to
     /// construct `Target`s directly in parallel and use `add_target()`.
-    pub fn add_target_path<P>(&mut self, target_path: P) -> Result<&mut Self>
+    pub async fn add_target_path<P>(&mut self, target_path: P) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
-        let (target_name, target) = RepositoryEditor::build_target(target_path)?;
+        let (target_name, target) = RepositoryEditor::build_target(target_path).await?;
         self.add_target(target_name, target)?;
         Ok(self)
     }
@@ -301,12 +300,12 @@ impl RepositoryEditor {
     /// Add a list of target paths to the repository
     ///
     /// See the note on `add_target_path()` regarding performance.
-    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
+    pub async fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
         for target in targets {
-            let (target_name, target) = RepositoryEditor::build_target(target)?;
+            let (target_name, target) = RepositoryEditor::build_target(target).await?;
             self.add_target(target_name, target)?;
         }
 
@@ -314,7 +313,7 @@ impl RepositoryEditor {
     }
 
     /// Builds a target struct for the given path
-    pub fn build_target<P>(target_path: P) -> Result<(TargetName, Target)>
+    pub async fn build_target<P>(target_path: P) -> Result<(TargetName, Target)>
     where
         P: AsRef<Path>,
     {
@@ -331,6 +330,7 @@ impl RepositoryEditor {
 
         // Build a Target from the path given. If it is not a file, this will fail
         let target = Target::from_path(target_path)
+            .await
             .context(error::TargetFromPathSnafu { path: target_path })?;
 
         Ok((target_name, target))
@@ -346,7 +346,7 @@ impl RepositoryEditor {
     /// Delegate target with name as a `DelegatedRole` of the `Targets` in `targets_editor`
     /// This should be used if a role needs to be created by a user with `snapshot.json`,
     /// `timestamp.json`, and the new role's keys.
-    pub fn delegate_role(
+    pub async fn delegate_role(
         &mut self,
         name: &str,
         key_source: &[Box<dyn KeySource>],
@@ -360,13 +360,14 @@ impl RepositoryEditor {
         // Set the version and expiration
         new_targets_editor.version(version).expires(expiration);
         // Sign the new targets
-        let new_targets = new_targets_editor.create_signed(key_source)?;
+        let new_targets = new_targets_editor.create_signed(key_source).await?;
         // Find the keyids for key_source
         let mut keyids = Vec::new();
         let mut key_pairs = HashMap::new();
         for source in key_source {
             let key_pair = source
                 .as_sign()
+                .await
                 .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
             keyids.push(
@@ -432,9 +433,9 @@ impl RepositoryEditor {
     /// Takes the current Targets from `targets_editor` and inserts the role to its proper place in `signed_targets`
     /// Sets `targets_editor` to None
     /// Must be called before `change_delegated_targets()`
-    pub fn sign_targets_editor(&mut self, keys: &[Box<dyn KeySource>]) -> Result<&mut Self> {
+    pub async fn sign_targets_editor(&mut self, keys: &[Box<dyn KeySource>]) -> Result<&mut Self> {
         if let Some(targets_editor) = self.targets_editor.as_mut() {
-            let (name, targets) = targets_editor.create_signed(keys)?.targets();
+            let (name, targets) = targets_editor.create_signed(keys).await?.targets();
             if name == "targets" {
                 self.signed_targets = Some(targets);
             } else {
@@ -495,7 +496,7 @@ impl RepositoryEditor {
     /// `metadata_url` and update the repository's metadata for the role
     /// This method uses the result of `SignedDelegatedTargets::write()`
     /// Clears the current `targets_editor`
-    pub fn update_delegated_targets(
+    pub async fn update_delegated_targets(
         &mut self,
         name: &str,
         metadata_url: &str,
@@ -522,15 +523,20 @@ impl RepositoryEditor {
                 filename: encoded_filename,
                 url: metadata_base_url.clone(),
             })?;
-        let reader = Box::new(fetch_max_size(
+        let stream = fetch_max_size(
             transport.as_ref(),
-            role_url,
+            role_url.clone(),
             limits.max_targets_size,
             "max targets limit",
-        )?);
+        )
+        .await?;
+        let data = stream
+            .into_vec()
+            .await
+            .context(error::TransportSnafu { url: role_url })?;
         // Load incoming role metadata as Signed<Targets>
         let mut role: Signed<crate::schema::Targets> =
-            serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
+            serde_json::from_slice(&data).context(error::ParseMetadataSnafu {
                 role: RoleType::Targets,
             })?;
         //verify role with the parent delegation
@@ -587,15 +593,20 @@ impl RepositoryEditor {
                     filename: encoded_filename,
                     url: metadata_base_url.clone(),
                 })?;
-            let reader = Box::new(fetch_max_size(
+            let stream = fetch_max_size(
                 transport.as_ref(),
-                role_url,
+                role_url.clone(),
                 limits.max_targets_size,
                 "max targets limit",
-            )?);
+            )
+            .await?;
+            let data = stream
+                .into_vec()
+                .await
+                .context(error::TransportSnafu { url: role_url })?;
             // Load new role metadata as Signed<Targets>
-            let new_role: Signed<crate::schema::Targets> = serde_json::from_reader(reader)
-                .context(error::ParseMetadataSnafu {
+            let new_role: Signed<crate::schema::Targets> =
+                serde_json::from_slice(&data).context(error::ParseMetadataSnafu {
                     role: RoleType::Targets,
                 })?;
             // verify the role
@@ -629,7 +640,7 @@ impl RepositoryEditor {
     /// Adds a role to the targets currently in `targets_editor`
     /// using a metadata file located at `metadata_url`/`name`.json
     /// `add_role()` uses `TargetsEditor::add_role()` to add a role from an existing metadata file.
-    pub fn add_role(
+    pub async fn add_role(
         &mut self,
         name: &str,
         metadata_url: &str,
@@ -646,7 +657,8 @@ impl RepositoryEditor {
         self.targets_editor_mut()?.limits(limits);
         self.targets_editor_mut()?.transport(transport.clone());
         self.targets_editor_mut()?
-            .add_role(name, metadata_url, paths, threshold, keys)?;
+            .add_role(name, metadata_url, paths, threshold, keys)
+            .await?;
 
         Ok(self)
     }

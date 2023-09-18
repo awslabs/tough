@@ -1,7 +1,6 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use std::fs::File;
 use test_utils::{dir_url, test_data};
 use tough::error::Error::ExpiredMetadata;
 use tough::schema::RoleType;
@@ -11,16 +10,19 @@ mod test_utils;
 
 /// Test that `tough` fails to load an expired repository when `expiration_enforcement` is `Safe`.
 ///
-#[test]
-fn test_expiration_enforcement_safe() {
+#[tokio::test]
+async fn test_expiration_enforcement_safe() {
     let base = test_data().join("expired-repository");
 
     let result = RepositoryLoader::new(
-        File::open(base.join("metadata").join("1.root.json")).unwrap(),
+        &tokio::fs::read(base.join("metadata").join("1.root.json"))
+            .await
+            .unwrap(),
         dir_url(base.join("metadata")),
         dir_url(base.join("targets")),
     )
-    .load();
+    .load()
+    .await;
     if let Err(err) = result {
         match err {
             ExpiredMetadata { role, backtrace: _ } => {
@@ -39,15 +41,18 @@ fn test_expiration_enforcement_safe() {
 
 /// Test that `tough` loads an expired repository when `expiration_enforcement` is `Unsafe`.
 ///
-#[test]
-fn test_expiration_enforcement_unsafe() {
+#[tokio::test]
+async fn test_expiration_enforcement_unsafe() {
     let base = test_data().join("expired-repository");
     let result = RepositoryLoader::new(
-        File::open(base.join("metadata").join("1.root.json")).unwrap(),
+        &tokio::fs::read(base.join("metadata").join("1.root.json"))
+            .await
+            .unwrap(),
         dir_url(base.join("metadata")),
         dir_url(base.join("targets")),
     )
     .expiration_enforcement(ExpirationEnforcement::Unsafe)
-    .load();
+    .load()
+    .await;
     assert!(result.is_ok())
 }

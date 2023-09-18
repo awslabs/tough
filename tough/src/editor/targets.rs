@@ -14,7 +14,7 @@ use crate::schema::{
     DelegatedRole, DelegatedTargets, Delegations, KeyHolder, PathSet, RoleType, Signed, Target,
     Targets,
 };
-use crate::transport::Transport;
+use crate::transport::{IntoVec, Transport};
 use crate::{encode_filename, Limits};
 use crate::{Repository, TargetName};
 use chrono::{DateTime, Utc};
@@ -200,7 +200,7 @@ impl TargetsEditor {
     /// no multithreading or parallelism is used. If you have a large number
     /// of targets to add, and require advanced performance, you may want to
     /// construct `Target`s directly in parallel and use `add_target()`.
-    pub fn add_target_path<P>(&mut self, target_path: P) -> Result<&mut Self>
+    pub async fn add_target_path<P>(&mut self, target_path: P) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
@@ -217,6 +217,7 @@ impl TargetsEditor {
 
         // Build a Target from the path given. If it is not a file, this will fail
         let target = Target::from_path(target_path)
+            .await
             .context(error::TargetFromPathSnafu { path: target_path })?;
 
         self.add_target(target_name, target)?;
@@ -226,12 +227,12 @@ impl TargetsEditor {
     /// Add a list of target paths to the targets
     ///
     /// See the note on `add_target_path()` regarding performance.
-    pub fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
+    pub async fn add_target_paths<P>(&mut self, targets: Vec<P>) -> Result<&mut Self>
     where
         P: AsRef<Path>,
     {
         for target in targets {
-            self.add_target_path(target)?;
+            self.add_target_path(target).await?;
         }
         Ok(self)
     }
@@ -382,7 +383,7 @@ impl TargetsEditor {
 
     /// Adds a role to `new_roles` using a metadata file located at `metadata_url`/`name`.json
     /// `add_role()` uses `delegate_role()` to add a role from an existing metadata file.
-    pub fn add_role(
+    pub async fn add_role(
         &mut self,
         name: &str,
         metadata_url: &str,
@@ -409,15 +410,20 @@ impl TargetsEditor {
                 filename: encoded_filename,
                 url: metadata_base_url,
             })?;
-        let reader = Box::new(fetch_max_size(
+        let stream = fetch_max_size(
             transport,
-            role_url,
+            role_url.clone(),
             limits.max_targets_size,
             "max targets limit",
-        )?);
+        )
+        .await?;
+        let data = stream
+            .into_vec()
+            .await
+            .context(error::TransportSnafu { url: role_url })?;
         // Load incoming role metadata as Signed<Targets>
         let role: Signed<crate::schema::Targets> =
-            serde_json::from_reader(reader).context(error::ParseMetadataSnafu {
+            serde_json::from_slice(&data).context(error::ParseMetadataSnafu {
                 role: RoleType::Targets,
             })?;
 
@@ -489,7 +495,7 @@ impl TargetsEditor {
     }
 
     /// Creates a `KeyHolder` to sign the `Targets` role with the signing keys provided
-    fn create_key_holder(&self, keys: &[Box<dyn KeySource>]) -> Result<KeyHolder> {
+    async fn create_key_holder(&self, keys: &[Box<dyn KeySource>]) -> Result<KeyHolder> {
         // There isn't a KeyHolder, so create one based on the provided keys
         let mut delegations = Delegations::new();
         // First create the tuf key pairs and keyids
@@ -498,6 +504,7 @@ impl TargetsEditor {
         for source in keys {
             let key_pair = source
                 .as_sign()
+                .await
                 .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
             key_pairs.insert(
@@ -533,36 +540,37 @@ impl TargetsEditor {
     /// like `sign()` creates. `SignedDelegatedTargets` can contain more than 1 `Signed<DelegatedTargets>`
     /// `create_signed()` guarantees that only 1 `Signed<DelegatedTargets>` is created and that it is the one representing
     /// the current targets. `create_signed()` should be used whenever the result of `TargetsEditor` is not being written.
-    pub fn create_signed(&self, keys: &[Box<dyn KeySource>]) -> Result<Signed<DelegatedTargets>> {
+    pub async fn create_signed(
+        &self,
+        keys: &[Box<dyn KeySource>],
+    ) -> Result<Signed<DelegatedTargets>> {
         let rng = SystemRandom::new();
         let key_holder = if let Some(key_holder) = self.key_holder.as_ref() {
             key_holder.clone()
         } else {
-            self.create_key_holder(keys)?
+            self.create_key_holder(keys).await?
         };
         // create a signed role for the targets being edited
-        let targets = self
-            .build_targets()
-            .and_then(|targets| SignedRole::new(targets, &key_holder, keys, &rng))?;
+        let targets = self.build_targets()?;
+        let targets = SignedRole::new(targets, &key_holder, keys, &rng).await?;
         Ok(targets.signed)
     }
 
     /// Creates a `SignedDelegatedTargets` for the Targets role being edited and all added roles
     /// If `key_holder` was not assigned then this is a newly created role and needs to be signed with a
     /// custom delegations as its `key_holder`
-    pub fn sign(&self, keys: &[Box<dyn KeySource>]) -> Result<SignedDelegatedTargets> {
+    pub async fn sign(&self, keys: &[Box<dyn KeySource>]) -> Result<SignedDelegatedTargets> {
         let rng = SystemRandom::new();
         let mut roles = Vec::new();
         let key_holder = if let Some(key_holder) = self.key_holder.as_ref() {
             key_holder.clone()
         } else {
-            self.create_key_holder(keys)?
+            self.create_key_holder(keys).await?
         };
 
         // create a signed role for the targets we are editing
-        let signed_targets = self
-            .build_targets()
-            .and_then(|targets| SignedRole::new(targets, &key_holder, keys, &rng))?;
+        let signed_targets = self.build_targets()?;
+        let signed_targets = SignedRole::new(signed_targets, &key_holder, keys, &rng).await?;
         roles.push(signed_targets);
         // create signed roles for any role metadata we added to this targets
         if let Some(new_roles) = &self.new_roles {

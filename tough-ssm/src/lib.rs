@@ -5,6 +5,7 @@ mod client;
 pub mod error;
 
 use snafu::{OptionExt, ResultExt};
+use tough::async_trait;
 use tough::key_source::KeySource;
 use tough::sign::{parse_keypair, Sign};
 
@@ -17,20 +18,19 @@ pub struct SsmKeySource {
 }
 
 /// Implements the KeySource trait.
+#[async_trait]
 impl KeySource for SsmKeySource {
-    fn as_sign(
+    async fn as_sign(
         &self,
     ) -> std::result::Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>>
     {
         let ssm_client = client::build_client(self.profile.as_deref())?;
-        let fut = ssm_client
+        let response = ssm_client
             .get_parameter()
             .name(self.parameter_name.to_owned())
             .with_decryption(true)
-            .send();
-        let response = tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreationSnafu)?
-            .block_on(fut)
+            .send()
+            .await
             .context(error::SsmGetParameterSnafu {
                 profile: self.profile.clone(),
                 parameter_name: &self.parameter_name,
@@ -52,14 +52,14 @@ impl KeySource for SsmKeySource {
         Ok(sign)
     }
 
-    fn write(
+    async fn write(
         &self,
         value: &str,
         key_id_hex: &str,
     ) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
         let ssm_client = client::build_client(self.profile.as_deref())?;
 
-        let fut = ssm_client
+        ssm_client
             .put_parameter()
             .name(self.parameter_name.to_owned())
             .description(key_id_hex.to_owned())
@@ -67,15 +67,13 @@ impl KeySource for SsmKeySource {
             .overwrite(true)
             .set_type(Some(aws_sdk_ssm::types::ParameterType::SecureString))
             .value(value.to_owned())
-            .send();
-
-        tokio::runtime::Runtime::new()
-            .context(error::RuntimeCreationSnafu)?
-            .block_on(fut)
+            .send()
+            .await
             .context(error::SsmPutParameterSnafu {
                 profile: self.profile.clone(),
                 parameter_name: &self.parameter_name,
             })?;
+
         Ok(())
     }
 }

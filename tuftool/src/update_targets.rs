@@ -67,15 +67,16 @@ pub(crate) struct UpdateTargetsArgs {
 }
 
 impl UpdateTargetsArgs {
-    pub(crate) fn run(&self, role: &str) -> Result<()> {
-        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone())?;
+    pub(crate) async fn run(&self, role: &str) -> Result<()> {
+        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone()).await?;
         self.update_targets(
             TargetsEditor::from_repo(repository, role)
                 .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
+        .await
     }
 
-    fn update_targets(&self, mut editor: TargetsEditor) -> Result<()> {
+    async fn update_targets(&self, mut editor: TargetsEditor) -> Result<()> {
         let mut keys = Vec::new();
         for source in &self.keys {
             let key_source = parse_key_source(source)?;
@@ -95,7 +96,7 @@ impl UpdateTargetsArgs {
                     .context(error::InitializeThreadPoolSnafu)?;
             }
 
-            let new_targets = build_targets(targets_indir, self.follow)?;
+            let new_targets = build_targets(targets_indir, self.follow).await?;
 
             for (target_name, target) in new_targets {
                 editor
@@ -105,13 +106,14 @@ impl UpdateTargetsArgs {
         };
 
         // Sign the role
-        let signed_role = editor.sign(&keys).context(error::SignRepoSnafu)?;
+        let signed_role = editor.sign(&keys).await.context(error::SignRepoSnafu)?;
 
         // Copy any targets that were added
         if let Some(ref targets_indir) = self.targets_indir {
             let targets_outdir = &self.outdir.join("targets");
             signed_role
                 .copy_targets(targets_indir, targets_outdir, self.target_path_exists)
+                .await
                 .context(error::LinkTargetsSnafu {
                     indir: &targets_indir,
                     outdir: targets_outdir,
@@ -122,6 +124,7 @@ impl UpdateTargetsArgs {
         let metadata_dir = &self.outdir.join("metadata");
         signed_role
             .write(metadata_dir, false)
+            .await
             .context(error::WriteRepoSnafu {
                 directory: metadata_dir,
             })?;

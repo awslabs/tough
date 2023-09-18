@@ -78,7 +78,7 @@ pub(crate) struct CreateArgs {
 }
 
 impl CreateArgs {
-    pub(crate) fn run(&self) -> Result<()> {
+    pub(crate) async fn run(&self) -> Result<()> {
         let mut keys = Vec::new();
         for source in &self.keys {
             let key_source = parse_key_source(source)?;
@@ -94,8 +94,9 @@ impl CreateArgs {
                 .context(error::InitializeThreadPoolSnafu)?;
         }
 
-        let targets = build_targets(&self.targets_indir, self.follow)?;
+        let targets = build_targets(&self.targets_indir, self.follow).await?;
         let mut editor = RepositoryEditor::new(&self.root)
+            .await
             .context(error::EditorCreateSnafu { path: &self.root })?;
 
         editor
@@ -114,18 +115,20 @@ impl CreateArgs {
                 .context(error::DelegationStructureSnafu)?;
         }
 
-        let signed_repo = editor.sign(&keys).context(error::SignRepoSnafu)?;
+        let signed_repo = editor.sign(&keys).await.context(error::SignRepoSnafu)?;
 
         let metadata_dir = &self.outdir.join("metadata");
         let targets_outdir = &self.outdir.join("targets");
         signed_repo
             .link_targets(&self.targets_indir, targets_outdir, self.target_path_exists)
+            .await
             .context(error::LinkTargetsSnafu {
                 indir: &self.targets_indir,
                 outdir: targets_outdir,
             })?;
         signed_repo
             .write(metadata_dir)
+            .await
             .context(error::WriteRepoSnafu {
                 directory: metadata_dir,
             })?;

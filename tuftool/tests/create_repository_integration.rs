@@ -5,7 +5,6 @@ mod test_utils;
 use assert_cmd::Command;
 use chrono::{Duration, Utc};
 use std::env;
-use std::fs::File;
 use tempfile::TempDir;
 use test_utils::dir_url;
 use tough::{RepositoryLoader, TargetName};
@@ -103,7 +102,7 @@ fn sign_root_json(key: &str, root_json: &str) {
         .success();
 }
 
-fn create_repository(root_key: &str, auto_generate: bool) {
+async fn create_repository(root_key: &str, auto_generate: bool) {
     // create a root.json file to create TUF repository metadata
     let root_json_dir = TempDir::new().unwrap();
     let root_json = root_json_dir.path().join("root.json");
@@ -157,27 +156,28 @@ fn create_repository(root_key: &str, auto_generate: bool) {
 
     // Load our newly created repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(repo_dir.path().join("metadata")),
         dir_url(repo_dir.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Ensure we can read the targets
     let file1 = TargetName::new("file1.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file1).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file1).await.unwrap().unwrap()).await,
         &b"This is an example target file."[..]
     );
     let file2 = TargetName::new("file2.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file2).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file2).await.unwrap().unwrap()).await,
         &b"This is an another example target file."[..]
     );
     let file3 = TargetName::new("file3.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file3).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file3).await.unwrap().unwrap()).await,
         &b"This is role1's target file."[..]
     );
 
@@ -212,28 +212,28 @@ fn create_repository(root_key: &str, auto_generate: bool) {
     root_json_dir.close().unwrap();
 }
 
-#[test]
+#[tokio::test]
 #[cfg_attr(not(feature = "integ"), ignore)]
 // Ensure we can use local rsa key to create and sign a repo created by the `tuftool` binary using the `tough` library
-fn create_repository_local_key() {
+async fn create_repository_local_key() {
     let root_key_dir = TempDir::new().unwrap();
     let root_key_path = root_key_dir.path().join("local_key.pem");
     let root_key = &format!("file://{}", root_key_path.to_str().unwrap());
-    create_repository(root_key, true);
+    create_repository(root_key, true).await;
 }
 
-#[test]
+#[tokio::test]
 #[cfg_attr(not(feature = "integ"), ignore)]
 // Ensure we can use ssm key to create and sign a repo created by the `tuftool` binary using the `tough` library
-fn create_repository_ssm_key() {
+async fn create_repository_ssm_key() {
     let root_key = &format!("aws-ssm://{}/tough-integ/key-a", get_profile());
-    create_repository(root_key, true);
+    create_repository(root_key, true).await;
 }
 
-#[test]
+#[tokio::test]
 #[cfg_attr(not(feature = "integ"), ignore)]
 // Ensure we can use kms key to create and sign a repo created by the `tuftool` binary using the `tough` library
-fn create_repository_kms_key() {
+async fn create_repository_kms_key() {
     let root_key = &format!("aws-kms://{}/alias/tough-integ/key-a", get_profile());
-    create_repository(root_key, false);
+    create_repository(root_key, false).await;
 }

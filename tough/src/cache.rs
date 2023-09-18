@@ -1,10 +1,14 @@
 use crate::error::{self, Result};
 use crate::fetch::{fetch_max_size, fetch_sha256};
 use crate::schema::{RoleType, Target};
+use crate::transport::IntoVec;
 use crate::{encode_filename, Prefix, Repository, TargetName};
-use snafu::{OptionExt, ResultExt};
-use std::io::{Read, Write};
+use bytes::Bytes;
+use futures::StreamExt;
+use futures_core::stream::BoxStream;
+use snafu::{futures::TryStreamExt, OptionExt, ResultExt};
 use std::path::Path;
+use tokio::io::AsyncWriteExt;
 
 impl Repository {
     /// Cache an entire or partial repository to disk, including all required metadata.
@@ -15,7 +19,7 @@ impl Repository {
     /// * `targets_subset` is the list of targets to include in the cached repo. If no subset is
     /// specified (`None`), then *all* targets are included in the cache.
     /// * `cache_root_chain` specifies whether or not we will cache all versions of `root.json`.
-    pub fn cache<P1, P2, S>(
+    pub async fn cache<P1, P2, S>(
         &self,
         metadata_outdir: P1,
         targets_outdir: P2,
@@ -28,35 +32,35 @@ impl Repository {
         S: AsRef<str>,
     {
         // Create the output directories if the do not exist.
-        std::fs::create_dir_all(metadata_outdir.as_ref()).context(
-            error::CacheDirectoryCreateSnafu {
+        tokio::fs::create_dir_all(metadata_outdir.as_ref())
+            .await
+            .context(error::CacheDirectoryCreateSnafu {
                 path: metadata_outdir.as_ref(),
-            },
-        )?;
-        std::fs::create_dir_all(targets_outdir.as_ref()).context(
-            error::CacheDirectoryCreateSnafu {
+            })?;
+        tokio::fs::create_dir_all(targets_outdir.as_ref())
+            .await
+            .context(error::CacheDirectoryCreateSnafu {
                 path: targets_outdir.as_ref(),
-            },
-        )?;
+            })?;
 
         // Fetch targets and save them to the outdir
         if let Some(target_list) = targets_subset {
             for raw_name in target_list {
                 let target_name = TargetName::new(raw_name.as_ref())?;
-                self.cache_target(&targets_outdir, &target_name)?;
+                self.cache_target(&targets_outdir, &target_name).await?;
             }
         } else {
             let targets = &self.targets.signed.targets_map();
             for target_name in targets.keys() {
-                self.cache_target(&targets_outdir, target_name)?;
+                self.cache_target(&targets_outdir, target_name).await?;
             }
         }
 
         // Cache all metadata
-        self.cache_metadata_impl(&metadata_outdir)?;
+        self.cache_metadata_impl(&metadata_outdir).await?;
 
         if cache_root_chain {
-            self.cache_root_chain(&metadata_outdir)?;
+            self.cache_root_chain(&metadata_outdir).await?;
         }
         Ok(())
     }
@@ -66,27 +70,27 @@ impl Repository {
     ///
     /// * `metadata_outdir` is the directory where cached metadata files will be saved.
     /// * `cache_root_chain` specifies whether or not we will cache all versions of `root.json`.
-    pub fn cache_metadata<P>(&self, metadata_outdir: P, cache_root_chain: bool) -> Result<()>
+    pub async fn cache_metadata<P>(&self, metadata_outdir: P, cache_root_chain: bool) -> Result<()>
     where
         P: AsRef<Path>,
     {
         // Create the output directory if it does not exist.
-        std::fs::create_dir_all(metadata_outdir.as_ref()).context(
-            error::CacheDirectoryCreateSnafu {
+        tokio::fs::create_dir_all(metadata_outdir.as_ref())
+            .await
+            .context(error::CacheDirectoryCreateSnafu {
                 path: metadata_outdir.as_ref(),
-            },
-        )?;
+            })?;
 
-        self.cache_metadata_impl(&metadata_outdir)?;
+        self.cache_metadata_impl(&metadata_outdir).await?;
 
         if cache_root_chain {
-            self.cache_root_chain(metadata_outdir)?;
+            self.cache_root_chain(metadata_outdir).await?;
         }
         Ok(())
     }
 
     /// Cache repository metadata files, including delegated targets metadata
-    fn cache_metadata_impl<P>(&self, metadata_outdir: P) -> Result<()>
+    async fn cache_metadata_impl<P>(&self, metadata_outdir: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -95,19 +99,22 @@ impl Repository {
             self.max_snapshot_size()?,
             "timestamp.json",
             &metadata_outdir,
-        )?;
+        )
+        .await?;
         self.cache_file_from_transport(
             self.targets_filename().as_str(),
             self.limits.max_targets_size,
             "max_targets_size argument",
             &metadata_outdir,
-        )?;
+        )
+        .await?;
         self.cache_file_from_transport(
             "timestamp.json",
             self.limits.max_timestamp_size,
             "max_timestamp_size argument",
             &metadata_outdir,
-        )?;
+        )
+        .await?;
 
         for name in self.targets.signed.role_names() {
             if let Some(filename) = self.delegated_filename(name) {
@@ -116,7 +123,8 @@ impl Repository {
                     self.limits.max_targets_size,
                     "max_targets_size argument",
                     &metadata_outdir,
-                )?;
+                )
+                .await?;
             }
         }
 
@@ -124,7 +132,7 @@ impl Repository {
     }
 
     /// Cache all versions of root.json less than or equal to the current version.
-    fn cache_root_chain<P>(&self, outdir: P) -> Result<()>
+    async fn cache_root_chain<P>(&self, outdir: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -135,7 +143,8 @@ impl Repository {
                 self.limits.max_root_size,
                 "max_root_size argument",
                 &outdir,
-            )?;
+            )
+            .await?;
         }
         Ok(())
     }
@@ -176,40 +185,45 @@ impl Repository {
     }
 
     /// Copies a file using `Transport` to `outdir`.
-    fn cache_file_from_transport<P: AsRef<Path>>(
+    async fn cache_file_from_transport<P: AsRef<Path>>(
         &self,
         filename: &str,
         max_size: u64,
         max_size_specifier: &'static str,
         outdir: P,
     ) -> Result<()> {
-        let mut read = fetch_max_size(
-            self.transport.as_ref(),
-            self.metadata_base_url
-                .join(filename)
-                .context(error::JoinUrlSnafu {
-                    path: filename,
-                    url: self.metadata_base_url.clone(),
-                })?,
-            max_size,
-            max_size_specifier,
-        )?;
-        let outpath = outdir.as_ref().join(filename);
-        let mut file = std::fs::File::create(&outpath).context(error::CacheFileWriteSnafu {
-            path: outpath.clone(),
-        })?;
-        let mut root_file_data = Vec::new();
-        read.read_to_end(&mut root_file_data)
-            .context(error::CacheFileReadSnafu {
+        let url = self
+            .metadata_base_url
+            .join(filename)
+            .with_context(|_| error::JoinUrlSnafu {
+                path: filename,
                 url: self.metadata_base_url.clone(),
             })?;
+        let stream = fetch_max_size(
+            self.transport.as_ref(),
+            url.clone(),
+            max_size,
+            max_size_specifier,
+        )
+        .await?;
+        let outpath = outdir.as_ref().join(filename);
+        let mut file = tokio::fs::File::create(&outpath).await.with_context(|_| {
+            error::CacheFileWriteSnafu {
+                path: outpath.clone(),
+            }
+        })?;
+        let root_file_data = stream
+            .into_vec()
+            .await
+            .context(error::TransportSnafu { url })?;
         file.write_all(&root_file_data)
+            .await
             .context(error::CacheFileWriteSnafu { path: outpath })
     }
 
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
     /// consistent snapshots are used.
-    fn cache_target<P: AsRef<Path>>(&self, outdir: P, name: &TargetName) -> Result<()> {
+    async fn cache_target<P: AsRef<Path>>(&self, outdir: P, name: &TargetName) -> Result<()> {
         self.save_target(
             name,
             outdir,
@@ -219,6 +233,7 @@ impl Repository {
                 Prefix::None
             },
         )
+        .await
     }
 
     /// Gets the max size of the snapshot.json file as specified by the timestamp file.
@@ -255,23 +270,28 @@ impl Repository {
 
     /// Fetches the signed target using `Transport`. Aborts with error if the fetched target is
     /// larger than its signed size.
-    pub(crate) fn fetch_target(
+    pub(crate) async fn fetch_target(
         &self,
         target: &Target,
         digest: &[u8],
         filename: &str,
-    ) -> Result<impl Read + '_> {
-        fetch_sha256(
+    ) -> Result<BoxStream<'static, Result<Bytes>>> {
+        let url = self
+            .targets_base_url
+            .join(filename)
+            .with_context(|_| error::JoinUrlSnafu {
+                path: filename,
+                url: self.targets_base_url.clone(),
+            })?;
+        Ok(fetch_sha256(
             self.transport.as_ref(),
-            self.targets_base_url
-                .join(filename)
-                .context(error::JoinUrlSnafu {
-                    path: filename,
-                    url: self.targets_base_url.clone(),
-                })?,
+            url.clone(),
             target.length,
             "targets.json",
             digest,
         )
+        .await?
+        .context(error::TransportSnafu { url })
+        .boxed())
     }
 }

@@ -132,30 +132,32 @@ macro_rules! role_keys {
 }
 
 impl Command {
-    pub(crate) fn run(self) -> Result<()> {
+    pub(crate) async fn run(self) -> Result<()> {
         match self {
-            Command::Init { path, version } => Command::init(&path, version),
-            Command::BumpVersion { path } => Command::bump_version(&path),
-            Command::Expire { path, time } => Command::expire(&path, &time),
+            Command::Init { path, version } => Command::init(&path, version).await,
+            Command::BumpVersion { path } => Command::bump_version(&path).await,
+            Command::Expire { path, time } => Command::expire(&path, &time).await,
             Command::SetThreshold {
                 path,
                 role,
                 threshold,
-            } => Command::set_threshold(&path, role, threshold),
-            Command::SetVersion { path, version } => Command::set_version(&path, version),
+            } => Command::set_threshold(&path, role, threshold).await,
+            Command::SetVersion { path, version } => Command::set_version(&path, version).await,
             Command::AddKey {
                 path,
                 roles,
                 key_source,
-            } => Command::add_key(&path, &roles, &key_source),
-            Command::RemoveKey { path, key_id, role } => Command::remove_key(&path, &key_id, role),
+            } => Command::add_key(&path, &roles, &key_source).await,
+            Command::RemoveKey { path, key_id, role } => {
+                Command::remove_key(&path, &key_id, role).await
+            }
             Command::GenRsaKey {
                 path,
                 roles,
                 key_source,
                 bits,
                 exponent,
-            } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent),
+            } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent).await,
             Command::Sign {
                 path,
                 key_sources,
@@ -167,12 +169,12 @@ impl Command {
                     let key_source = parse_key_source(source)?;
                     keys.push(key_source);
                 }
-                Command::sign(&path, &keys, cross_sign, ignore_threshold)
+                Command::sign(&path, &keys, cross_sign, ignore_threshold).await
             }
         }
     }
 
-    fn init(path: &Path, version: Option<u64>) -> Result<()> {
+    async fn init(path: &Path, version: Option<u64>) -> Result<()> {
         let init_version = version.unwrap_or(1);
         write_file(
             path,
@@ -194,10 +196,11 @@ impl Command {
                 signatures: Vec::new(),
             },
         )
+        .await
     }
 
-    fn bump_version(path: &Path) -> Result<()> {
-        let mut root: Signed<Root> = load_file(path)?;
+    async fn bump_version(path: &Path) -> Result<()> {
+        let mut root: Signed<Root> = load_file(path).await?;
         root.signed.version = NonZeroU64::new(
             root.signed
                 .version
@@ -207,58 +210,59 @@ impl Command {
         )
         .context(error::VersionZeroSnafu)?;
         clear_sigs(&mut root);
-        write_file(path, &root)
+        write_file(path, &root).await
     }
 
-    fn expire(path: &Path, time: &DateTime<Utc>) -> Result<()> {
-        let mut root: Signed<Root> = load_file(path)?;
+    async fn expire(path: &Path, time: &DateTime<Utc>) -> Result<()> {
+        let mut root: Signed<Root> = load_file(path).await?;
         root.signed.expires = round_time(*time);
         clear_sigs(&mut root);
-        write_file(path, &root)
+        write_file(path, &root).await
     }
 
-    fn set_threshold(path: &Path, role: RoleType, threshold: NonZeroU64) -> Result<()> {
-        let mut root: Signed<Root> = load_file(path)?;
+    async fn set_threshold(path: &Path, role: RoleType, threshold: NonZeroU64) -> Result<()> {
+        let mut root: Signed<Root> = load_file(path).await?;
         root.signed
             .roles
             .entry(role)
             .and_modify(|rk| rk.threshold = threshold)
             .or_insert_with(|| role_keys!(threshold));
         clear_sigs(&mut root);
-        write_file(path, &root)
+        write_file(path, &root).await
     }
 
-    fn set_version(path: &Path, version: NonZeroU64) -> Result<()> {
-        let mut root: Signed<Root> = load_file(path)?;
+    async fn set_version(path: &Path, version: NonZeroU64) -> Result<()> {
+        let mut root: Signed<Root> = load_file(path).await?;
         root.signed.version = version;
         clear_sigs(&mut root);
-        write_file(path, &root)
+        write_file(path, &root).await
     }
 
     #[allow(clippy::borrowed_box)]
-    fn add_key(path: &Path, roles: &[RoleType], key_source: &Vec<String>) -> Result<()> {
+    async fn add_key(path: &Path, roles: &[RoleType], key_source: &Vec<String>) -> Result<()> {
         let mut keys = Vec::new();
         for source in key_source {
             let key_source = parse_key_source(source)?;
             keys.push(key_source);
         }
-        let mut root: Signed<Root> = load_file(path)?;
+        let mut root: Signed<Root> = load_file(path).await?;
         clear_sigs(&mut root);
 
         for ks in keys {
             let key_pair = ks
                 .as_sign()
+                .await
                 .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
             let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair)?);
             println!("Added key: {key_id}");
         }
 
-        write_file(path, &root)
+        write_file(path, &root).await
     }
 
-    fn remove_key(path: &Path, key_id: &Decoded<Hex>, role: Option<RoleType>) -> Result<()> {
-        let mut root: Signed<Root> = load_file(path)?;
+    async fn remove_key(path: &Path, key_id: &Decoded<Hex>, role: Option<RoleType>) -> Result<()> {
+        let mut root: Signed<Root> = load_file(path).await?;
         if let Some(role) = role {
             if let Some(role_keys) = root.signed.roles.get_mut(&role) {
                 role_keys
@@ -278,18 +282,18 @@ impl Command {
             root.signed.keys.remove(key_id);
         }
         clear_sigs(&mut root);
-        write_file(path, &root)
+        write_file(path, &root).await
     }
 
     #[allow(clippy::borrowed_box)]
-    fn gen_rsa_key(
+    async fn gen_rsa_key(
         path: &Path,
         roles: &[RoleType],
         key_source: &str,
         bits: u16,
         exponent: u32,
     ) -> Result<()> {
-        let mut root: Signed<Root> = load_file(path)?;
+        let mut root: Signed<Root> = load_file(path).await?;
 
         // ring doesn't support RSA key generation yet
         // https://github.com/briansmith/ring/issues/219
@@ -317,23 +321,24 @@ impl Command {
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
         let key = parse_key_source(key_source)?;
         key.write(&stdout, &key_id)
+            .await
             .context(error::WriteKeySourceSnafu)?;
         clear_sigs(&mut root);
         println!("{key_id}");
-        write_file(path, &root)
+        write_file(path, &root).await
     }
 
-    fn sign(
+    async fn sign(
         path: &Path,
         key_source: &[Box<dyn KeySource>],
         cross_sign: Option<PathBuf>,
         ignore_threshold: bool,
     ) -> Result<()> {
-        let root: Signed<Root> = load_file(path)?;
+        let root: Signed<Root> = load_file(path).await?;
         // get the root based on cross-sign
         let loaded_root = match cross_sign {
             None => root.clone(),
-            Some(cross_sign_root) => load_file(&cross_sign_root)?,
+            Some(cross_sign_root) => load_file(&cross_sign_root).await?,
         };
         // sign the root
         let mut signed_root = SignedRole::new(
@@ -342,6 +347,7 @@ impl Command {
             key_source,
             &SystemRandom::new(),
         )
+        .await
         .context(error::SignRootSnafu { path })?;
 
         // append the existing signatures if present

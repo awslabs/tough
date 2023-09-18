@@ -14,10 +14,10 @@ pub(crate) type KeyList = HashMap<Decoded<Hex>, Box<dyn Sign>>;
 
 impl KeyHolder {
     /// Creates a key list for the provided keys
-    pub(crate) fn get_keys(&self, keys: &[Box<dyn KeySource>]) -> Result<KeyList> {
+    pub(crate) async fn get_keys(&self, keys: &[Box<dyn KeySource>]) -> Result<KeyList> {
         match self {
-            Self::Delegations(delegations) => get_targets_keys(delegations, keys),
-            Self::Root(root) => get_root_keys(root, keys),
+            Self::Delegations(delegations) => get_targets_keys(delegations, keys).await,
+            Self::Root(root) => get_root_keys(root, keys).await,
         }
     }
 
@@ -74,12 +74,15 @@ impl KeyHolder {
 /// Gets the corresponding keys from Root (root.json) for the given `KeySource`s.
 /// This is a convenience function that wraps `Root.key_id()` for multiple
 /// `KeySource`s.
-pub(crate) fn get_root_keys(root: &Root, keys: &[Box<dyn KeySource>]) -> Result<KeyList> {
+pub(crate) async fn get_root_keys(root: &Root, keys: &[Box<dyn KeySource>]) -> Result<KeyList> {
     let mut root_keys = KeyList::new();
 
     for source in keys {
         // Get a keypair from the given source
-        let key_pair = source.as_sign().context(error::KeyPairFromKeySourceSnafu)?;
+        let key_pair = source
+            .as_sign()
+            .await
+            .context(error::KeyPairFromKeySourceSnafu)?;
 
         // If the keypair matches any of the keys in the root.json,
         // add its ID and corresponding keypair the map to be returned
@@ -94,14 +97,17 @@ pub(crate) fn get_root_keys(root: &Root, keys: &[Box<dyn KeySource>]) -> Result<
 /// Gets the corresponding keys from delegations for the given `KeySource`s.
 /// This is a convenience function that wraps `Delegations.key_id()` for multiple
 /// `KeySource`s.
-pub(crate) fn get_targets_keys(
+pub(crate) async fn get_targets_keys(
     delegations: &Delegations,
     keys: &[Box<dyn KeySource>],
 ) -> Result<KeyList> {
     let mut delegations_keys = KeyList::new();
     for source in keys {
         // Get a keypair from the given source
-        let key_pair = source.as_sign().context(error::KeyPairFromKeySourceSnafu)?;
+        let key_pair = source
+            .as_sign()
+            .await
+            .context(error::KeyPairFromKeySourceSnafu)?;
         // If the keypair matches any of the keys in the delegations metadata,
         // add its ID and corresponding keypair the map to be returned
         if let Some(key_id) = delegations.key_id(key_pair.as_ref()) {
