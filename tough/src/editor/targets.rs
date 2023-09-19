@@ -300,7 +300,7 @@ impl TargetsEditor {
                     delegated_role.keyids.extend(keyids.clone());
                 }
             }
-            for delegated_role in self.new_roles.get_or_insert(Vec::new()).iter_mut() {
+            for delegated_role in &mut *self.new_roles.get_or_insert(Vec::new()) {
                 if delegated_role.name == role {
                     delegated_role.keyids.extend(keyids.clone());
                 }

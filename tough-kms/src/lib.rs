@@ -71,7 +71,7 @@ impl fmt::Debug for KmsKeySource {
         f.debug_struct("KmsKeySource")
             .field("key_id", &self.key_id)
             .field("profile", &self.profile)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -163,7 +163,7 @@ impl fmt::Debug for KmsRsaKey {
             .field("key_id", &self.key_id)
             .field("signing_algorithm", &self.signing_algorithm)
             .field("public_key", &self.public_key)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

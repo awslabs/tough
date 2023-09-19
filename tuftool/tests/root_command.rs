@@ -92,7 +92,7 @@ fn add_keys_all_roles(keys: Vec<&str>, root_json: &str) {
     add_key_root(&keys, root_json);
 
     // Only add the first key for the rest until we have tests that want it for all keys
-    let key = keys.get(0).unwrap();
+    let key = keys.first().unwrap();
     add_key_timestamp(key, root_json);
     add_key_snapshot(key, root_json);
     add_key_targets(key, root_json);
