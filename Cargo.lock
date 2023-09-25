@@ -2500,7 +2500,7 @@ dependencies = [
  "aws-sdk-kms",
  "aws-smithy-client",
  "aws-smithy-http",
- "base64 0.13.1",
+ "base64 0.21.2",
  "bytes",
  "http",
  "pem",
