@@ -34,7 +34,7 @@ failure-server = { path = "../integ/failure-server", version = "0.1.0" }
 hex-literal = "0.4"
 httptest = "0.15"
 maplit = "1"
-tokio = { version = "1.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.32", features = ["rt-multi-thread"] }
 
 [features]
 http = ["reqwest"]
