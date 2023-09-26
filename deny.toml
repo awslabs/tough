@@ -63,8 +63,6 @@ wildcards = "deny"
 skip = [
     # num_cpus and clap is using old versions of hermit-abi
     { name = "hermit-abi" },
-    # pem and using an old version of base64
-    { name = "base64", version = "=0.13.1" },
     # globset is using an old version of aho-corasick
     { name = "aho-corasick", version = "=0.7.20" },
     # clap and other crates use an old version of syn
