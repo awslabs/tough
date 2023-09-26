@@ -1,6 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 mod test_utils;
+use base64::engine::general_purpose::STANDARD as base64_engine;
+use base64::Engine as _;
 use ring::rand::SystemRandom;
 use serde::{Deserialize, Deserializer};
 use std::fs::File;
@@ -16,7 +18,7 @@ where
     D: Deserializer<'de>,
 {
     let s = <String>::deserialize(deserializer)?;
-    let b = base64::decode(s).unwrap();
+    let b = base64_engine.decode(s).unwrap();
     Ok(b.into())
 }
 
