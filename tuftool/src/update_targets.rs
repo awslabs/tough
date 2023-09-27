@@ -14,42 +14,17 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use tough::editor::signed::PathExists;
 use tough::editor::targets::TargetsEditor;
-use tough::key_source::KeySource;
 use url::Url;
 
 #[derive(Debug, Parser)]
 pub(crate) struct UpdateTargetsArgs {
-    /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
-    keys: Vec<Box<dyn KeySource>>,
-
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[clap(short = 'e', long = "expires", parse(try_from_str = parse_datetime))]
+    #[arg(short, long, value_parser = parse_datetime)]
     expires: DateTime<Utc>,
 
-    /// Version of targets.json file
-    #[clap(short = 'v', long = "version")]
-    version: NonZeroU64,
-
-    /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
-    root: PathBuf,
-
-    /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
-    metadata_base_url: Url,
-
-    /// Directory of targets
-    #[clap(short = 't', long = "add-targets")]
-    targets_indir: Option<PathBuf>,
-
-    /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
-    outdir: PathBuf,
-
     /// Follow symbolic links in the given directory when adding targets
-    #[clap(short = 'f', long = "follow")]
+    #[arg(short, long)]
     follow: bool,
 
     /// Number of target hashing threads to run when adding targets
@@ -57,14 +32,38 @@ pub(crate) struct UpdateTargetsArgs {
     // No default is specified in structopt here. This is because rayon
     // automatically spawns the same number of threads as cores when any
     // of its parallel methods are called.
-    #[clap(short = 'j', long = "jobs")]
+    #[arg(short, long)]
     jobs: Option<NonZeroUsize>,
+
+    /// Key files to sign with
+    #[arg(short, long = "key", required = true)]
+    keys: Vec<String>,
+
+    /// TUF repository metadata base URL
+    #[arg(short, long = "metadata-url")]
+    metadata_base_url: Url,
+
+    /// The directory where the repository will be written
+    #[arg(short, long)]
+    outdir: PathBuf,
+
+    /// Path to root.json file for the repository
+    #[arg(short, long)]
+    root: PathBuf,
+
+    /// Directory of targets
+    #[arg(short, long = "add-targets")]
+    targets_indir: Option<PathBuf>,
 
     /// Behavior when a target exists with the same name and hash in the desired repository
     /// directory, for example from another repository when you're sharing target directories.
     /// Options are "replace", "fail", and "skip"
-    #[clap(long = "target-path-exists", default_value = "skip")]
+    #[arg(long, default_value = "skip")]
     target_path_exists: PathExists,
+
+    /// Version of targets.json file
+    #[arg(short, long)]
+    version: NonZeroU64,
 }
 
 impl UpdateTargetsArgs {
@@ -77,6 +76,12 @@ impl UpdateTargetsArgs {
     }
 
     fn update_targets(&self, mut editor: TargetsEditor) -> Result<()> {
+        let mut keys = Vec::new();
+        for source in &self.keys {
+            let key_source = parse_key_source(source)?;
+            keys.push(key_source);
+        }
+
         editor.version(self.version).expires(self.expires);
 
         // If the "add-targets" argument was passed, build a list of targets
@@ -100,7 +105,7 @@ impl UpdateTargetsArgs {
         };
 
         // Sign the role
-        let signed_role = editor.sign(&self.keys).context(error::SignRepoSnafu)?;
+        let signed_role = editor.sign(&keys).context(error::SignRepoSnafu)?;
 
         // Copy any targets that were added
         if let Some(ref targets_indir) = self.targets_indir {

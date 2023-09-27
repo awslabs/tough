@@ -13,36 +13,36 @@ use url::Url;
 
 #[derive(Debug, Parser)]
 pub(crate) struct DownloadArgs {
-    /// Path to root.json file for the repository
-    #[clap(short = 'r', long = "root")]
-    root: Option<PathBuf>,
-
-    /// Remote root.json version number
-    #[clap(short = 'v', long = "root-version", default_value = "1")]
-    root_version: NonZeroU64,
-
-    /// TUF repository metadata base URL
-    #[clap(short = 'm', long = "metadata-url")]
-    metadata_base_url: Url,
-
-    /// TUF repository targets base URL
-    #[clap(short = 't', long = "targets-url")]
-    targets_base_url: Url,
+    /// Allow repo download for expired metadata
+    #[clap(long)]
+    allow_expired_repo: bool,
 
     /// Allow downloading the root.json file (unsafe)
     #[clap(long)]
     allow_root_download: bool,
 
+    /// TUF repository metadata base URL
+    #[clap(short, long = "metadata-url")]
+    metadata_base_url: Url,
+
     /// Download only these targets, if specified
     #[clap(short = 'n', long = "target-name")]
     target_names: Vec<String>,
 
+    /// Path to root.json file for the repository
+    #[clap(short, long)]
+    root: Option<PathBuf>,
+
+    /// TUF repository targets base URL
+    #[clap(short, long = "targets-url")]
+    targets_base_url: Url,
+
     /// Output directory for targets (will be created and must not already exist)
     outdir: PathBuf,
 
-    /// Allow repo download for expired metadata
-    #[clap(long)]
-    allow_expired_repo: bool,
+    /// Remote root.json version number
+    #[clap(short = 'v', long, default_value = "1")]
+    root_version: NonZeroU64,
 }
 
 fn expired_repo_warning<P: AsRef<Path>>(path: P) {

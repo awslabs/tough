@@ -18,33 +18,39 @@ use tough::schema::key::Key;
 
 #[derive(Debug, Parser)]
 pub(crate) struct CreateRoleArgs {
-    /// Key files to sign with
-    #[clap(short = 'k', long = "key", required = true, parse(try_from_str = parse_key_source))]
-    keys: Vec<Box<dyn KeySource>>,
-
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
-    #[clap(short = 'e', long = "expires", required = true, parse(try_from_str = parse_datetime))]
+    #[arg(short, long, required = true, value_parser = parse_datetime)]
     expires: DateTime<Utc>,
 
-    /// Version of targets.json file
-    #[clap(short = 'v', long = "version")]
-    version: NonZeroU64,
+    /// Key files to sign with
+    #[arg(short, long, required = true)]
+    keys: Vec<String>,
 
     /// The directory where the repository will be written
-    #[clap(short = 'o', long = "outdir")]
+    #[arg(short, long)]
     outdir: PathBuf,
+
+    /// Version of targets.json file
+    #[arg(short, long)]
+    version: NonZeroU64,
 }
 
 impl CreateRoleArgs {
     pub(crate) fn run(&self, role: &str) -> Result<()> {
+        let mut keys = Vec::new();
+        for source in &self.keys {
+            let key_source = parse_key_source(source)?;
+            keys.push(key_source);
+        }
+
         // create the new role
         let new_role = TargetsEditor::new(role)
             .version(self.version)
             .expires(self.expires)
-            .add_key(key_hash_map(&self.keys), None)
+            .add_key(key_hash_map(&keys), None)
             .context(error::DelegationStructureSnafu)?
-            .sign(&self.keys)
+            .sign(&keys)
             .context(error::SignRepoSnafu)?;
         // write the new role
         let metadata_destination_out = &self.outdir.join("metadata");

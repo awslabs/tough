@@ -24,13 +24,16 @@ use tough::sign::{parse_keypair, Sign};
 
 #[derive(Debug, Parser)]
 pub(crate) enum Command {
-    /// Create a new root.json metadata file
-    Init {
-        /// Path to new root.json
+    /// Add one or more keys (public or private) to a role
+    AddKey {
+        /// Path to root.json
         path: PathBuf,
-        /// Initial metadata file version
-        #[clap(long)]
-        version: Option<u64>,
+        /// The new key to be added
+        #[arg(short, long = "key")]
+        key_source: Vec<String>,
+        /// The role to add the key to
+        #[arg(short, long = "role")]
+        roles: Vec<RoleType>,
     },
     /// Increment the version
     BumpVersion {
@@ -43,8 +46,43 @@ pub(crate) enum Command {
         path: PathBuf,
         /// Expiration of root; can be in full RFC 3339 format, or something like 'in
         /// 7 days'
-        #[clap(parse(try_from_str = parse_datetime))]
+        #[arg(value_parser = parse_datetime)]
         time: DateTime<Utc>,
+    },
+    /// Generate a new RSA key pair, saving it to a file, and add it to a role
+    GenRsaKey {
+        /// Path to root.json
+        path: PathBuf,
+        /// Where to write the new key
+        #[arg()]
+        key_source: String,
+        /// Bit length of new key
+        #[arg(short, long, default_value = "2048")]
+        bits: u16,
+        /// Public exponent of new key
+        #[arg(short, long = "exp", default_value = "65537")]
+        exponent: u32,
+        /// The role to add the key to
+        #[arg(short, long = "role")]
+        roles: Vec<RoleType>,
+    },
+    /// Create a new root.json metadata file
+    Init {
+        /// Path to new root.json
+        path: PathBuf,
+        /// Initial metadata file version
+        #[arg(long)]
+        version: Option<u64>,
+    },
+    /// Remove a key ID, either entirely or from a single role
+    RemoveKey {
+        /// Path to root.json
+        path: PathBuf,
+        /// The key ID to remove
+        key_id: Decoded<Hex>,
+        /// Role to remove the key ID from (if provided, the public key will still be listed in the
+        /// file)
+        role: Option<RoleType>,
     },
     /// Set the signature count threshold for a role
     SetThreshold {
@@ -62,56 +100,18 @@ pub(crate) enum Command {
         /// Version number
         version: NonZeroU64,
     },
-    /// Add one or more keys (public or private) to a role
-    AddKey {
-        /// Path to root.json
-        path: PathBuf,
-        /// The new key to be added
-        #[clap(short = 'k', long = "key", parse(try_from_str = parse_key_source))]
-        key_source: Vec<Box<dyn KeySource>>,
-        /// The role to add the key to
-        #[clap(short = 'r', long = "role")]
-        roles: Vec<RoleType>,
-    },
-    /// Remove a key ID, either entirely or from a single role
-    RemoveKey {
-        /// Path to root.json
-        path: PathBuf,
-        /// The key ID to remove
-        key_id: Decoded<Hex>,
-        /// Role to remove the key ID from (if provided, the public key will still be listed in the
-        /// file)
-        role: Option<RoleType>,
-    },
-    /// Generate a new RSA key pair, saving it to a file, and add it to a role
-    GenRsaKey {
-        /// Path to root.json
-        path: PathBuf,
-        /// Where to write the new key
-        #[clap(parse(try_from_str = parse_key_source))]
-        key_source: Box<dyn KeySource>,
-        /// Bit length of new key
-        #[clap(short = 'b', long = "bits", default_value = "2048")]
-        bits: u16,
-        /// Public exponent of new key
-        #[clap(short = 'e', long = "exp", default_value = "65537")]
-        exponent: u32,
-        /// The role to add the key to
-        #[clap(short = 'r', long = "role")]
-        roles: Vec<RoleType>,
-    },
     /// Sign the given root.json
     Sign {
         /// Path to root.json
         path: PathBuf,
         /// Key source(s) to sign the file with
-        #[clap(short = 'k', long = "key", parse(try_from_str = parse_key_source))]
-        key_sources: Vec<Box<dyn KeySource>>,
+        #[arg(short, long = "key")]
+        key_sources: Vec<String>,
         /// Optional - Path of older root.json that contains the key-id
-        #[clap(short = 'c', long = "cross-sign")]
+        #[arg(short, long)]
         cross_sign: Option<PathBuf>,
         /// Ignore the threshold when signing with fewer keys
-        #[clap(short = 'i', long = "ignore-threshold")]
+        #[arg(short, long)]
         ignore_threshold: bool,
     },
 }
@@ -161,7 +161,14 @@ impl Command {
                 key_sources,
                 cross_sign,
                 ignore_threshold,
-            } => Command::sign(&path, &key_sources, cross_sign, ignore_threshold),
+            } => {
+                let mut keys = Vec::new();
+                for source in &key_sources {
+                    let key_source = parse_key_source(source)?;
+                    keys.push(key_source);
+                }
+                Command::sign(&path, &keys, cross_sign, ignore_threshold)
+            }
         }
     }
 
@@ -229,15 +236,16 @@ impl Command {
     }
 
     #[allow(clippy::borrowed_box)]
-    fn add_key(
-        path: &Path,
-        roles: &[RoleType],
-        key_source: &Vec<Box<dyn KeySource>>,
-    ) -> Result<()> {
+    fn add_key(path: &Path, roles: &[RoleType], key_source: &Vec<String>) -> Result<()> {
+        let mut keys = Vec::new();
+        for source in key_source {
+            let key_source = parse_key_source(source)?;
+            keys.push(key_source);
+        }
         let mut root: Signed<Root> = load_file(path)?;
         clear_sigs(&mut root);
 
-        for ks in key_source {
+        for ks in keys {
             let key_pair = ks
                 .as_sign()
                 .context(error::KeyPairFromKeySourceSnafu)?
@@ -277,7 +285,7 @@ impl Command {
     fn gen_rsa_key(
         path: &Path,
         roles: &[RoleType],
-        key_source: &Box<dyn KeySource>,
+        key_source: &str,
         bits: u16,
         exponent: u32,
     ) -> Result<()> {
@@ -307,8 +315,8 @@ impl Command {
 
         let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParseSnafu)?;
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
-        key_source
-            .write(&stdout, &key_id)
+        let key = parse_key_source(key_source)?;
+        key.write(&stdout, &key_id)
             .context(error::WriteKeySourceSnafu)?;
         clear_sigs(&mut root);
         println!("{key_id}");
