@@ -2655,9 +2655,9 @@ dependencies = [
 
 [[package]]
 name = "typed-path"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deb9adcf07a4ad4233bc70d3a609dd1cc831da1f8d851cf62d6327769d08179f"
+checksum = "e2de1864093390e5217bf897721bc4e7eaab13c2d69fcc57a1f943616094f95e"
 
 [[package]]
 name = "typenum"
