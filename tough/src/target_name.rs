@@ -4,6 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{ensure, OptionExt};
 use std::convert::TryFrom;
 use std::str::FromStr;
+use typed_path::constants::unix::SEPARATOR_STR;
 use typed_path::{Component, UnixPath, UnixPathBuf};
 
 /// Represents the name of a target in the repository. Path-like constructs are resolved (e.g.
@@ -137,7 +138,7 @@ fn clean_name(name: &str) -> Result<String> {
             // If the first component isn't the main separator ( unix `/`, windows '\' )
             // then there is a bug or behavior change in absolutize_from.
             ensure!(
-                first_component == typed_path::unix::SEPARATOR_STR.as_bytes(),
+                first_component == SEPARATOR_STR.as_bytes(),
                 error::TargetNameRootMissingSnafu { name }
             );
 
