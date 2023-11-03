@@ -21,7 +21,7 @@ aws-sdk-kms = "0.28"
 aws-sdk-ssm = "0.28"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 clap = { version = "4", features = ["derive"] }
-futures = "0.3.28"
+futures = "0.3"
 hex = "0.4"
 log = "0.4"
 maplit = "1"
@@ -35,7 +35,7 @@ serde_json = "1"
 simplelog = "0.12"
 snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
 tempfile = "3"
-tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tough = { version = "0.14", path = "../tough", features = ["http"] }
 tough-kms = { version = "0.6", path = "../tough-kms" }
 tough-ssm = { version = "0.9", path = "../tough-ssm" }
@@ -44,6 +44,6 @@ walkdir = "2"
 
 [dev-dependencies]
 assert_cmd = "2"
-futures = "0.3.28"
-futures-core = "0.3.28"
+futures = "0.3"
+futures-core = "0.3"
 httptest = "0.15"
