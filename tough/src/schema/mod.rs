@@ -28,12 +28,12 @@ use serde_json::Value;
 use serde_plain::{derive_display_from_serialize, derive_fromstr_from_deserialize};
 use snafu::ResultExt;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
 use std::num::NonZeroU64;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::str::FromStr;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
 
 /// The type of metadata role.
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash)]
@@ -455,7 +455,7 @@ pub struct Target {
 
 impl Target {
     /// Given a path, returns a Target struct
-    pub fn from_path<P>(path: P) -> Result<Target>
+    pub async fn from_path<P>(path: P) -> Result<Target>
     where
         P: AsRef<Path>,
     {
@@ -466,12 +466,18 @@ impl Target {
         }
 
         // Get the sha256 and length of the target
-        let mut file = File::open(path).context(error::FileOpenSnafu { path })?;
+        let mut file = File::open(path)
+            .await
+            .context(error::FileOpenSnafu { path })?;
         let mut digest = Context::new(&SHA256);
         let mut buf = [0; 8 * 1024];
         let mut length = 0;
         loop {
-            match file.read(&mut buf).context(error::FileReadSnafu { path })? {
+            match file
+                .read(&mut buf)
+                .await
+                .context(error::FileReadSnafu { path })?
+            {
                 0 => break,
                 n => {
                     digest.update(&buf[..n]);

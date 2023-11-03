@@ -8,6 +8,7 @@ use crate::schema::key::Key;
 use crate::sign::SignKeyPair::ECDSA;
 use crate::sign::SignKeyPair::ED25519;
 use crate::sign::SignKeyPair::RSA;
+use async_trait::async_trait;
 use ring::rand::SecureRandom;
 use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, RsaKeyPair};
 use snafu::ResultExt;
@@ -16,34 +17,37 @@ use std::error::Error;
 
 /// This trait must be implemented for each type of key with which you will
 /// sign things.
+#[async_trait]
 pub trait Sign: Sync + Send {
     /// Returns the decoded key along with its scheme and other metadata
     fn tuf_key(&self) -> crate::schema::key::Key;
 
     /// Signs the supplied message
-    fn sign(
+    async fn sign(
         &self,
         msg: &[u8],
-        rng: &dyn SecureRandom,
+        rng: &(dyn SecureRandom + Sync),
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 }
 
 /// Implements `Sign` for a reference to any type that implements `Sign`.
+#[async_trait]
 impl<'a, T: Sign> Sign for &'a T {
     fn tuf_key(&self) -> Key {
         (*self).tuf_key()
     }
 
-    fn sign(
+    async fn sign(
         &self,
         msg: &[u8],
-        rng: &dyn SecureRandom,
+        rng: &(dyn SecureRandom + Sync),
     ) -> std::prelude::rust_2015::Result<Vec<u8>, Box<dyn Error + Send + Sync + 'static>> {
-        (*self).sign(msg, rng)
+        (*self).sign(msg, rng).await
     }
 }
 
 /// Implements the Sign trait for ED25519
+#[async_trait]
 impl Sign for Ed25519KeyPair {
     fn tuf_key(&self) -> Key {
         use crate::schema::key::{Ed25519Key, Ed25519Scheme};
@@ -58,10 +62,10 @@ impl Sign for Ed25519KeyPair {
         }
     }
 
-    fn sign(
+    async fn sign(
         &self,
         msg: &[u8],
-        _rng: &dyn SecureRandom,
+        _rng: &(dyn SecureRandom + Sync),
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let signature = self.sign(msg);
         Ok(signature.as_ref().to_vec())
@@ -69,6 +73,7 @@ impl Sign for Ed25519KeyPair {
 }
 
 /// Implements the Sign trait for RSA keypairs
+#[async_trait]
 impl Sign for RsaKeyPair {
     fn tuf_key(&self) -> Key {
         use crate::schema::key::{RsaKey, RsaScheme};
@@ -83,10 +88,10 @@ impl Sign for RsaKeyPair {
         }
     }
 
-    fn sign(
+    async fn sign(
         &self,
         msg: &[u8],
-        rng: &dyn SecureRandom,
+        rng: &(dyn SecureRandom + Sync),
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let mut signature = vec![0; self.public_modulus_len()];
         self.sign(&ring::signature::RSA_PSS_SHA256, rng, msg, &mut signature)
@@ -96,6 +101,7 @@ impl Sign for RsaKeyPair {
 }
 
 /// Implements the Sign trait for ECDSA keypairs
+#[async_trait]
 impl Sign for EcdsaKeyPair {
     fn tuf_key(&self) -> Key {
         use crate::schema::key::{EcdsaKey, EcdsaScheme};
@@ -110,10 +116,10 @@ impl Sign for EcdsaKeyPair {
         }
     }
 
-    fn sign(
+    async fn sign(
         &self,
         msg: &[u8],
-        rng: &dyn SecureRandom,
+        rng: &(dyn SecureRandom + Sync),
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         let signature = self.sign(rng, msg).context(error::SignSnafu)?;
         Ok(signature.as_ref().to_vec())
@@ -132,6 +138,7 @@ pub enum SignKeyPair {
     ECDSA(EcdsaKeyPair),
 }
 
+#[async_trait]
 impl Sign for SignKeyPair {
     fn tuf_key(&self) -> Key {
         match self {
@@ -141,15 +148,15 @@ impl Sign for SignKeyPair {
         }
     }
 
-    fn sign(
+    async fn sign(
         &self,
         msg: &[u8],
-        rng: &dyn SecureRandom,
+        rng: &(dyn SecureRandom + Sync),
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
         match self {
-            RSA(key) => (key as &dyn Sign).sign(msg, rng),
-            ED25519(key) => (key as &dyn Sign).sign(msg, rng),
-            ECDSA(key) => (key as &dyn Sign).sign(msg, rng),
+            RSA(key) => (key as &dyn Sign).sign(msg, rng).await,
+            ED25519(key) => (key as &dyn Sign).sign(msg, rng).await,
+            ECDSA(key) => (key as &dyn Sign).sign(msg, rng).await,
         }
     }
 }

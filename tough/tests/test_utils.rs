@@ -5,8 +5,11 @@
 // cause compiler warnings for unused code, so we suppress them.
 #![allow(unused)]
 
+use futures::TryStreamExt;
+use futures_core::Stream;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use tough::IntoVec;
 use url::Url;
 
 /// Utilities for tests. Not every test module uses every function, so we suppress unused warnings.
@@ -28,8 +31,10 @@ pub fn dir_url<P: AsRef<Path>>(path: P) -> Url {
 }
 
 /// Gets the goods from a read and makes a Vec
-pub fn read_to_end<R: Read>(mut reader: R) -> Vec<u8> {
-    let mut v = Vec::new();
-    reader.read_to_end(&mut v).unwrap();
-    v
+pub async fn read_to_end<E, S>(mut stream: S) -> Vec<u8>
+where
+    E: std::fmt::Debug,
+    S: IntoVec<E>,
+{
+    stream.into_vec().await.unwrap()
 }

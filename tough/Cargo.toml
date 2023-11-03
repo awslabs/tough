@@ -9,21 +9,28 @@ keywords = ["tuf", "update", "repository"]
 edition = "2018"
 
 [dependencies]
+async-recursion = "1.0.5"
+async-trait = "0.1.73"
+bytes = "1.5.0"
 chrono = { version = "0.4", default-features = false, features = ["std", "alloc", "serde", "clock"] }
 dyn-clone = "1"
+futures = "0.3.28"
+futures-core = "0.3.28"
 globset = { version = "0.4" }
 hex = "0.4"
 log = "0.4"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
-reqwest = { version = "0.11", optional = true, default-features = false, features = ["blocking"] }
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["stream"] }
 ring = { version = "0.16", features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_plain = "1"
-snafu = "0.7"
+snafu = { version = "0.7", features = ["futures"] }
 tempfile = "3"
+tokio = { version = "1.0", default-features = false, features = ["io-util", "sync", "fs", "time"] }
+tokio-util = { version = "0.7.8", features = ["io"] }
 typed-path = "0.6"
 untrusted = "0.7"
 url = "2"
@@ -34,7 +41,8 @@ failure-server = { path = "../integ/failure-server", version = "0.1.0" }
 hex-literal = "0.4"
 httptest = "0.15"
 maplit = "1"
-tokio = { version = "1.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
+tokio-test = "0.4.3"
 
 [features]
 http = ["reqwest"]

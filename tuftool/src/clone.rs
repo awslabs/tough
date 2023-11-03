@@ -6,7 +6,6 @@ use crate::download_root::download_root;
 use crate::error::{self, Result};
 use clap::Parser;
 use snafu::ResultExt;
-use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tough::{ExpirationEnforcement, RepositoryLoader};
@@ -64,13 +63,13 @@ WARNING: repo metadata is expired, meaning the owner hasn't verified its content
 }
 
 impl CloneArgs {
-    pub(crate) fn run(&self) -> Result<()> {
+    pub(crate) async fn run(&self) -> Result<()> {
         // Use local root.json or download from repository
         let root_path = if let Some(path) = &self.root {
             PathBuf::from(path)
         } else if self.allow_root_download {
             let outdir = std::env::current_dir().context(error::CurrentDirSnafu)?;
-            download_root(&self.metadata_base_url, self.root_version, outdir)?
+            download_root(&self.metadata_base_url, self.root_version, outdir).await?
         } else {
             eprintln!("No root.json available");
             std::process::exit(1);
@@ -96,12 +95,15 @@ impl CloneArgs {
             ExpirationEnforcement::Safe
         };
         let repository = RepositoryLoader::new(
-            File::open(&root_path).context(error::OpenRootSnafu { path: &root_path })?,
+            &tokio::fs::read(&root_path)
+                .await
+                .context(error::OpenRootSnafu { path: &root_path })?,
             self.metadata_base_url.clone(),
             targets_base_url,
         )
         .expiration_enforcement(expiration_enforcement)
         .load()
+        .await
         .context(error::RepoLoadSnafu)?;
 
         // Clone the repository, downloading none, all, or a subset of targets
@@ -109,6 +111,7 @@ impl CloneArgs {
             println!("Cloning repository metadata to {:?}", self.metadata_dir);
             repository
                 .cache_metadata(&self.metadata_dir, true)
+                .await
                 .context(error::CloneRepositorySnafu)?;
         } else {
             // Similar to `targets_base_url, structopt's guard rails won't let us have a
@@ -125,6 +128,7 @@ impl CloneArgs {
             if self.target_names.is_empty() {
                 repository
                     .cache(&self.metadata_dir, targets_dir, None::<&[&str]>, true)
+                    .await
                     .context(error::CloneRepositorySnafu)?;
             } else {
                 repository
@@ -134,6 +138,7 @@ impl CloneArgs {
                         Some(self.target_names.as_slice()),
                         true,
                     )
+                    .await
                     .context(error::CloneRepositorySnafu)?;
             }
         };

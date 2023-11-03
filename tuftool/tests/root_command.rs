@@ -284,8 +284,8 @@ fn create_invalid_root() {
         .failure();
 }
 
-#[test]
-fn cross_sign_root() {
+#[tokio::test]
+async fn cross_sign_root() {
     let out_dir = TempDir::new().unwrap();
     let old_root_json = test_utils::test_data()
         .join("cross-sign-root")
@@ -299,6 +299,7 @@ fn cross_sign_root() {
     };
     let old_key_id = old_key_source
         .as_sign()
+        .await
         .ok()
         .unwrap()
         .tuf_key()

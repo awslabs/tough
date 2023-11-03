@@ -378,6 +378,12 @@ pub(crate) enum Error {
         source: std::io::Error,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Failed to join a task: {}", source))]
+    JoinTask {
+        source: tokio::task::JoinError,
+        backtrace: Backtrace,
+    },
 }
 
 // Extracts the status code from a reqwest::Error and converts it to a string to be displayed

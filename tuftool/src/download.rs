@@ -5,7 +5,6 @@ use crate::download_root::download_root;
 use crate::error::{self, Result};
 use clap::Parser;
 use snafu::{ensure, ResultExt};
-use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use tough::{ExpirationEnforcement, Prefix, Repository, RepositoryLoader, TargetName};
@@ -56,7 +55,7 @@ WARNING: `--allow-expired-repo` was passed; this is unsafe and will not establis
 }
 
 impl DownloadArgs {
-    pub(crate) fn run(&self) -> Result<()> {
+    pub(crate) async fn run(&self) -> Result<()> {
         // To help ensure that downloads are safe, we require that the outdir does not exist.
         ensure!(
             !self.outdir.exists(),
@@ -68,7 +67,7 @@ impl DownloadArgs {
             PathBuf::from(path)
         } else if self.allow_root_download {
             let outdir = std::env::current_dir().context(error::CurrentDirSnafu)?;
-            download_root(&self.metadata_base_url, self.root_version, outdir)?
+            download_root(&self.metadata_base_url, self.root_version, outdir).await?
         } else {
             eprintln!("No root.json available");
             std::process::exit(1);
@@ -82,29 +81,37 @@ impl DownloadArgs {
             ExpirationEnforcement::Safe
         };
         let repository = RepositoryLoader::new(
-            File::open(&root_path).context(error::OpenRootSnafu { path: &root_path })?,
+            &tokio::fs::read(&root_path)
+                .await
+                .context(error::OpenRootSnafu { path: &root_path })?,
             self.metadata_base_url.clone(),
             self.targets_base_url.clone(),
         )
         .expiration_enforcement(expiration_enforcement)
         .load()
+        .await
         .context(error::RepoLoadSnafu)?;
 
         // download targets
-        handle_download(&repository, &self.outdir, &self.target_names)
+        handle_download(&repository, &self.outdir, &self.target_names).await
     }
 }
 
-fn handle_download(repository: &Repository, outdir: &Path, raw_names: &[String]) -> Result<()> {
+async fn handle_download(
+    repository: &Repository,
+    outdir: &Path,
+    raw_names: &[String],
+) -> Result<()> {
     let target_names: Result<Vec<TargetName>> = raw_names
         .iter()
         .map(|s| TargetName::new(s).context(error::InvalidTargetNameSnafu))
         .collect();
     let target_names = target_names?;
-    let download_target = |name: &TargetName| -> Result<()> {
+    let download_target = |name: TargetName| async move {
         println!("\t-> {}", name.raw());
         repository
-            .save_target(name, outdir, Prefix::None)
+            .save_target(&name, outdir, Prefix::None)
+            .await
             .context(error::MetadataSnafu)?;
         Ok(())
     };
@@ -123,9 +130,11 @@ fn handle_download(repository: &Repository, outdir: &Path, raw_names: &[String])
     };
 
     println!("Downloading targets to {outdir:?}");
-    std::fs::create_dir_all(outdir).context(error::DirCreateSnafu { path: outdir })?;
+    tokio::fs::create_dir_all(outdir)
+        .await
+        .context(error::DirCreateSnafu { path: outdir })?;
     for target in targets {
-        download_target(&target)?;
+        download_target(target).await?;
     }
     Ok(())
 }

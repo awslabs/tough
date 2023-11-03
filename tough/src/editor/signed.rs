@@ -7,12 +7,14 @@
 //! signing, ready to be written to disk.
 
 use crate::error::{self, Result};
-use crate::io::DigestAdapter;
+use crate::io::{is_file, DigestAdapter};
 use crate::key_source::KeySource;
 use crate::schema::{
     DelegatedTargets, KeyHolder, Role, RoleType, Root, Signature, Signed, Snapshot, Target,
     Targets, Timestamp,
 };
+use async_trait::async_trait;
+use futures::TryStreamExt;
 use olpc_cjson::CanonicalFormatter;
 use ring::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
 use ring::rand::SecureRandom;
@@ -20,14 +22,15 @@ use serde::{Deserialize, Serialize};
 use serde_plain::derive_fromstr_from_deserialize;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
-use std::fs;
+use std::future::{ready, Future};
+use tokio::fs::{canonicalize, copy, create_dir_all, remove_file, symlink_metadata};
 
 #[cfg(not(target_os = "windows"))]
-use std::os::unix::fs::symlink;
+use tokio::fs::symlink;
 #[cfg(target_os = "windows")]
-use std::os::windows::fs::symlink_file as symlink;
+use tokio::fs::symlink_file as symlink;
 
-use crate::TargetName;
+use crate::{FilesystemTransport, TargetName, Transport};
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use url::Url;
@@ -53,13 +56,13 @@ where
     T: Role + Serialize,
 {
     /// Creates a new `SignedRole`
-    pub fn new(
+    pub async fn new(
         role: T,
         key_holder: &KeyHolder,
         keys: &[Box<dyn KeySource>],
-        rng: &dyn SecureRandom,
+        rng: &(dyn SecureRandom + Sync),
     ) -> Result<Self> {
-        let root_keys = key_holder.get_keys(keys)?;
+        let root_keys = key_holder.get_keys(keys).await?;
 
         let role_keys = key_holder.role_keys(role.role_id())?;
         // Ensure the keys we have available to us will allow us
@@ -86,6 +89,7 @@ where
         for (signing_key_id, signing_key) in valid_keys {
             let sig = signing_key
                 .sign(&data, rng)
+                .await
                 .context(error::SignMessageSnafu)?;
 
             // Add the signatures to the `Signed` struct for this role
@@ -154,17 +158,21 @@ where
 
     /// Write the current role's buffer to the given directory with the
     /// appropriate file name.
-    pub fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>
+    pub async fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>
     where
         P: AsRef<Path>,
     {
         let outdir = outdir.as_ref();
-        std::fs::create_dir_all(outdir).context(error::DirCreateSnafu { path: outdir })?;
+        tokio::fs::create_dir_all(outdir)
+            .await
+            .context(error::DirCreateSnafu { path: outdir })?;
 
         let filename = self.signed.signed.filename(consistent_snapshot);
 
         let path = outdir.join(filename);
-        std::fs::write(&path, &self.buffer).context(error::FileWriteSnafu { path })
+        tokio::fs::write(&path, &self.buffer)
+            .await
+            .context(error::FileWriteSnafu { path })
     }
 
     /// Append the old signatures for root role
@@ -236,17 +244,19 @@ pub struct SignedRepository {
 impl SignedRepository {
     /// Writes the metadata to the given directory. If consistent snapshots
     /// are used, the appropriate files are prefixed with their version.
-    pub fn write<P>(&self, outdir: P) -> Result<()>
+    pub async fn write<P>(&self, outdir: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
         let consistent_snapshot = self.root.signed.signed.consistent_snapshot;
-        self.root.write(&outdir, consistent_snapshot)?;
-        self.targets.write(&outdir, consistent_snapshot)?;
-        self.snapshot.write(&outdir, consistent_snapshot)?;
-        self.timestamp.write(&outdir, consistent_snapshot)?;
+        self.root.write(&outdir, consistent_snapshot).await?;
+        self.targets.write(&outdir, consistent_snapshot).await?;
+        self.snapshot.write(&outdir, consistent_snapshot).await?;
+        self.timestamp.write(&outdir, consistent_snapshot).await?;
         if let Some(delegated_targets) = &self.delegated_targets {
-            delegated_targets.write(&outdir, consistent_snapshot)?;
+            delegated_targets
+                .write(&outdir, consistent_snapshot)
+                .await?;
         }
         Ok(())
     }
@@ -259,7 +269,7 @@ impl SignedRepository {
     /// if the filename exists in `Targets`, the file's sha256 is compared
     /// against the data in `Targets`. If this data does not match, the
     /// method will fail.
-    pub fn link_targets<P1, P2>(
+    pub async fn link_targets<P1, P2>(
         &self,
         indir: P1,
         outdir: P2,
@@ -275,6 +285,7 @@ impl SignedRepository {
             Self::link_target,
             replace_behavior,
         )
+        .await
     }
 
     /// Crawls a given directory and copies any targets found to the given
@@ -285,7 +296,7 @@ impl SignedRepository {
     /// if the filename exists in `Targets`, the file's sha256 is compared
     /// against the data in `Targets`. If this data does not match, the
     /// method will fail.
-    pub fn copy_targets<P1, P2>(
+    pub async fn copy_targets<P1, P2>(
         &self,
         indir: P1,
         outdir: P2,
@@ -301,6 +312,7 @@ impl SignedRepository {
             Self::copy_target,
             replace_behavior,
         )
+        .await
     }
 
     /// Symlinks a single target to the desired directory. If `target_filename` is given, it
@@ -309,7 +321,7 @@ impl SignedRepository {
     /// the repo with a different hash, or if it has the same hash but is not a symlink.  Using the
     /// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
     /// and file type - skip, fail, or replace.
-    pub fn link_target(
+    pub async fn link_target(
         &self,
         input_path: &Path,
         outdir: &Path,
@@ -317,19 +329,28 @@ impl SignedRepository {
         target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
-            input_path.is_file(),
+            is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self.target_path(input_path, outdir, target_filename)? {
+        match self
+            .target_path(input_path, outdir, target_filename)
+            .await?
+        {
             TargetPath::New { path } => {
-                symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
+                symlink(input_path, &path)
+                    .await
+                    .context(error::LinkCreateSnafu { path })?;
             }
             TargetPath::Symlink { path } => match replace_behavior {
                 PathExists::Skip => {}
                 PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
-                    symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
+                    remove_file(&path)
+                        .await
+                        .context(error::RemoveTargetSnafu { path: &path })?;
+                    symlink(input_path, &path)
+                        .await
+                        .context(error::LinkCreateSnafu { path })?;
                 }
             },
             TargetPath::File { path } => {
@@ -351,7 +372,7 @@ impl SignedRepository {
     /// with a different hash, or if it has the same hash but is not a regular file.  Using the
     /// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
     /// and file type - skip, fail, or replace.
-    pub fn copy_target(
+    pub async fn copy_target(
         &self,
         input_path: &Path,
         outdir: &Path,
@@ -359,19 +380,28 @@ impl SignedRepository {
         target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
-            input_path.is_file(),
+            is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self.target_path(input_path, outdir, target_filename)? {
+        match self
+            .target_path(input_path, outdir, target_filename)
+            .await?
+        {
             TargetPath::New { path } => {
-                fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
+                copy(input_path, &path)
+                    .await
+                    .context(error::FileWriteSnafu { path })?;
             }
             TargetPath::File { path } => match replace_behavior {
                 PathExists::Skip => {}
                 PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
-                    fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
+                    remove_file(&path)
+                        .await
+                        .context(error::RemoveTargetSnafu { path: &path })?;
+                    copy(input_path, &path)
+                        .await
+                        .context(error::FileWriteSnafu { path })?;
                 }
             },
             TargetPath::Symlink { path } => {
@@ -410,12 +440,12 @@ pub struct SignedDelegatedTargets {
 impl SignedDelegatedTargets {
     /// Writes the metadata to the given directory. If consistent snapshots
     /// are used, the appropriate files are prefixed with their version.
-    pub fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>
+    pub async fn write<P>(&self, outdir: P, consistent_snapshot: bool) -> Result<()>
     where
         P: AsRef<Path>,
     {
         for targets in &self.roles {
-            targets.write(&outdir, consistent_snapshot)?;
+            targets.write(&outdir, consistent_snapshot).await?;
         }
         Ok(())
     }
@@ -433,7 +463,7 @@ impl SignedDelegatedTargets {
     /// if the filename exists in `Targets`, the file's sha256 is compared
     /// against the data in `Targets`. If this data does not match, the
     /// method will fail.
-    pub fn link_targets<P1, P2>(
+    pub async fn link_targets<P1, P2>(
         &self,
         indir: P1,
         outdir: P2,
@@ -449,6 +479,7 @@ impl SignedDelegatedTargets {
             Self::link_target,
             replace_behavior,
         )
+        .await
     }
 
     /// Crawls a given directory and copies any targets found to the given
@@ -459,7 +490,7 @@ impl SignedDelegatedTargets {
     /// if the filename exists in `Targets`, the file's sha256 is compared
     /// against the data in `Targets`. If this data does not match, the
     /// method will fail.
-    pub fn copy_targets<P1, P2>(
+    pub async fn copy_targets<P1, P2>(
         &self,
         indir: P1,
         outdir: P2,
@@ -475,6 +506,7 @@ impl SignedDelegatedTargets {
             Self::copy_target,
             replace_behavior,
         )
+        .await
     }
 
     /// Symlinks a single target to the desired directory. If `target_filename` is given, it
@@ -483,7 +515,7 @@ impl SignedDelegatedTargets {
     /// the repo with a different hash, or if it has the same hash but is not a symlink.  Using the
     /// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
     /// and file type - skip, fail, or replace.
-    pub fn link_target(
+    pub async fn link_target(
         &self,
         input_path: &Path,
         outdir: &Path,
@@ -491,19 +523,28 @@ impl SignedDelegatedTargets {
         target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
-            input_path.is_file(),
+            is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self.target_path(input_path, outdir, target_filename)? {
+        match self
+            .target_path(input_path, outdir, target_filename)
+            .await?
+        {
             TargetPath::New { path } => {
-                symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
+                symlink(input_path, &path)
+                    .await
+                    .context(error::LinkCreateSnafu { path })?;
             }
             TargetPath::Symlink { path } => match replace_behavior {
                 PathExists::Skip => {}
                 PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
-                    symlink(input_path, &path).context(error::LinkCreateSnafu { path })?;
+                    remove_file(&path)
+                        .await
+                        .context(error::RemoveTargetSnafu { path: &path })?;
+                    symlink(input_path, &path)
+                        .await
+                        .context(error::LinkCreateSnafu { path })?;
                 }
             },
             TargetPath::File { path } => {
@@ -525,7 +566,7 @@ impl SignedDelegatedTargets {
     /// with a different hash, or if it has the same hash but is not a regular file.  Using the
     /// `replace_behavior` parameter, you can decide what happens if it exists with the same hash
     /// and file type - skip, fail, or replace.
-    pub fn copy_target(
+    pub async fn copy_target(
         &self,
         input_path: &Path,
         outdir: &Path,
@@ -533,19 +574,28 @@ impl SignedDelegatedTargets {
         target_filename: Option<&TargetName>,
     ) -> Result<()> {
         ensure!(
-            input_path.is_file(),
+            is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self.target_path(input_path, outdir, target_filename)? {
+        match self
+            .target_path(input_path, outdir, target_filename)
+            .await?
+        {
             TargetPath::New { path } => {
-                fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
+                copy(input_path, &path)
+                    .await
+                    .context(error::FileWriteSnafu { path })?;
             }
             TargetPath::File { path } => match replace_behavior {
                 PathExists::Skip => {}
                 PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
                 PathExists::Replace => {
-                    fs::remove_file(&path).context(error::RemoveTargetSnafu { path: &path })?;
-                    fs::copy(input_path, &path).context(error::FileWriteSnafu { path })?;
+                    remove_file(&path)
+                        .await
+                        .context(error::RemoveTargetSnafu { path: &path })?;
+                    copy(input_path, &path)
+                        .await
+                        .context(error::FileWriteSnafu { path })?;
                 }
             },
             TargetPath::Symlink { path } => {
@@ -578,10 +628,27 @@ impl TargetsWalker for SignedDelegatedTargets {
     }
 }
 
+/// Wrapper trait to help with HKTB lifetimes
+trait WalkOperator<S, In, Out, TN>:
+    FnMut(S, In, Out, PathExists, Option<TN>) -> <Self as WalkOperator<S, In, Out, TN>>::Fut
+{
+    type Fut: Future<Output = <Self as WalkOperator<S, In, Out, TN>>::Output> + Send;
+    type Output;
+}
+impl<S, In, Out, TN, F, Fut> WalkOperator<S, In, Out, TN> for F
+where
+    F: FnMut(S, In, Out, PathExists, Option<TN>) -> Fut,
+    Fut: Future + Send,
+{
+    type Fut = Fut;
+    type Output = Fut::Output;
+}
+
 /// `TargetsWalker` is used to unify the logic related to copying and linking targets.
 /// `TargetsWalker`'s default implementation of `walk_targets()` and `target_path()` use
 /// the trait's `targets()` and `consistent_snapshot()` methods to get a map of targets and
 /// also determine if a file prefix needs to be used.
+#[async_trait]
 trait TargetsWalker {
     /// Returns a map of all targets this manager is responsible for
     fn targets(&self) -> HashMap<TargetName, &Target>;
@@ -591,26 +658,46 @@ trait TargetsWalker {
     /// Walks a given directory and calls the provided function with every file found.
     /// The function is given the file path, the output directory where the user expects
     /// it to go, and optionally a desired filename.
-    fn walk_targets<F>(
+    async fn walk_targets<F>(
         &self,
         indir: &Path,
         outdir: &Path,
-        f: F,
+        mut f: F,
         replace_behavior: PathExists,
     ) -> Result<()>
     where
-        F: Fn(&Self, &Path, &Path, PathExists, Option<&TargetName>) -> Result<()>,
+        F: for<'a, 'b, 'c, 'd> WalkOperator<
+                &'a Self,
+                &'b Path,
+                &'c Path,
+                &'d TargetName,
+                Output = Result<()>,
+            > + Send,
     {
-        std::fs::create_dir_all(outdir).context(error::DirCreateSnafu { path: outdir })?;
+        create_dir_all(outdir)
+            .await
+            .context(error::DirCreateSnafu { path: outdir })?;
 
         // Get the absolute path of the indir and outdir
-        let abs_indir =
-            std::fs::canonicalize(indir).context(error::AbsolutePathSnafu { path: indir })?;
+        let abs_indir = canonicalize(indir)
+            .await
+            .context(error::AbsolutePathSnafu { path: indir })?;
 
         // Walk the absolute path of the indir. Using the absolute path here
         // means that `entry.path()` call will return its absolute path.
-        let walker = WalkDir::new(&abs_indir).follow_links(true);
-        for entry in walker {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(10);
+        let root = abs_indir.clone();
+        tokio::task::spawn_blocking(move || {
+            let walker = WalkDir::new(&root).follow_links(true);
+            for entry in walker {
+                if tx.blocking_send(entry).is_err() {
+                    // Receiver error'ed out
+                    break;
+                };
+            }
+        });
+
+        while let Some(entry) = rx.recv().await {
             let entry = entry.context(error::WalkDirSnafu {
                 directory: &abs_indir,
             })?;
@@ -621,7 +708,7 @@ trait TargetsWalker {
             };
 
             // Call the requested function to manipulate the path we found
-            if let Err(e) = f(self, entry.path(), outdir, replace_behavior, None) {
+            if let Err(e) = f(self, entry.path(), outdir, replace_behavior, None).await {
                 match e {
                     // If we found a path that isn't a known target in the repo, skip it.
                     error::Error::PathIsNotTarget { .. } => continue,
@@ -636,14 +723,15 @@ trait TargetsWalker {
     /// Determines the output path of a target based on consistent snapshot rules. Returns Err if
     /// the target already exists in the repo with a different hash, or if the target is not known
     /// to the repo.  (We're dealing with a signed repo, so it's too late to add targets.)
-    fn target_path(
+    async fn target_path(
         &self,
         input: &Path,
         outdir: &Path,
         target_filename: Option<&TargetName>,
     ) -> Result<TargetPath> {
-        let outdir =
-            std::fs::canonicalize(outdir).context(error::AbsolutePathSnafu { path: outdir })?;
+        let outdir = tokio::fs::canonicalize(outdir)
+            .await
+            .context(error::AbsolutePathSnafu { path: outdir })?;
 
         // If the caller requested a specific target filename, use that, otherwise use the filename
         // component of the input path.
@@ -660,8 +748,9 @@ trait TargetsWalker {
         };
 
         // create a Target object using the input path.
-        let target_from_path =
-            Target::from_path(input).context(error::TargetFromPathSnafu { path: input })?;
+        let target_from_path = Target::from_path(input)
+            .await
+            .context(error::TargetFromPathSnafu { path: input })?;
 
         // Use the file name to see if a target exists in the repo
         // with that name. If so...
@@ -701,25 +790,27 @@ trait TargetsWalker {
         // unique; if we're not, then there could be a target from another repo with the same name
         // but different checksum.  We can't assume such conflicts are OK, so we fail.
         if !self.consistent_snapshot() {
-            // Use DigestAdapter to get a streaming checksum of the file without needing to hold
-            // its contents.
-            let f = fs::File::open(&dest).context(error::FileOpenSnafu { path: &dest })?;
-            let mut reader = DigestAdapter::sha256(
-                Box::new(f),
-                &repo_target.hashes.sha256,
-                Url::from_file_path(&dest)
-                    .ok() // dump unhelpful `()` error
-                    .context(error::FileUrlSnafu { path: &dest })?,
-            );
-            let mut dev_null = std::io::sink();
+            let url = Url::from_file_path(&dest)
+                .ok() // dump unhelpful `()` error
+                .context(error::FileUrlSnafu { path: &dest })?;
+
+            let stream = FilesystemTransport
+                .fetch(url.clone())
+                .await
+                .with_context(|_| error::TransportSnafu { url: url.clone() })?;
+            let stream = DigestAdapter::sha256(stream, &repo_target.hashes.sha256, url.clone());
+
             // The act of reading with the DigestAdapter verifies the checksum, assuming the read
             // succeeds.
-            std::io::copy(&mut reader, &mut dev_null)
-                .context(error::FileReadSnafu { path: &dest })?;
+            stream
+                .try_for_each(|_| ready(Ok(())))
+                .await
+                .context(error::TransportSnafu { url })?;
         }
 
-        let metadata =
-            fs::symlink_metadata(&dest).context(error::FileMetadataSnafu { path: &dest })?;
+        let metadata = symlink_metadata(&dest)
+            .await
+            .context(error::FileMetadataSnafu { path: &dest })?;
         if metadata.file_type().is_file() {
             Ok(TargetPath::File { path: dest })
         } else if metadata.file_type().is_symlink() {

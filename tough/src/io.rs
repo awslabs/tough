@@ -1,133 +1,160 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::error;
+use crate::{error, transport::TransportStream, TransportError};
+use futures::StreamExt;
+use futures_core::Stream;
 use ring::digest::{Context, SHA256};
-use std::io::{self, Read};
+use std::{convert::TryInto, path::Path, task::Poll};
+use tokio::fs;
 use url::Url;
 
-pub(crate) struct DigestAdapter<'a> {
+pub(crate) struct DigestAdapter {
     url: Url,
-    reader: Box<dyn Read + Send + 'a>,
+    stream: TransportStream,
     hash: Vec<u8>,
-    digest: Option<Context>,
+    digest: Context,
 }
 
-impl<'a> DigestAdapter<'a> {
-    pub(crate) fn sha256(reader: Box<dyn Read + Send + 'a>, hash: &[u8], url: Url) -> Self {
+impl DigestAdapter {
+    pub(crate) fn sha256(stream: TransportStream, hash: &[u8], url: Url) -> TransportStream {
         Self {
             url,
-            reader,
+            stream,
             hash: hash.to_owned(),
-            digest: Some(Context::new(&SHA256)),
+            digest: Context::new(&SHA256),
         }
+        .boxed()
     }
 }
 
-impl<'a> Read for DigestAdapter<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        assert!(
-            self.digest.is_some(),
-            "DigestAdapter::read called after end of file"
-        );
+impl Stream for DigestAdapter {
+    type Item = <TransportStream as Stream>::Item;
 
-        let size = self.reader.read(buf)?;
-        if size == 0 {
-            let result = self.digest.take().unwrap().finish();
-            if result.as_ref() != self.hash.as_slice() {
-                error::HashMismatchSnafu {
-                    context: self.url.to_string(),
-                    calculated: hex::encode(result),
-                    expected: hex::encode(&self.hash),
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let poll = self.stream.as_mut().poll_next(cx);
+        match &poll {
+            Poll::Ready(Some(Ok(bytes))) => {
+                self.digest.update(bytes);
+            }
+            Poll::Ready(None) => {
+                let result = &self.digest.clone().finish();
+                if result.as_ref() != self.hash.as_slice() {
+                    let mismatch_err = error::HashMismatchSnafu {
+                        context: self.url.to_string(),
+                        calculated: hex::encode(result),
+                        expected: hex::encode(&self.hash),
+                    }
+                    .build();
+                    return Poll::Ready(Some(Err(TransportError::new_with_cause(
+                        crate::TransportErrorKind::Other,
+                        self.url.clone(),
+                        mismatch_err,
+                    ))));
                 }
-                .fail()?;
             }
-            Ok(size)
-        } else if let Some(digest) = &mut self.digest {
-            digest.update(&buf[..size]);
-            Ok(size)
-        } else {
-            unreachable!();
-        }
+            Poll::Ready(Some(Err(_))) | Poll::Pending => (),
+        };
+
+        poll
     }
 }
 
-pub(crate) struct MaxSizeAdapter<'a> {
-    reader: Box<dyn Read + Send + 'a>,
-    /// How the `max_size` was specified. For example the max size of `root.json` is specified by
-    /// the `max_root_size` argument in `Settings`. `specifier` is used to construct an error
-    /// message when the `MaxSizeAdapter` detects that too many bytes have been read.
-    specifier: &'static str,
+/// Create a new stream from `stream`. The new stream returns an error for the item that exceeds the
+/// total byte count of `max_size`.
+/// * `stream` - The original stream.
+/// * `max_size` - Size limit in bytes.
+/// * `specifier` - Error message to use.
+pub(crate) fn max_size_adapter(
+    stream: TransportStream,
+    url: Url,
     max_size: u64,
-    counter: u64,
-}
-
-impl<'a> MaxSizeAdapter<'a> {
-    pub(crate) fn new(
-        reader: Box<dyn Read + Send + 'a>,
-        specifier: &'static str,
-        max_size: u64,
-    ) -> Self {
-        Self {
-            reader,
-            specifier,
-            max_size,
-            counter: 0,
+    specifier: &'static str,
+) -> TransportStream {
+    let mut size: u64 = 0;
+    let stream = stream.map(move |chunk| {
+        if let Ok(bytes) = &chunk {
+            size = size.saturating_add(bytes.len().try_into().unwrap_or(u64::MAX));
         }
-    }
-}
-
-impl<'a> Read for MaxSizeAdapter<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let size = self.reader.read(buf)?;
-        self.counter += size as u64;
-        if self.counter > self.max_size {
-            error::MaxSizeExceededSnafu {
-                max_size: self.max_size,
-                specifier: self.specifier,
+        if size > max_size {
+            let size_err = error::MaxSizeExceededSnafu {
+                max_size,
+                specifier,
             }
-            .fail()?;
+            .build();
+            return Err(TransportError::new_with_cause(
+                crate::TransportErrorKind::Other,
+                url.clone(),
+                size_err,
+            ));
         }
-        Ok(size)
-    }
+        chunk
+    });
+
+    stream.boxed()
+}
+
+/// Async analogue of `std::path::Path::is_file`
+pub async fn is_file(path: impl AsRef<Path>) -> bool {
+    fs::metadata(path)
+        .await
+        .map(|m| m.is_file())
+        .unwrap_or(false)
+}
+
+/// Async analogue of `std::path::Path::is_dir`
+pub async fn is_dir(path: impl AsRef<Path>) -> bool {
+    fs::metadata(path)
+        .await
+        .map(|m| m.is_dir())
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::io::{DigestAdapter, MaxSizeAdapter};
+    use crate::{
+        io::{max_size_adapter, DigestAdapter},
+        transport::IntoVec,
+    };
+    use bytes::Bytes;
+    use futures::{stream, StreamExt};
     use hex_literal::hex;
-    use std::io::{Cursor, Read};
     use url::Url;
 
-    #[test]
-    fn test_max_size_adapter() {
-        let mut reader = MaxSizeAdapter::new(Box::new(Cursor::new(b"hello".to_vec())), "test", 5);
-        let mut buf = Vec::new();
-        assert!(reader.read_to_end(&mut buf).is_ok());
+    #[tokio::test]
+    async fn test_max_size_adapter() {
+        let url = Url::parse("file:///").unwrap();
+
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
+        let stream = max_size_adapter(stream, url.clone(), 5, "test");
+        let buf = stream.into_vec().await.expect("consuming entire stream");
         assert_eq!(buf, b"hello");
 
-        let mut reader = MaxSizeAdapter::new(Box::new(Cursor::new(b"hello".to_vec())), "test", 4);
-        let mut buf = Vec::new();
-        assert!(reader.read_to_end(&mut buf).is_err());
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
+        let stream = max_size_adapter(stream, url, 4, "test");
+        assert!(stream.into_vec().await.is_err());
     }
 
-    #[test]
-    fn test_digest_adapter() {
-        let mut reader = DigestAdapter::sha256(
-            Box::new(Cursor::new(b"hello".to_vec())),
+    #[tokio::test]
+    async fn test_digest_adapter() {
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
+        let stream = DigestAdapter::sha256(
+            stream,
             &hex!("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"),
             Url::parse("file:///").unwrap(),
         );
-        let mut buf = Vec::new();
-        assert!(reader.read_to_end(&mut buf).is_ok());
+        let buf = stream.into_vec().await.expect("consuming entire stream");
         assert_eq!(buf, b"hello");
 
-        let mut reader = DigestAdapter::sha256(
-            Box::new(Cursor::new(b"hello".to_vec())),
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
+        let stream = DigestAdapter::sha256(
+            stream,
             &hex!("0ebdc3317b75839f643387d783535adc360ca01f33c75f7c1e7373adcd675c0b"),
             Url::parse("file:///").unwrap(),
         );
-        let mut buf = Vec::new();
-        assert!(reader.read_to_end(&mut buf).is_err());
+        assert!(stream.into_vec().await.is_err());
     }
 }

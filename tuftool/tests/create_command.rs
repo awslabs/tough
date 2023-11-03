@@ -5,14 +5,13 @@ mod test_utils;
 
 use assert_cmd::Command;
 use chrono::{Duration, Utc};
-use std::fs::File;
 use tempfile::TempDir;
 use test_utils::dir_url;
 use tough::{RepositoryLoader, TargetName};
 
-#[test]
+#[tokio::test]
 // Ensure we can read a repo created by the `tuftool` binary using the `tough` library
-fn create_command() {
+async fn create_command() {
     let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
     let timestamp_version: u64 = 1234;
     let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
@@ -57,27 +56,28 @@ fn create_command() {
 
     // Load our newly created repo
     let repo = RepositoryLoader::new(
-        File::open(root_json).unwrap(),
+        &tokio::fs::read(root_json).await.unwrap(),
         dir_url(repo_dir.path().join("metadata")),
         dir_url(repo_dir.path().join("targets")),
     )
     .load()
+    .await
     .unwrap();
 
     // Ensure we can read the targets
     let file1 = TargetName::new("file1.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file1).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file1).await.unwrap().unwrap()).await,
         &b"This is an example target file."[..]
     );
     let file2 = TargetName::new("file2.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file2).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file2).await.unwrap().unwrap()).await,
         &b"This is an another example target file."[..]
     );
     let file3 = TargetName::new("file3.txt").unwrap();
     assert_eq!(
-        test_utils::read_to_end(repo.read_target(&file3).unwrap().unwrap()),
+        test_utils::read_to_end(repo.read_target(&file3).await.unwrap().unwrap()).await,
         &b"This is role1's target file."[..]
     );
 

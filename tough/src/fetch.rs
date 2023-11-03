@@ -2,43 +2,33 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::error::{self, Result};
-use crate::io::{DigestAdapter, MaxSizeAdapter};
-use crate::transport::Transport;
+use crate::io::{max_size_adapter, DigestAdapter};
+use crate::transport::{Transport, TransportStream};
 use snafu::ResultExt;
-use std::io::Read;
 use url::Url;
 
-pub(crate) fn fetch_max_size<'a>(
-    transport: &'a dyn Transport,
+pub(crate) async fn fetch_max_size(
+    transport: &dyn Transport,
     url: Url,
     max_size: u64,
     specifier: &'static str,
-) -> Result<impl Read + Send + 'a> {
-    Ok(MaxSizeAdapter::new(
-        transport
-            .fetch(url.clone())
-            .context(error::TransportSnafu { url })?,
-        specifier,
-        max_size,
-    ))
+) -> Result<TransportStream> {
+    let stream = transport
+        .fetch(url.clone())
+        .await
+        .with_context(|_| error::TransportSnafu { url: url.clone() })?;
+
+    let stream = max_size_adapter(stream, url, max_size, specifier);
+    Ok(stream)
 }
 
-pub(crate) fn fetch_sha256<'a>(
-    transport: &'a dyn Transport,
+pub(crate) async fn fetch_sha256(
+    transport: &dyn Transport,
     url: Url,
     size: u64,
     specifier: &'static str,
     sha256: &[u8],
-) -> Result<impl Read + Send + 'a> {
-    Ok(DigestAdapter::sha256(
-        Box::new(MaxSizeAdapter::new(
-            transport
-                .fetch(url.clone())
-                .context(error::TransportSnafu { url: url.clone() })?,
-            specifier,
-            size,
-        )),
-        sha256,
-        url,
-    ))
+) -> Result<TransportStream> {
+    let stream = fetch_max_size(transport, url.clone(), size, specifier).await?;
+    Ok(DigestAdapter::sha256(stream, sha256, url))
 }

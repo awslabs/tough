@@ -51,24 +51,26 @@ pub(crate) struct AddKeyArgs {
 }
 
 impl AddKeyArgs {
-    pub(crate) fn run(&self, role: &str) -> Result<()> {
+    pub(crate) async fn run(&self, role: &str) -> Result<()> {
         // load the repo
-        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone())?;
+        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone()).await?;
         self.add_key(
             role,
             TargetsEditor::from_repo(repository, role)
                 .context(error::EditorFromRepoSnafu { path: &self.root })?,
         )
+        .await
     }
 
     /// Adds keys to a role using targets Editor
-    fn add_key(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
+    async fn add_key(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         // create the keypairs to add
         let mut key_pairs = HashMap::new();
         for source in &self.new_keys {
             let key_source = parse_key_source(source)?;
             let key_pair = key_source
                 .as_sign()
+                .await
                 .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
             key_pairs.insert(
@@ -92,10 +94,12 @@ impl AddKeyArgs {
             .version(self.version)
             .expires(self.expires)
             .sign(&keys)
+            .await
             .context(error::SignRepoSnafu)?;
         let metadata_destination_out = &self.outdir.join("metadata");
         updated_role
             .write(metadata_destination_out, false)
+            .await
             .context(error::WriteRolesSnafu {
                 roles: [role.to_string()].to_vec(),
             })?;

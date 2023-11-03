@@ -4,11 +4,11 @@ use chrono::{DateTime, TimeZone, Utc};
 use maplit::hashmap;
 use ring::rand::SystemRandom;
 use std::collections::HashMap;
-use std::fs::{self, create_dir_all, File};
 use std::num::NonZeroU64;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::{dir_url, test_data, DATA_1, DATA_2, DATA_3};
+use tokio::fs;
 use tough::editor::signed::SignedRole;
 use tough::editor::RepositoryEditor;
 use tough::key_source::{KeySource, LocalKeySource};
@@ -23,12 +23,12 @@ fn later() -> DateTime<Utc> {
 }
 
 /// This test ensures that we can safely handle path-like target names with ../'s in them.
-fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySource>> {
+async fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySource>> {
     let keys: Vec<Box<dyn KeySource>> = vec![Box::new(LocalKeySource {
         path: test_data().join("snakeoil.pem"),
     })];
 
-    let key_pair = keys.get(0).unwrap().as_sign().unwrap().tuf_key();
+    let key_pair = keys.get(0).unwrap().as_sign().await.unwrap().tuf_key();
     let key_id = key_pair.key_id().unwrap();
 
     let empty_keys = RoleKeys {
@@ -64,21 +64,24 @@ fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySo
         &keys,
         &SystemRandom::new(),
     )
+    .await
     .unwrap();
 
-    std::fs::write(root_path, signed_root.buffer()).unwrap();
+    tokio::fs::write(root_path, signed_root.buffer())
+        .await
+        .unwrap();
 
     keys
 }
 
-#[test]
-fn safe_target_paths() {
+#[tokio::test]
+async fn safe_target_paths() {
     let tempdir = TempDir::new().unwrap();
     let root_path = tempdir.path().join("root.json");
-    let keys = create_root(&root_path, false);
+    let keys = create_root(&root_path, false).await;
     let one = NonZeroU64::new(1).unwrap();
 
-    let mut editor = RepositoryEditor::new(&root_path).unwrap();
+    let mut editor = RepositoryEditor::new(&root_path).await.unwrap();
     editor
         .snapshot_version(one)
         .snapshot_expires(later())
@@ -92,24 +95,29 @@ fn safe_target_paths() {
             later(),
             one,
         )
+        .await
         .unwrap();
     let repo_dir = tempdir.path().join("repo");
     let targets_dir = repo_dir.join("targets");
-    fs::create_dir_all(targets_dir.join("foo/bar")).unwrap();
-    fs::create_dir_all(targets_dir.join("delegated/subdir")).unwrap();
+    fs::create_dir_all(targets_dir.join("foo/bar"))
+        .await
+        .unwrap();
+    fs::create_dir_all(targets_dir.join("delegated/subdir"))
+        .await
+        .unwrap();
     let targets_file_1 = targets_dir.join("data1.txt");
     let targets_file_2 = targets_dir.join("foo/bar/data2.txt");
     let targets_file_3 = targets_dir.join("delegated/subdir/data3.txt");
-    fs::write(&targets_file_1, DATA_1).unwrap();
-    fs::write(&targets_file_2, DATA_2).unwrap();
-    fs::write(&targets_file_3, DATA_3).unwrap();
+    fs::write(&targets_file_1, DATA_1).await.unwrap();
+    fs::write(&targets_file_2, DATA_2).await.unwrap();
+    fs::write(&targets_file_3, DATA_3).await.unwrap();
 
     let target_name_1 = TargetName::new("foo/../bar/../baz/../../../../data1.txt").unwrap();
-    let target_1 = Target::from_path(&targets_file_1).unwrap();
+    let target_1 = Target::from_path(&targets_file_1).await.unwrap();
     let target_name_2 = TargetName::new("foo/bar/baz/../data2.txt").unwrap();
-    let target_2 = Target::from_path(&targets_file_2).unwrap();
+    let target_2 = Target::from_path(&targets_file_2).await.unwrap();
     let target_name_3 = TargetName::new("../delegated/foo/../subdir/data3.txt").unwrap();
-    let target_3 = Target::from_path(&targets_file_3).unwrap();
+    let target_3 = Target::from_path(&targets_file_3).await.unwrap();
 
     editor.add_target(target_name_1.clone(), target_1).unwrap();
     editor.add_target(target_name_2.clone(), target_2).unwrap();
@@ -119,6 +127,7 @@ fn safe_target_paths() {
         .targets_expires(later())
         .unwrap()
         .sign_targets_editor(&keys)
+        .await
         .unwrap()
         .change_delegated_targets("delegated")
         .unwrap()
@@ -129,30 +138,35 @@ fn safe_target_paths() {
         .targets_expires(later())
         .unwrap()
         .sign_targets_editor(&keys)
+        .await
         .unwrap();
 
-    let signed_repo = editor.sign(&keys).unwrap();
+    let signed_repo = editor.sign(&keys).await.unwrap();
     let metadata_dir = repo_dir.join("metadata");
-    signed_repo.write(&metadata_dir).unwrap();
+    signed_repo.write(&metadata_dir).await.unwrap();
 
     let loaded_repo = RepositoryLoader::new(
-        File::open(&root_path).unwrap(),
+        &tokio::fs::read(&root_path).await.unwrap(),
         dir_url(&metadata_dir),
         dir_url(&targets_dir),
     )
     .load()
+    .await
     .unwrap();
 
     let outdir = tempdir.path().join("outdir");
-    create_dir_all(&outdir).unwrap();
+    fs::create_dir_all(&outdir).await.unwrap();
     loaded_repo
         .save_target(&target_name_1, &outdir, Prefix::None)
+        .await
         .unwrap();
     loaded_repo
         .save_target(&target_name_2, &outdir, Prefix::None)
+        .await
         .unwrap();
     loaded_repo
         .save_target(&target_name_3, &outdir, Prefix::None)
+        .await
         .unwrap();
 
     // These might be created if we didn't safely clean the target names as paths.
@@ -163,15 +177,19 @@ fn safe_target_paths() {
 
     // The targets should end up at these paths.
     assert_eq!(
-        fs::read_to_string(outdir.join("data1.txt")).unwrap(),
+        fs::read_to_string(outdir.join("data1.txt")).await.unwrap(),
         DATA_1
     );
     assert_eq!(
-        fs::read_to_string(outdir.join("foo/bar/data2.txt")).unwrap(),
+        fs::read_to_string(outdir.join("foo/bar/data2.txt"))
+            .await
+            .unwrap(),
         DATA_2
     );
     assert_eq!(
-        fs::read_to_string(outdir.join("delegated/subdir/data3.txt")).unwrap(),
+        fs::read_to_string(outdir.join("delegated/subdir/data3.txt"))
+            .await
+            .unwrap(),
         DATA_3
     );
 }

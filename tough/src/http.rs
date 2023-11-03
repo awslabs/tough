@@ -1,14 +1,21 @@
 //! The `http` module provides `HttpTransport` which enables `Repository` objects to be
 //! loaded over HTTP
+use crate::transport::TransportStream;
 use crate::{Transport, TransportError, TransportErrorKind};
-use log::{debug, error, trace};
-use reqwest::blocking::{Client, ClientBuilder, Request, Response};
+use async_trait::async_trait;
+use futures::{FutureExt, StreamExt};
+use futures_core::future::BoxFuture;
+use futures_core::stream::BoxStream;
+use futures_core::Stream;
+use log::trace;
 use reqwest::header::{self, HeaderValue, ACCEPT_RANGES};
+use reqwest::{Client, ClientBuilder, Request, Response};
 use reqwest::{Error, Method};
 use snafu::ResultExt;
 use snafu::Snafu;
 use std::cmp::Ordering;
-use std::io::Read;
+use std::pin::Pin;
+use std::task::Poll;
 use std::time::Duration;
 use url::Url;
 
@@ -125,93 +132,224 @@ pub struct HttpTransport {
 }
 
 /// Implement the `tough` `Transport` trait for `HttpRetryTransport`
+#[async_trait]
 impl Transport for HttpTransport {
-    /// Send a GET request to the URL. Request will be retried per the `ClientSettings`. The
-    /// returned `RetryRead` will also retry as necessary per the `ClientSettings`.
-    fn fetch(&self, url: Url) -> Result<Box<dyn Read + Send>, TransportError> {
-        let mut r = RetryState::new(self.settings.initial_backoff);
-        Ok(Box::new(
-            fetch_with_retries(&mut r, &self.settings, &url)
-                .map_err(|e| TransportError::from((url, e)))?,
-        ))
+    /// Send a GET request to the URL. The returned `TransportStream` will retry as necessary per
+    /// the `ClientSettings`.
+    async fn fetch(&self, url: Url) -> Result<TransportStream, TransportError> {
+        let r = RetryState::new(self.settings.initial_backoff);
+        Ok(fetch_with_retries(r, &self.settings, &url).boxed())
     }
 }
 
-/// This serves as a `Read`, but carries with it the necessary information to do retries.
+enum RequestState {
+    /// A response is streaming.
+    Streaming(BoxStream<'static, reqwest::Result<bytes::Bytes>>),
+    /// A request is pending.
+    Pending(BoxFuture<'static, reqwest::Result<reqwest::Response>>),
+    /// No ongoing request.
+    None,
+}
+
+impl std::fmt::Debug for RequestState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RequestState::Streaming(_) => f.write_str("Streaming"),
+            RequestState::Pending(_) => f.write_str("Executing"),
+            RequestState::None => f.write_str("None"),
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct RetryRead {
+pub(crate) struct RetryStream {
     retry_state: RetryState,
     settings: HttpTransportBuilder,
-    response: Response,
     url: Url,
+    request: RequestState,
+    done: bool,
+    has_range_support: bool,
 }
 
-impl Read for RetryRead {
-    /// Read bytes into `buf`, retrying as necessary.
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        // retry loop
-        loop {
-            let retry_err = match self.response.read(buf) {
-                Ok(sz) => {
-                    self.retry_state.next_byte += sz;
-                    return Ok(sz);
-                }
-                // store the error in `retry_err` to return later if there are no more retries
-                Err(err) => err,
-            };
-            debug!("error during read of '{}': {:?}", self.url, retry_err);
+impl Stream for RetryStream {
+    type Item = Result<bytes::Bytes, TransportError>;
 
-            // increment the `retry_state` and fetch a new reader if retries are not exhausted
-            if self.retry_state.current_try >= self.settings.tries - 1 {
-                // we are out of retries, so return the last known error.
-                return Err(retry_err);
-            }
-            self.retry_state.increment(&self.settings);
-            self.err_if_no_range_support(retry_err)?;
-            // wait, then retry the request (with a range header).
-            std::thread::sleep(self.retry_state.wait);
-            let new_retry_read =
-                fetch_with_retries(&mut self.retry_state, &self.settings, &self.url)
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-            // the new fetch succeeded so we need to replace our read object with the new one.
-            self.response = new_retry_read.response;
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        if self.done {
+            return Poll::Ready(None);
         }
+
+        self.poll_streaming(cx)
+            .or_else(|| self.poll_executing(cx))
+            .unwrap_or_else(|| match self.poll_new_request(cx) {
+                Ok(poll) => poll,
+                Err(e) => Poll::Ready(Some(Err((self.url.clone(), e).into()))),
+            })
     }
 }
 
-impl RetryRead {
-    /// Checks for the header `Accept-Ranges: bytes`
-    fn supports_range(&self) -> bool {
-        if let Some(ranges) = self.response.headers().get(ACCEPT_RANGES) {
-            if let Ok(val) = ranges.to_str() {
-                if val.contains("bytes") {
-                    return true;
-                }
-            }
-        }
-        false
+impl RetryStream {
+    pub fn poll_err<E>(&mut self, error: E) -> Poll<Option<Result<bytes::Bytes, TransportError>>>
+    where
+        E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    {
+        self.done = true;
+        Poll::Ready(Some(Err(TransportError::new_with_cause(
+            TransportErrorKind::Other,
+            self.url.clone(),
+            error,
+        ))))
     }
 
-    /// Returns an error when we have received an error during read, but our server does not support
-    /// range headers. Our retry implementation considers this a fatal condition rather that trying
-    /// to start over from the beginning and advancing the `Read` to the point where failure
-    /// occurred.
-    fn err_if_no_range_support(&self, e: std::io::Error) -> std::io::Result<()> {
-        if !self.supports_range() {
-            // we cannot send a byte range request to this server, so return the error
-            error!(
-                "an error occurred and we cannot retry because the server \
-                    does not support range requests '{}': {:?}",
-                self.url, e
-            );
-            return Err(e);
+    fn poll_streaming(
+        self: &mut Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Option<std::task::Poll<Option<<Self as Stream>::Item>>> {
+        let RequestState::Streaming(stream) = &mut self.request else {
+            return None;
+        };
+        let next = stream.as_mut().poll_next(cx);
+        match next {
+            // Success. End stream.
+            Poll::Ready(None) => {
+                self.done = true;
+                Poll::Ready(None)
+            }
+            // New chunk received, keep track of position for potential recovery.
+            Poll::Ready(Some(Ok(data))) => {
+                self.retry_state.next_byte += data.len();
+                Poll::Ready(Some(Ok(data)))
+            }
+            // Error while streaming the response body. Try to recover.
+            Poll::Ready(Some(Err(err))) => match ErrorClass::from(err) {
+                ErrorClass::Fatal(e) => self.poll_err(e),
+                ErrorClass::FileNotFound(_) => unreachable!("streaming the response body already"),
+                ErrorClass::Retryable(e) => {
+                    if self.may_retry() {
+                        match self.poll_new_request(cx) {
+                            Ok(poll) => poll,
+                            Err(_) => self.poll_err(e),
+                        }
+                    } else {
+                        self.poll_err(e)
+                    }
+                }
+            },
+            Poll::Pending => Poll::Pending,
         }
-        Ok(())
+        .into()
+    }
+
+    fn poll_executing(
+        self: &mut Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Option<std::task::Poll<Option<<Self as Stream>::Item>>> {
+        let RequestState::Pending(request) = &mut self.request else {
+            return None;
+        };
+        match request.as_mut().poll(cx) {
+            Poll::Ready(response) => {
+                let http_result: HttpResult = response.into();
+                match http_result {
+                    HttpResult::Ok(response) => {
+                        trace!("{:?} - returning from successful fetch", self.retry_state);
+                        if let Some(ranges) = response.headers().get(ACCEPT_RANGES) {
+                            if let Ok(val) = ranges.to_str() {
+                                if val.contains("bytes") {
+                                    self.has_range_support = true;
+                                }
+                            }
+                        }
+                        self.request = RequestState::Streaming(response.bytes_stream().boxed());
+                        cx.waker().wake_by_ref();
+                        Poll::Pending
+                    }
+                    HttpResult::Err(ErrorClass::Fatal(e)) => {
+                        trace!(
+                            "{:?} - returning fatal error from fetch: {}",
+                            self.retry_state,
+                            e
+                        );
+                        self.poll_err(e)
+                    }
+                    HttpResult::Err(ErrorClass::FileNotFound(e)) => {
+                        trace!(
+                            "{:?} - returning file not found from fetch: {}",
+                            self.retry_state,
+                            e
+                        );
+                        self.done = true;
+                        Poll::Ready(Some(Err(TransportError::new_with_cause(
+                            TransportErrorKind::FileNotFound,
+                            self.url.clone(),
+                            e,
+                        ))))
+                    }
+                    HttpResult::Err(ErrorClass::Retryable(e)) => {
+                        trace!("{:?} - retryable error: {}", self.retry_state, e);
+                        if self.may_retry() {
+                            match self.poll_new_request(cx) {
+                                Ok(poll) => poll,
+                                Err(_) => self.poll_err(e),
+                            }
+                        } else {
+                            self.poll_err(e)
+                        }
+                    }
+                }
+            }
+            Poll::Pending => Poll::Pending,
+        }
+        .into()
+    }
+    /// Check all criteria for a retry and account for it.
+    fn may_retry(&mut self) -> bool {
+        let tries_left = self
+            .settings
+            .tries
+            .saturating_sub(self.retry_state.current_try);
+
+        self.retry_state.increment(&self.settings);
+
+        tries_left > 0 && (self.has_range_support || self.retry_state.next_byte == 0)
+    }
+
+    /// Move to `RequestState::Executing`.
+    fn poll_new_request(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> Result<Poll<Option<Result<bytes::Bytes, TransportError>>>, HttpError> {
+        // create a reqwest client
+        let client = ClientBuilder::new()
+            .timeout(self.settings.timeout)
+            .connect_timeout(self.settings.connect_timeout)
+            .build()
+            .context(HttpClientSnafu)?;
+
+        // build the request
+        let request = build_request(&client, self.retry_state.next_byte, &self.url)?;
+
+        let backoff = self.retry_state.wait;
+
+        let delayed_request = async move {
+            tokio::time::sleep(backoff).await;
+            client.execute(request).await
+        }
+        .boxed();
+
+        self.request = RequestState::Pending(delayed_request);
+
+        // start polling the new request
+        cx.waker().wake_by_ref();
+        Ok(Poll::Pending)
     }
 }
 
 /// A private struct that serves as the retry counter.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct RetryState {
     /// The current try we are on. First try is zero.
     current_try: u32,
@@ -251,65 +389,30 @@ impl RetryState {
 }
 
 /// Sends a `GET` request to the `url`. Retries the request as necessary per the `ClientSettings`.
-fn fetch_with_retries(
-    r: &mut RetryState,
-    cs: &HttpTransportBuilder,
-    url: &Url,
-) -> Result<RetryRead, HttpError> {
+fn fetch_with_retries(r: RetryState, cs: &HttpTransportBuilder, url: &Url) -> RetryStream {
     trace!("beginning fetch for '{}'", url);
-    // create a reqwest client
-    let client = ClientBuilder::new()
-        .timeout(cs.timeout)
-        .connect_timeout(cs.connect_timeout)
-        .build()
-        .context(HttpClientSnafu)?;
 
-    // retry loop
-    loop {
-        // build the request
-        let request = build_request(&client, r.next_byte, url)?;
-
-        // send the GET request, then categories the outcome by converting to an HttpResult.
-        let http_result: HttpResult = client.execute(request).into();
-
-        match http_result {
-            HttpResult::Ok(response) => {
-                trace!("{:?} - returning from successful fetch", r);
-                return Ok(RetryRead {
-                    retry_state: *r,
-                    settings: *cs,
-                    response,
-                    url: url.clone(),
-                });
-            }
-            HttpResult::Fatal(err) => {
-                trace!("{:?} - returning fatal error from fetch: {}", r, err);
-                return Err(err).context(FetchFatalSnafu);
-            }
-            HttpResult::FileNotFound(err) => {
-                trace!("{:?} - returning file not found from fetch: {}", r, err);
-                return Err(err).context(FetchFileNotFoundSnafu);
-            }
-            HttpResult::Retryable(err) => {
-                trace!("{:?} - retryable error: {}", r, err);
-                if r.current_try >= cs.tries - 1 {
-                    debug!("{:?} - returning failure, no more retries: {}", r, err);
-                    return Err(err).context(FetchNoMoreRetriesSnafu { tries: cs.tries });
-                }
-            }
-        }
-
-        r.increment(cs);
-        std::thread::sleep(r.wait);
+    RetryStream {
+        retry_state: r,
+        settings: *cs,
+        url: url.clone(),
+        request: RequestState::None,
+        done: false,
+        has_range_support: false,
     }
 }
 
+/// A newtype result for ergonomic conversions.
+enum HttpResult {
+    Ok(reqwest::Response),
+    Err(ErrorClass),
+}
+
+/// Group reqwest errors into interesting cases.
 /// Much of the complexity in the `fetch_with_retries` function is in deciphering the `Result`
 /// we get from `reqwest::Client::execute`. Using this enum we categorize the states of the
 /// `Result` into the categories that we need to understand.
-enum HttpResult {
-    /// We got a response with an HTTP code that indicates success.
-    Ok(reqwest::blocking::Response),
+enum ErrorClass {
     /// We got an `Error` (other than file-not-found) which we will not retry.
     Fatal(reqwest::Error),
     /// The file could not be found (HTTP status 403 or 404).
@@ -320,7 +423,7 @@ enum HttpResult {
 
 /// Takes the `Result` type from `reqwest::Client::execute`, and categorizes it into an
 /// `HttpResult` variant.
-impl From<Result<reqwest::blocking::Response, reqwest::Error>> for HttpResult {
+impl From<Result<reqwest::Response, reqwest::Error>> for HttpResult {
     fn from(result: Result<Response, Error>) -> Self {
         match result {
             Ok(response) => {
@@ -328,28 +431,33 @@ impl From<Result<reqwest::blocking::Response, reqwest::Error>> for HttpResult {
                 // checks the status code of the response for errors
                 parse_response_code(response)
             }
-            Err(e) if e.is_timeout() => {
-                // a connection timeout occurred
-                trace!("timeout error during fetch: {}", e);
-                HttpResult::Retryable(e)
-            }
-            Err(e) if e.is_request() => {
-                // an error occurred while sending the request
-                trace!("error sending request during fetch: {}", e);
-                HttpResult::Retryable(e)
-            }
-            Err(e) => {
-                // the error is not from an HTTP status code or a timeout, retries will not succeed.
-                // these appear to be internal, reqwest errors and are expected to be unlikely.
-                trace!("internal reqwest error during fetch: {}", e);
-                HttpResult::Fatal(e)
-            }
+            Err(e) => Self::Err(e.into()),
+        }
+    }
+}
+
+/// Catergorize a `request::Error` into a `HttpResult` variant.
+impl From<reqwest::Error> for ErrorClass {
+    fn from(err: reqwest::Error) -> Self {
+        if err.is_timeout() {
+            // a connection timeout occurred
+            trace!("timeout error during fetch: {}", err);
+            ErrorClass::Retryable(err)
+        } else if err.is_request() {
+            // an error occurred while sending the request
+            trace!("error sending request during fetch: {}", err);
+            ErrorClass::Retryable(err)
+        } else {
+            // the error is not from an HTTP status code or a timeout, retries will not succeed.
+            // these appear to be internal, reqwest errors and are expected to be unlikely.
+            trace!("internal reqwest error during fetch: {}", err);
+            ErrorClass::Fatal(err)
         }
     }
 }
 
 /// Checks the HTTP response code and converts a non-successful response code to an error.
-fn parse_response_code(response: reqwest::blocking::Response) -> HttpResult {
+fn parse_response_code(response: reqwest::Response) -> HttpResult {
     match response.error_for_status() {
         Ok(ok) => {
             trace!("response is success");
@@ -362,19 +470,19 @@ fn parse_response_code(response: reqwest::blocking::Response) -> HttpResult {
                 // this shouldn't happen, we received this err from the err_for_status function,
                 // so the error should have a status. we cannot consider this a retryable error.
                 trace!("error is fatal (no status): {}", err);
-                HttpResult::Fatal(err)
+                HttpResult::Err(ErrorClass::Fatal(err))
             }
             Some(status) if status.is_server_error() => {
                 trace!("error is retryable: {}", err);
-                HttpResult::Retryable(err)
+                HttpResult::Err(ErrorClass::Retryable(err))
             }
             Some(status) if matches!(status.as_u16(), 403 | 404 | 410) => {
                 trace!("error is file not found: {}", err);
-                HttpResult::FileNotFound(err)
+                HttpResult::Err(ErrorClass::FileNotFound(err))
             }
             Some(_) => {
                 trace!("error is fatal (status): {}", err);
-                HttpResult::Fatal(err)
+                HttpResult::Err(ErrorClass::Fatal(err))
             }
         },
     }

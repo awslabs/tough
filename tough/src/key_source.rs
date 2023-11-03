@@ -5,6 +5,7 @@
 //! obtained, for example, from local files or from cloud provider key stores.
 use crate::error;
 use crate::sign::{parse_keypair, Sign};
+use async_trait::async_trait;
 use snafu::ResultExt;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -12,12 +13,15 @@ use std::result::Result;
 
 /// This trait should be implemented for each source of signing keys. Examples
 /// of sources include: files, AWS SSM, etc.
+#[async_trait]
 pub trait KeySource: Debug + Send + Sync {
     /// Returns an object that implements the `Sign` trait
-    fn as_sign(&self) -> Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>>;
+    async fn as_sign(
+        &self,
+    ) -> Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
     /// Writes a key back to the `KeySource`
-    fn write(
+    async fn write(
         &self,
         value: &str,
         key_id_hex: &str,
@@ -32,18 +36,24 @@ pub struct LocalKeySource {
 }
 
 /// Implements the `KeySource` trait for a `LocalKeySource` (file)
+#[async_trait]
 impl KeySource for LocalKeySource {
-    fn as_sign(&self) -> Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let data = std::fs::read(&self.path).context(error::FileReadSnafu { path: &self.path })?;
+    async fn as_sign(
+        &self,
+    ) -> Result<Box<dyn Sign>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let data = tokio::fs::read(&self.path)
+            .await
+            .context(error::FileReadSnafu { path: &self.path })?;
         Ok(Box::new(parse_keypair(&data)?))
     }
 
-    fn write(
+    async fn write(
         &self,
         value: &str,
         _key_id_hex: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-        Ok(std::fs::write(&self.path, value.as_bytes())
+        Ok(tokio::fs::write(&self.path, value.as_bytes())
+            .await
             .context(error::FileWriteSnafu { path: &self.path })?)
     }
 }

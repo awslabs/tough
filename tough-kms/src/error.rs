@@ -17,16 +17,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 #[allow(missing_docs)]
 pub enum Error {
-    /// The library failed to instantiate 'tokio Runtime'.
-    #[snafu(display("Unable to create tokio runtime: {}", source))]
-    RuntimeCreation {
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
-    /// The library failed to join 'tokio Runtime'.
-    #[snafu(display("Unable to join tokio thread used to offload async workloads"))]
-    ThreadJoin,
-
     /// The library failed to get public key from AWS KMS
     #[snafu(display(
     "Failed to get public key for aws-kms://{}/{} : {}",

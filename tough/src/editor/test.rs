@@ -47,20 +47,20 @@ mod tests {
     }
 
     // Make sure we can't create a repo without any data
-    #[test]
-    fn empty_repository() {
+    #[tokio::test]
+    async fn empty_repository() {
         let root_key = key_path();
         let key_source = LocalKeySource { path: root_key };
         let root_path = root_path();
 
-        let editor = RepositoryEditor::new(root_path).unwrap();
-        assert!(editor.sign(&[Box::new(key_source)]).is_err());
+        let editor = RepositoryEditor::new(root_path).await.unwrap();
+        assert!(editor.sign(&[Box::new(key_source)]).await.is_err());
     }
 
     // Make sure we can add targets from different sources
     #[allow(clippy::similar_names)]
-    #[test]
-    fn add_targets_from_multiple_sources() {
+    #[tokio::test]
+    async fn add_targets_from_multiple_sources() {
         let targets: Signed<Targets> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/targets.json"
         ))
@@ -68,22 +68,23 @@ mod tests {
         let target3_path = targets_path().join("file3.txt");
         let target2_path = targets_path().join("file2.txt");
         // Use file2.txt to create a "new" target
-        let target4 = Target::from_path(target2_path).unwrap();
+        let target4 = Target::from_path(target2_path).await.unwrap();
         let root_path = tuf_root_path();
 
-        let mut editor = RepositoryEditor::new(root_path).unwrap();
+        let mut editor = RepositoryEditor::new(root_path).await.unwrap();
         editor
             .targets(targets)
             .unwrap()
             .add_target(TargetName::new("file4.txt").unwrap(), target4)
             .unwrap()
             .add_target_path(target3_path)
+            .await
             .unwrap();
     }
 
     #[allow(clippy::similar_names)]
-    #[test]
-    fn clear_targets() {
+    #[tokio::test]
+    async fn clear_targets() {
         let targets: Signed<Targets> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/targets.json"
         ))
@@ -91,19 +92,20 @@ mod tests {
         let target3 = targets_path().join("file3.txt");
         let root_path = tuf_root_path();
 
-        let mut editor = RepositoryEditor::new(root_path).unwrap();
+        let mut editor = RepositoryEditor::new(root_path).await.unwrap();
         editor
             .targets(targets)
             .unwrap()
             .add_target_path(target3)
+            .await
             .unwrap()
             .clear_targets()
             .unwrap();
     }
 
     // Create and fully sign a repo
-    #[test]
-    fn complete_repository() {
+    #[tokio::test]
+    async fn complete_repository() {
         let root = root_path();
         let root_key = key_path();
         let key_source = LocalKeySource { path: root_key };
@@ -118,7 +120,7 @@ mod tests {
         let target3 = targets_path().join("file3.txt");
         let target_list = vec![target1, target2, target3];
 
-        let mut editor = RepositoryEditor::new(root).unwrap();
+        let mut editor = RepositoryEditor::new(root).await.unwrap();
         editor
             .targets_expires(targets_expiration)
             .unwrap()
@@ -129,13 +131,14 @@ mod tests {
             .timestamp_expires(timestamp_expiration)
             .timestamp_version(timestamp_version)
             .add_target_paths(target_list)
+            .await
             .unwrap();
-        assert!(editor.sign(&[Box::new(key_source)]).is_ok());
+        assert!(editor.sign(&[Box::new(key_source)]).await.is_ok());
     }
 
     // Make sure we can add existing role structs and the proper data is kept.
-    #[test]
-    fn existing_roles() {
+    #[tokio::test]
+    async fn existing_roles() {
         let targets: Signed<Targets> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/targets.json"
         ))
@@ -150,7 +153,7 @@ mod tests {
         .unwrap();
         let root_path = tuf_root_path();
 
-        let mut editor = RepositoryEditor::new(root_path).unwrap();
+        let mut editor = RepositoryEditor::new(root_path).await.unwrap();
         editor
             .targets(targets)
             .unwrap()

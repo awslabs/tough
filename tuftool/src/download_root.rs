@@ -3,15 +3,17 @@
 //! The `download_root` module owns the logic for downloading a given version of `root.json`.
 
 use crate::error::{self, Result};
+use futures::StreamExt;
 use snafu::ResultExt;
-use std::fs::File;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 use url::Url;
 
 /// Download the given version of `root.json`
 /// This is an unsafe operation, and doesn't establish trust. It should only be used for testing!
-pub(crate) fn download_root<P>(
+pub(crate) async fn download_root<P>(
     metadata_base_url: &Url,
     version: NonZeroU64,
     outdir: P,
@@ -29,15 +31,23 @@ where
         })?;
     root_warning(&path);
 
-    let mut root_request = reqwest::blocking::get(url.as_str())
+    let root_request = reqwest::get(url.as_str())
+        .await
         .context(error::ReqwestGetSnafu)?
         .error_for_status()
         .context(error::BadResponseSnafu { url })?;
 
-    let mut f = File::create(&path).context(error::OpenFileSnafu { path: &path })?;
-    root_request
-        .copy_to(&mut f)
-        .context(error::ReqwestCopySnafu)?;
+    let mut f = File::create(&path)
+        .await
+        .context(error::OpenFileSnafu { path: &path })?;
+
+    let bytes_stream = &mut root_request.bytes_stream();
+    while let Some(bytes) = bytes_stream.next().await {
+        let bytes = bytes.context(error::ReqwestCopySnafu)?;
+        f.write_all(&bytes)
+            .await
+            .with_context(|_| error::FileWriteSnafu { path: path.clone() })?;
+    }
 
     Ok(path)
 }
