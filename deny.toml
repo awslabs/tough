@@ -61,21 +61,33 @@ multiple-versions = "deny"
 wildcards = "deny"
 
 skip = [
+    # http-test is using an old version of bstr
+    { name = "bstr", version = "=0.2" },
     # num_cpus and clap is using old versions of hermit-abi
     { name = "hermit-abi" },
-    # globset is using an old version of aho-corasick
-    { name = "aho-corasick", version = "=0.7.20" },
+    # smithy-client is using an older version of hyper-rustls
+    { name = "hyper-rustls", version = "=0.23" },
     # clap and other crates use an old version of syn
     { name = "syn", version = "=1" },
     # aws-sdk-rust is using an old version of fastrand
     { name = "fastrand", version = "=1.9" },
     # several dependencies are using an old version of bitflags
     { name = "bitflags", version = "=1.3" },
+    # transient dependencies are using an older versions of regex-automata
+    { name = "regex-automata", version = "=0.1" },
+    { name = "regex-automata", version = "=0.4" },
+    # several dependencies are using an old version of socket2
+    { name = "socket2", version = "=0.4" },
     # noxious, used for testing, is using an old version of tokio-util
     { name = "tokio-util", version = "=0.6.10" },
+    # several packages are using an older version of tokio-rustls
+    { name = "tokio-rustls", version = "=0.23" },
 ]
 
 skip-tree = [
+    # many dependencies are using an older version of rustls which leads to other packages existing
+    # with multiple versions
+    { name = "rustls", version = "=0.20" }
 ]
 
 [sources]
