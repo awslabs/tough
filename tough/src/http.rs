@@ -162,7 +162,7 @@ impl std::fmt::Debug for RequestState {
 }
 
 #[derive(Debug)]
-pub(crate) struct RetryStream {
+struct RetryStream {
     retry_state: RetryState,
     settings: HttpTransportBuilder,
     url: Url,
@@ -192,7 +192,7 @@ impl Stream for RetryStream {
 }
 
 impl RetryStream {
-    pub fn poll_err<E>(&mut self, error: E) -> Poll<Option<Result<bytes::Bytes, TransportError>>>
+    fn poll_err<E>(&mut self, error: E) -> Poll<Option<Result<bytes::Bytes, TransportError>>>
     where
         E: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
