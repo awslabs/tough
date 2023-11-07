@@ -37,7 +37,7 @@ url = "2"
 walkdir = "2"
 
 [dev-dependencies]
-failure-server = { path = "../integ/failure-server", version = "0.1" }
+failure-server = { path = "../integ/failure-server" }
 hex-literal = "0.4"
 httptest = "0.15"
 maplit = "1"
