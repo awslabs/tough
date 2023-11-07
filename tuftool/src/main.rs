@@ -36,9 +36,10 @@ use futures::{StreamExt, TryStreamExt};
 use simplelog::{ColorChoice, ConfigBuilder, LevelFilter, TermLogger, TerminalMode};
 use snafu::{ErrorCompat, OptionExt, ResultExt};
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
-use tokio::io::AsyncWriteExt;
+use tokio::runtime::Handle;
 use tough::schema::Target;
 use tough::TargetName;
 use walkdir::WalkDir;
@@ -116,29 +117,38 @@ where
     .context(error::FileParseJsonSnafu { path })
 }
 
-async fn write_file<T>(path: &Path, json: &T) -> Result<()>
+async fn write_file<T>(path: &Path, json: T) -> Result<()>
 where
-    T: serde::Serialize,
+    T: serde::Serialize + Send + Sync + 'static,
 {
-    // Use `tempfile::NamedTempFile::persist` to perform an atomic file write.
-    let parent = path.parent().context(error::PathParentSnafu { path })?;
-    let file =
-        NamedTempFile::new_in(parent).context(error::FileTempCreateSnafu { path: parent })?;
+    let parent = path
+        .parent()
+        .context(error::PathParentSnafu { path })?
+        .to_path_buf();
+    let path = path.to_path_buf();
 
-    let (file, tmp_path) = file.into_parts();
-    let mut file = tokio::fs::File::from_std(file);
+    // Spawn a thread to avoid blocking.
+    let rt = Handle::current();
+    let task = rt.spawn_blocking(move || {
+        // Use `tempfile::NamedTempFile::persist` to perform an atomic file write.
+        let file =
+            NamedTempFile::new_in(&parent).context(error::FileTempCreateSnafu { path: parent })?;
 
-    let buf = serde_json::to_vec_pretty(json).context(error::FileWriteJsonSnafu { path })?;
-    file.write_all(&buf)
-        .await
-        .context(error::FileWriteSnafu { path })?;
+        let (mut file, tmp_path) = file.into_parts();
 
-    let file = file.into_std().await;
-    NamedTempFile::from_parts(file, tmp_path)
-        .persist(path)
-        .context(error::FilePersistSnafu { path })?;
+        let buf =
+            serde_json::to_vec_pretty(&json).context(error::FileWriteJsonSnafu { path: &path })?;
+        file.write_all(&buf)
+            .context(error::FileWriteSnafu { path: &path })?;
 
-    Ok(())
+        NamedTempFile::from_parts(file, tmp_path)
+            .persist(&path)
+            .context(error::FilePersistSnafu { path })?;
+
+        Ok(())
+    });
+
+    task.await.context(error::JoinTaskSnafu)?
 }
 
 // Walk the directory specified, building a map of filename to Target structs.

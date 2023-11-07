@@ -178,7 +178,7 @@ impl Command {
         let init_version = version.unwrap_or(1);
         write_file(
             path,
-            &Signed {
+            Signed {
                 signed: Root {
                     spec_version: crate::SPEC_VERSION.to_owned(),
                     consistent_snapshot: true,
@@ -210,14 +210,14 @@ impl Command {
         )
         .context(error::VersionZeroSnafu)?;
         clear_sigs(&mut root);
-        write_file(path, &root).await
+        write_file(path, root).await
     }
 
     async fn expire(path: &Path, time: &DateTime<Utc>) -> Result<()> {
         let mut root: Signed<Root> = load_file(path).await?;
         root.signed.expires = round_time(*time);
         clear_sigs(&mut root);
-        write_file(path, &root).await
+        write_file(path, root).await
     }
 
     async fn set_threshold(path: &Path, role: RoleType, threshold: NonZeroU64) -> Result<()> {
@@ -228,14 +228,14 @@ impl Command {
             .and_modify(|rk| rk.threshold = threshold)
             .or_insert_with(|| role_keys!(threshold));
         clear_sigs(&mut root);
-        write_file(path, &root).await
+        write_file(path, root).await
     }
 
     async fn set_version(path: &Path, version: NonZeroU64) -> Result<()> {
         let mut root: Signed<Root> = load_file(path).await?;
         root.signed.version = version;
         clear_sigs(&mut root);
-        write_file(path, &root).await
+        write_file(path, root).await
     }
 
     #[allow(clippy::borrowed_box)]
@@ -258,7 +258,7 @@ impl Command {
             println!("Added key: {key_id}");
         }
 
-        write_file(path, &root).await
+        write_file(path, root).await
     }
 
     async fn remove_key(path: &Path, key_id: &Decoded<Hex>, role: Option<RoleType>) -> Result<()> {
@@ -282,7 +282,7 @@ impl Command {
             root.signed.keys.remove(key_id);
         }
         clear_sigs(&mut root);
-        write_file(path, &root).await
+        write_file(path, root).await
     }
 
     #[allow(clippy::borrowed_box)]
@@ -325,7 +325,7 @@ impl Command {
             .context(error::WriteKeySourceSnafu)?;
         clear_sigs(&mut root);
         println!("{key_id}");
-        write_file(path, &root).await
+        write_file(path, root).await
     }
 
     async fn sign(
