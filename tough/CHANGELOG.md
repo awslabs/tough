@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2023-11-07
+### Changes
+- ❗Breaking Change❗: Most public functions and traits have been changed to async, thanks @phu-cinemo  [#687]
+
+[#687]: https://github.com/awslabs/tough/pull/687
+
 ## [0.14.0] - 2023-08-22
 ### Security Fixes
 - Bump openssl from 0.10.45 to 0.10.55 [#596], [#610], [#644]
@@ -241,7 +247,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.14.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.15.0...develop
+[0.15.0]: https://github.com/awslabs/tough/compare/tough-v0.14.0...tough-v0.15.0
 [0.14.0]: https://github.com/awslabs/tough/compare/tough-v0.13.0...tough-v0.14.0
 [0.13.0]: https://github.com/awslabs/tough/compare/tough-v0.12.5...tough-v0.13.0
 [0.12.5]: https://github.com/awslabs/tough/compare/tough-v0.12.4...tough-v0.12.5

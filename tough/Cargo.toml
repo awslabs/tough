@@ -1,6 +1,6 @@
 [package]
 name = "tough"
-version = "0.14.0"
+version = "0.15.0"
 description = "The Update Framework (TUF) repository client"
 authors = ["iliana destroyer of worlds <iweller@amazon.com>"]
 license = "MIT OR Apache-2.0"
