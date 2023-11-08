@@ -151,7 +151,7 @@ To use tuftool, mount the host working directory to `/share`.
 For example, to mount the current directory for `download` you would do something like:
 
 ```shell
-finch run -it -v $(pwd):/share tuftool download "/share/some_directory" ...
+docker run -it -v $(pwd):/share tuftool download "/share/some_directory" ...
 ```
 
 ## Testing
