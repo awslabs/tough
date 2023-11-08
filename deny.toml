@@ -59,6 +59,12 @@ license-files = [
 # Deny multiple versions or wildcard dependencies.
 multiple-versions = "deny"
 wildcards = "deny"
+# failure-server is an internal package used only in testing that we do not want to publish to
+# crates.io. When including it in tough's dev dependencies, it is necessary to do so without a
+# version number or else cargo publish will fail. The lack of a version number causes cargo deny
+# to ban failure-server as a wildcard-versioned dependency. The following line allows us to refer
+# to our own internal packages without a version number.
+allow-wildcard-paths = true
 
 skip = [
     # http-test is using an old version of bstr
@@ -73,8 +79,6 @@ skip = [
     { name = "fastrand", version = "=1.9" },
     # several dependencies are using an old version of bitflags
     { name = "bitflags", version = "=1.3" },
-    # transient dependencies are using an older versions of regex-automata
-    { name = "regex-automata", version = "=0.1" },
     { name = "regex-automata", version = "=0.4" },
     # several dependencies are using an old version of socket2
     { name = "socket2", version = "=0.4" },
