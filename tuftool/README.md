@@ -142,7 +142,8 @@ You can build a simple container image to avoid needing to install the Rust tool
 To build the image run use Docker or Finch (same argument syntax, just replace `finch` for `docker`):
 
 ```shell
-finch build -t tuftool .
+cd finch
+docker build -t tuftool .
 ```
 
 To use tuftool, mount the host working directory to `/share`.
