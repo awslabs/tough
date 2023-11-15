@@ -3,9 +3,8 @@
 
 use aws_sdk_kms::config::{Credentials, Region};
 use aws_sdk_kms::{Client, Config};
-use aws_smithy_client::erase::DynConnector;
-use aws_smithy_client::test_connection::TestConnection;
-use aws_smithy_http::body::SdkBody;
+use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
+use aws_smithy_types::body::SdkBody;
 use std::path::PathBuf;
 
 /// Returns the path to our test data directory
@@ -32,7 +31,7 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
             let data = std::fs::read_to_string(path).unwrap();
 
             // Events
-            (
+            ReplayEvent::new(
                 // Request
                 http::Request::builder()
                     .body(SdkBody::from("request body"))
@@ -46,13 +45,12 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
         })
         .collect();
 
-    let conn = TestConnection::new(events);
-    let conn = DynConnector::new(conn);
+    let conn = StaticReplayClient::new(events);
 
     let conf = Config::builder()
         .credentials_provider(creds)
         .region(Region::new("us-east-1"))
-        .http_connector(conn)
+        .http_client(conn)
         .build();
 
     aws_sdk_kms::Client::from_conf(conf)
@@ -69,7 +67,7 @@ pub fn mock_client_with_status(status: u16) -> Client {
         "",
     );
 
-    let events = vec![(
+    let events = vec![ReplayEvent::new(
         // Request
         http::Request::builder()
             .body(SdkBody::from("request body"))
@@ -77,17 +75,16 @@ pub fn mock_client_with_status(status: u16) -> Client {
         // Response
         http::Response::builder()
             .status(status)
-            .body("response body")
+            .body(SdkBody::from("response body"))
             .unwrap(),
     )];
 
-    let conn = TestConnection::new(events);
-    let conn = DynConnector::new(conn);
+    let conn = StaticReplayClient::new(events);
 
     let conf = aws_sdk_kms::Config::builder()
         .credentials_provider(creds)
         .region(Region::new("us-east-1"))
-        .http_connector(conn)
+        .http_client(conn)
         .build();
 
     aws_sdk_kms::Client::from_conf(conf)
