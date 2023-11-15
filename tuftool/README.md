@@ -139,10 +139,10 @@ tuftool download \
 
 You can build a simple container image to avoid needing to install the Rust toolchain and dependencies or your local machine.
 
-To build the image run use Docker or Finch (same argument syntax, just replace `finch` for `docker`):
+To build the image use Docker or Finch (same argument syntax, just replace 
+`docker` for `finch`):
 
 ```shell
-cd finch
 docker build -t tuftool .
 ```
 
