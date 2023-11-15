@@ -20,6 +20,7 @@
 use super::error::{self, Compat, Result};
 use ring::io::der;
 use snafu::{OptionExt, ResultExt};
+use untrusted::Input;
 
 pub(super) static OID_RSA_ENCRYPTION: &[u64] = &[1, 2, 840, 113_549, 1, 1, 1];
 pub(super) static OID_EC_PUBLIC_KEY: &[u64] = &[1, 2, 840, 10_045, 2, 1];
@@ -67,14 +68,27 @@ pub(super) fn decode(
                     der::expect_tag_and_get_value(input, der::Tag::Sequence).and_then(
                         |alg_ident| {
                             alg_ident.read_all(ring::error::Unspecified, |input| {
-                                if der::expect_tag_and_get_value(input, der::Tag::OID)?
-                                    != untrusted::Input::from(&asn1_encode_oid(algorithm_oid))
+                                let expected_tag_value =
+                                    der::expect_tag_and_get_value(input, der::Tag::OID)?;
+
+                                let asn1_encode = asn1_encode_oid(algorithm_oid);
+                                let algo_encode_oid: Input<'_> =
+                                    untrusted::Input::from(&asn1_encode);
+
+                                // Note: we use "less safe" here but this is OK. With the way we are using the `Input`,
+                                // we don't need to be concerned about it being too large or being parsed multiple times.
+                                if expected_tag_value.as_slice_less_safe()
+                                    != algo_encode_oid.as_slice_less_safe()
                                 {
                                     return Err(ring::error::Unspecified);
                                 }
+
                                 if let Some(parameters_oid) = parameters_oid {
-                                    if der::expect_tag_and_get_value(input, der::Tag::OID)?
-                                        != untrusted::Input::from(&asn1_encode_oid(parameters_oid))
+                                    let asn1_encode = asn1_encode_oid(parameters_oid);
+                                    let param_encode_oid: Input<'_> =
+                                        untrusted::Input::from(&asn1_encode);
+                                    if expected_tag_value.as_slice_less_safe()
+                                        != param_encode_oid.as_slice_less_safe()
                                     {
                                         return Err(ring::error::Unspecified);
                                     }
