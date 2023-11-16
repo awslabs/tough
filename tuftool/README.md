@@ -135,6 +135,25 @@ tuftool download \
 
 `tuftool` respects the `HTTPS_PROXY` and `NO_PROXY` environment variables.
 
+## Container
+
+You can build a simple container image to avoid needing to install the Rust toolchain and dependencies or your local machine.
+
+To build the image use Docker or Finch (same argument syntax, just replace 
+`docker` for `finch`):
+
+```shell
+docker build -t tuftool .
+```
+
+To use tuftool, mount the host working directory to `/share`.
+
+For example, to mount the current directory for `download` you would do something like:
+
+```shell
+docker run -it -v $(pwd):/share tuftool download "/share/some_directory" ...
+```
+
 ## Testing
 
 Unit tests are run in the usual manner: `cargo test`.
