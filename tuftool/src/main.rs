@@ -48,6 +48,7 @@ static SPEC_VERSION: &str = "1.0.0";
 
 /// This wrapper enables global options and initializes the logger before running any subcommands.
 #[derive(Parser)]
+#[command(version)]
 struct Program {
     /// Set logging verbosity [trace|debug|info|warn|error]
     #[clap(name = "log-level", short, long, default_value = "info")]
