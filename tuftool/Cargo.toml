@@ -12,13 +12,12 @@ edition = "2018"
 integ = []
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
-aws-sdk-rust-native-tls = ["aws-config/native-tls", "aws-sdk-ssm/native-tls", "aws-sdk-kms/native-tls"]
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls",]
 
 [dependencies]
-aws-config = "0.55"
-aws-sdk-kms = "0.28"
-aws-sdk-ssm = "0.28"
+aws-config = "0.57"
+aws-sdk-kms = "0.36"
+aws-sdk-ssm = "0.36"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
@@ -26,7 +25,6 @@ hex = "0.4"
 log = "0.4"
 maplit = "1"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
-pem = "3"
 rayon = "1"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
 ring = { version = "0.17", features = ["std"] }
