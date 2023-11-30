@@ -99,7 +99,8 @@ mod http_integ {
     use crate::test_utils::test_data;
     use failure_server::IntegServers;
     use std::path::PathBuf;
-    use tough::{HttpTransportBuilder, RepositoryLoader};
+    use tough::error::Error;
+    use tough::{HttpTransport, HttpTransportBuilder, RepositoryLoader, TransportErrorKind};
     use url::Url;
 
     pub fn tuf_reference_impl() -> PathBuf {
@@ -159,5 +160,38 @@ mod http_integ {
         integ_servers
             .teardown()
             .expect("failed to stop HTTP servers");
+    }
+
+    /// A very basic sanity check that [`Repository::load`] returns an error when there is a fatal
+    /// error in the HTTP stack. In this case DNS fails to find the domain `fake`.
+    #[tokio::test]
+    async fn non_existent_tuf_repo() {
+        let result = RepositoryLoader::new(
+            &tokio::fs::read(
+                test_data()
+                    .join("tuf-reference-impl")
+                    .join("metadata")
+                    .join("1.root.json"),
+            )
+            .await
+            .unwrap(),
+            Url::parse("https://very/fake/url").unwrap(),
+            Url::parse("https://very/fake/url").unwrap(),
+        )
+        .transport(HttpTransport::default())
+        .load()
+        .await;
+
+        let err = result.err().unwrap();
+        match err {
+            Error::Transport { source, .. } => {
+                assert!(
+                    matches!(source.kind(), TransportErrorKind::Other,),
+                    "Expected TransportErrorKind 'Other', but got {:?}",
+                    source.kind()
+                )
+            }
+            e => panic!("Expected a TransportError. Got this instead: {}", e),
+        }
     }
 }
