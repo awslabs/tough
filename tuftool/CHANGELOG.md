@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2023-12-06
+### Fixes
+- Fix a bug in `tuftool root gen-rsa-key` [#729]
+
+### Changes
+- Dependency updates.
+
+[#729]: https://github.com/awslabs/tough/pull/729
+
 ## [0.10.1] - 2023-11-07
 ### Changes
 - Dependency updates.
@@ -222,7 +231,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.10.1...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.10.2...develop
+[0.10.2]: https://github.com/awslabs/tough/compare/tuftool-v0.10.1...tuftool-v0.10.2
 [0.10.1]: https://github.com/awslabs/tough/compare/tuftool-v0.10.0...tuftool-v0.10.1
 [0.10.0]: https://github.com/awslabs/tough/compare/tuftool-v0.9.0...tuftool-v0.10.0
 [0.9.0]: https://github.com/awslabs/tough/compare/tuftool-v0.8.2...tuftool-v0.9.0
