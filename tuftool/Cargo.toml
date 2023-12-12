@@ -15,9 +15,9 @@ aws-sdk-rust = ["aws-sdk-rust-rustls"]
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls",]
 
 [dependencies]
-aws-config = "0.57"
-aws-sdk-kms = "0.36"
-aws-sdk-ssm = "0.36"
+aws-config = { version = "1", features = ["behavior-version-latest"] }
+aws-sdk-kms = "1"
+aws-sdk-ssm = "1"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
