@@ -97,4 +97,15 @@ mod tests {
         ))
         .is_ok());
     }
+
+    /// Ensure that we can deserialize a root.json file that has pem-encoded ECDSA keys. This uses
+    /// sigstore's root.json file taken from here:
+    /// `<https://github.com/sigstore/sigstore-rs/blob/8a269a3/trust_root/prod/root.json>`
+    #[test]
+    fn ecdsa_pem_encoded_keys() {
+        assert!(serde_json::from_str::<Signed<Root>>(include_str!(
+            "../../tests/data/pem-encoded-ecdsa-sig-keys/root.json"
+        ))
+        .is_ok());
+    }
 }

@@ -84,6 +84,8 @@ pub(super) fn decode(
                                 }
 
                                 if let Some(parameters_oid) = parameters_oid {
+                                    let expected_tag_value =
+                                        der::expect_tag_and_get_value(input, der::Tag::OID)?;
                                     let asn1_encode = asn1_encode_oid(parameters_oid);
                                     let param_encode_oid: Input<'_> =
                                         untrusted::Input::from(&asn1_encode);
