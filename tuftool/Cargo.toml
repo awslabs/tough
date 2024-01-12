@@ -31,7 +31,7 @@ ring = { version = "0.17", features = ["std"] }
 serde = "1"
 serde_json = "1"
 simplelog = "0.12"
-snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
+snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tough = { version = "0.16", path = "../tough", features = ["http"] }

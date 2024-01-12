@@ -18,7 +18,7 @@ tough = { version = "0.16", path = "../tough", features = ["http"] }
 ring = { version = "0.17", features = ["std"] }
 aws-sdk-kms = "0.36"
 aws-config = "0.57"
-snafu = { version = "0.7", features = ["backtraces-impl-backtrace-crate"] }
+snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
 pem = "3"
 
