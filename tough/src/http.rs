@@ -48,7 +48,7 @@ impl Default for HttpTransportBuilder {
         Self {
             timeout: std::time::Duration::from_secs(30),
             connect_timeout: std::time::Duration::from_secs(10),
-            /// try / 100ms / try / 150ms / try / 225ms / try
+            // try / 100ms / try / 150ms / try / 225ms / try
             tries: 4,
             initial_backoff: std::time::Duration::from_millis(100),
             max_backoff: std::time::Duration::from_secs(1),
