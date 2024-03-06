@@ -3,6 +3,7 @@
 
 use aws_config::default_provider::credentials::DefaultCredentialsChain;
 use aws_config::default_provider::region::DefaultRegionChain;
+use aws_config::BehaviorVersion;
 use aws_sdk_ssm::Client as SsmClient;
 use snafu::ResultExt;
 use std::thread;
@@ -25,7 +26,7 @@ pub(crate) fn build_client(profile: Option<&str>) -> Result<SsmClient> {
 }
 
 async fn async_build_client(profile: Option<String>) -> SsmClient {
-    let config = aws_config::from_env();
+    let config = aws_config::defaults(BehaviorVersion::v2023_11_09());
     let client_config = if let Some(profile) = profile {
         let region = DefaultRegionChain::builder()
             .profile_name(&profile)

@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use aws_config::BehaviorVersion;
 use aws_sdk_kms::config::{Credentials, Region};
 use aws_sdk_kms::{Client, Config};
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
@@ -48,6 +49,7 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
     let conn = StaticReplayClient::new(events);
 
     let conf = Config::builder()
+        .behavior_version(BehaviorVersion::v2023_11_09())
         .credentials_provider(creds)
         .region(Region::new("us-east-1"))
         .http_client(conn)
@@ -82,6 +84,7 @@ pub fn mock_client_with_status(status: u16) -> Client {
     let conn = StaticReplayClient::new(events);
 
     let conf = aws_sdk_kms::Config::builder()
+        .behavior_version(BehaviorVersion::v2023_11_09())
         .credentials_provider(creds)
         .region(Region::new("us-east-1"))
         .http_client(conn)
