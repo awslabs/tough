@@ -13,34 +13,34 @@ use url::Url;
 #[derive(Debug, Parser)]
 pub(crate) struct DownloadArgs {
     /// Allow repo download for expired metadata
-    #[clap(long)]
+    #[arg(long)]
     allow_expired_repo: bool,
 
     /// Allow downloading the root.json file (unsafe)
-    #[clap(long)]
+    #[arg(long)]
     allow_root_download: bool,
 
     /// TUF repository metadata base URL
-    #[clap(short, long = "metadata-url")]
+    #[arg(short, long = "metadata-url")]
     metadata_base_url: Url,
 
     /// Download only these targets, if specified
-    #[clap(short = 'n', long = "target-name")]
+    #[arg(short = 'n', long = "target-name")]
     target_names: Vec<String>,
 
     /// Path to root.json file for the repository
-    #[clap(short, long)]
+    #[arg(short, long)]
     root: Option<PathBuf>,
 
     /// TUF repository targets base URL
-    #[clap(short, long = "targets-url")]
+    #[arg(short, long = "targets-url")]
     targets_base_url: Url,
 
     /// Output directory for targets (will be created and must not already exist)
     outdir: PathBuf,
 
     /// Remote root.json version number
-    #[clap(short = 'v', long, default_value = "1")]
+    #[arg(short = 'v', long, default_value = "1")]
     root_version: NonZeroU64,
 }
 
@@ -137,4 +137,10 @@ async fn handle_download(
         download_target(target).await?;
     }
     Ok(())
+}
+
+#[test]
+fn verify_download_args_cli() {
+    use clap::CommandFactory;
+    DownloadArgs::command().debug_assert()
 }
