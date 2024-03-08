@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2024-03-15
+### Fixes
+- Fix a bug in ECDSA parsing (thanks @Xynnn007) [#737]
+
+### Changes
+- Dependency updates
+
+[#737]: https://github.com/awslabs/tough/pull/737
+
 ## [0.16.0] - 2023-12-06
 ### Changes
 - Dependency updates
@@ -251,8 +260,9 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.16.0...develop
-[0.15.0]: https://github.com/awslabs/tough/compare/tough-v0.15.0...tough-v0.16.0
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.17.0...develop
+[0.17.0]: https://github.com/awslabs/tough/compare/tough-v0.16.0...tough-v0.17.0
+[0.16.0]: https://github.com/awslabs/tough/compare/tough-v0.15.0...tough-v0.16.0
 [0.15.0]: https://github.com/awslabs/tough/compare/tough-v0.14.0...tough-v0.15.0
 [0.14.0]: https://github.com/awslabs/tough/compare/tough-v0.13.0...tough-v0.14.0
 [0.13.0]: https://github.com/awslabs/tough/compare/tough-v0.12.5...tough-v0.13.0

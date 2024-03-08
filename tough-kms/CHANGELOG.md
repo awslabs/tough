@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2024-03-15
+
+### Changes
+- Dependency updates
+
 ## [0.8.0] - 2023-12-05
 
 ### Changes
@@ -128,7 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-kms-v0.8.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-kms-v0.9.0...develop
+[0.9.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.8.0...tough-kms-v0.9.0
 [0.8.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.7.0...tough-kms-v0.8.0
 [0.7.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.6.0...tough-kms-v0.7.0
 [0.6.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.5.0...tough-kms-v0.6.0
