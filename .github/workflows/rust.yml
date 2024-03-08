@@ -33,7 +33,7 @@ jobs:
           key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}
-      - run: rustup default 1.71.1
+      - run: rustup default 1.76.0
       - run: rustup component add rustfmt
       - run: rustup component add clippy
       - run: make ${{ matrix.make_target }}
