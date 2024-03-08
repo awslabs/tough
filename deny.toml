@@ -71,6 +71,8 @@ skip = [
     { name = "bstr", version = "=0.2" },
     # num_cpus and clap is using old versions of hermit-abi
     { name = "hermit-abi" },
+    # the aws rust sdk is using an older version of http
+    { name = "http", version = "=0.2" },
     # clap and other crates use an old version of syn
     { name = "syn", version = "=1" },
     # several dependencies are using an old version of bitflags

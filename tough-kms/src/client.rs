@@ -3,11 +3,12 @@
 
 use aws_config::default_provider::credentials::DefaultCredentialsChain;
 use aws_config::default_provider::region::DefaultRegionChain;
+use aws_config::BehaviorVersion;
 use aws_sdk_kms::Client as KmsClient;
 
 /// Builds a KMS client for a given profile name.
 pub(crate) async fn build_client_kms(profile: Option<&str>) -> KmsClient {
-    let config = aws_config::from_env();
+    let config = aws_config::defaults(BehaviorVersion::v2023_11_09());
     let client_config = if let Some(profile) = profile {
         let region = DefaultRegionChain::builder()
             .profile_name(profile)

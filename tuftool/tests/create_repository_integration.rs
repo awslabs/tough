@@ -72,24 +72,36 @@ fn gen_key(key: &str, root_json: &str) {
 fn add_root_key(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(["root", "add-key", root_json, key, "--role", "root"])
+        .args(["root", "add-key", root_json, "--key", key, "--role", "root"])
         .assert()
         .success();
 }
 fn add_key_all_role(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(["root", "add-key", root_json, key, "--role", "snapshot"])
+        .args([
+            "root", "add-key", root_json, "--key", key, "--role", "snapshot",
+        ])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(["root", "add-key", root_json, key, "--role", "targets"])
+        .args([
+            "root", "add-key", root_json, "--key", key, "--role", "targets",
+        ])
         .assert()
         .success();
     Command::cargo_bin("tuftool")
         .unwrap()
-        .args(["root", "add-key", root_json, key, "--role", "timestamp"])
+        .args([
+            "root",
+            "add-key",
+            root_json,
+            "--key",
+            key,
+            "--role",
+            "timestamp",
+        ])
         .assert()
         .success();
 }
