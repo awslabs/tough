@@ -1,6 +1,6 @@
 [package]
 name = "tough-ssm"
-version = "0.11.0"
+version = "0.12.0"
 description = "Implements AWS SSM as a key source for TUF signing keys"
 authors = ["Zac Mrowicki <mrowicki@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ aws-sdk-rust = ["aws-sdk-rust-rustls"]
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls"]
 
 [dependencies]
-tough = { version = "0.16", path = "../tough", features = ["http"] }
+tough = { version = "0.17", path = "../tough", features = ["http"] }
 aws-sdk-ssm = "1"
 aws-config = "1"
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }

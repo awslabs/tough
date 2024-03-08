@@ -2545,7 +2545,7 @@ dependencies = [
 
 [[package]]
 name = "tough"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2582,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "tough-kms"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "aws-config",
  "aws-sdk-kms",
@@ -2603,7 +2603,7 @@ dependencies = [
 
 [[package]]
 name = "tough-ssm"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "aws-config",
  "aws-sdk-ssm",
@@ -2756,7 +2756,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tuftool"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "assert_cmd",
  "aws-config",
