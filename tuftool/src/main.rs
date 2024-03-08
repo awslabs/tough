@@ -51,9 +51,9 @@ static SPEC_VERSION: &str = "1.0.0";
 #[command(version)]
 struct Program {
     /// Set logging verbosity [trace|debug|info|warn|error]
-    #[clap(name = "log-level", short, long, default_value = "info")]
+    #[arg(id = "log-level", short, long, default_value = "info")]
     log_level: LevelFilter,
-    #[clap(subcommand)]
+    #[command(subcommand)]
     cmd: Command,
 }
 
@@ -84,7 +84,7 @@ enum Command {
     /// Download a TUF repository's targets
     Download(download::DownloadArgs),
     /// Manipulate a root.json metadata file
-    #[clap(subcommand)]
+    #[command(subcommand)]
     Root(root::Command),
     /// Transfer a TUF repository's metadata from a previous root to a new root
     TransferMetadata(transfer_metadata::TransferMetadataArgs),
@@ -246,10 +246,10 @@ async fn main() -> ! {
 #[derive(Parser, Debug)]
 struct Delegation {
     /// The signing role
-    #[clap(long = "signing-role", required = true)]
+    #[arg(long = "signing-role", required = true)]
     role: String,
 
-    #[clap(subcommand)]
+    #[command(subcommand)]
     cmd: DelegationCommand,
 }
 
@@ -286,4 +286,22 @@ impl DelegationCommand {
             DelegationCommand::Remove(args) => args.run(role).await,
         }
     }
+}
+
+#[test]
+fn verify_program_cli() {
+    use clap::CommandFactory;
+    Program::command().debug_assert()
+}
+
+#[test]
+fn verify_command_cli() {
+    use clap::CommandFactory;
+    Command::command().debug_assert()
+}
+
+#[test]
+fn verify_delegation_cli() {
+    use clap::CommandFactory;
+    Delegation::command().debug_assert()
 }
