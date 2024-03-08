@@ -67,6 +67,8 @@ wildcards = "deny"
 allow-wildcard-paths = true
 
 skip = [
+    # some libraries are using an older version of base64
+    { name = "base64", version = "=0.21" },
     # http-test is using an old version of bstr
     { name = "bstr", version = "=0.2" },
     # num_cpus and clap is using old versions of hermit-abi
@@ -78,10 +80,19 @@ skip = [
     # several dependencies are using an old version of bitflags
     { name = "bitflags", version = "=1.3" },
     { name = "regex-automata", version = "=0.4" },
-    # several dependencies are using an old version of socket2
-    { name = "socket2", version = "=0.4" },
     # noxious, used for testing, is using an old version of tokio-util
     { name = "tokio-util", version = "=0.6.10" },
+    # tokio and mio are bringing in older versions of windows libraries while other
+    # libraries, are bringing in newer versions
+    { name = "windows-sys", version = "=0.48" },
+    { name = "windows-targets", version = "=0.48" },
+    { name = "windows_aarch64_gnullvm", version = "=0.48" },
+    { name = "windows_aarch64_msvc", version = "=0.48" },
+    { name = "windows_i686_gnu", version = "=0.48" },
+    { name = "windows_i686_msvc", version = "=0.48" },
+    { name = "windows_x86_64_gnu", version = "=0.48" },
+    { name = "windows_x86_64_gnullvm", version = "=0.48" },
+    { name = "windows_x86_64_msvc", version = "=0.48" },
 ]
 
 skip-tree = [

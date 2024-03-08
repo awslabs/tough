@@ -3,8 +3,8 @@
 
 use crate::error::{self, Result};
 
-use chrono::{DateTime, Duration, FixedOffset, Utc};
-use snafu::{ensure, ResultExt};
+use chrono::{DateTime, FixedOffset, TimeDelta, Utc};
+use snafu::{ensure, OptionExt, ResultExt};
 
 /// Parses a user-specified datetime, either in full RFC 3339 format, or a shorthand like "in 7
 /// days"
@@ -43,9 +43,24 @@ pub(crate) fn parse_datetime(input: &str) -> Result<DateTime<Utc>> {
         .context(error::DateArgCountSnafu { input })?;
 
     let duration = match unit_str {
-        "hour" | "hours" => Duration::hours(i64::from(count)),
-        "day" | "days" => Duration::days(i64::from(count)),
-        "week" | "weeks" => Duration::weeks(i64::from(count)),
+        "hour" | "hours" => {
+            TimeDelta::try_hours(i64::from(count)).context(error::DateArgInvalidSnafu {
+                input: count.to_string(),
+                msg: format!("unable to convert {count} to a number of hours"),
+            })?
+        }
+        "day" | "days" => {
+            TimeDelta::try_days(i64::from(count)).context(error::DateArgInvalidSnafu {
+                input: count.to_string(),
+                msg: format!("unable to convert {count} to a number of days"),
+            })?
+        }
+        "week" | "weeks" => {
+            TimeDelta::try_weeks(i64::from(count)).context(error::DateArgInvalidSnafu {
+                input: count.to_string(),
+                msg: format!("unable to convert {count} to a number of weeks"),
+            })?
+        }
         _ => {
             return error::DateArgInvalidSnafu {
                 input,

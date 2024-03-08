@@ -3,19 +3,20 @@
 
 mod test_utils;
 
+use crate::test_utils::days;
 use assert_cmd::Command;
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
 use tough::{RepositoryLoader, TargetName};
 
 fn create_repo<P: AsRef<Path>>(repo_dir: P) {
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(1)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(1)).unwrap();
     let timestamp_version: u64 = 31;
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(2)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(2)).unwrap();
     let snapshot_version: u64 = 25;
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let targets_version: u64 = 17;
     let targets_input_dir = test_utils::test_data()
         .join("tuf-reference-impl")
@@ -64,18 +65,18 @@ async fn create_add_role_command() {
     let repo_dir = TempDir::new().unwrap();
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
 
     // Create a repo using tuftool and the reference tuf implementation data
     create_repo(repo_dir.path());
 
     // Set new expiration date for the new role
-    let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -264,16 +265,16 @@ async fn update_target_command() {
     let repo_dir = TempDir::new().unwrap();
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
 
     // Create a repo using tuftool and the reference tuf implementation data
     create_repo(repo_dir.path());
 
     // Set new expiration date for the new role
-    let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -370,11 +371,11 @@ async fn update_target_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -446,11 +447,11 @@ async fn add_key_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -694,11 +695,11 @@ fn remove_key_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -897,11 +898,11 @@ async fn remove_role_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -1033,11 +1034,11 @@ async fn remove_role_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1106,11 +1107,11 @@ async fn remove_role_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1174,11 +1175,11 @@ async fn remove_role_recursive_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -1309,11 +1310,11 @@ async fn remove_role_recursive_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1383,11 +1384,11 @@ async fn remove_role_recursive_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1455,18 +1456,18 @@ async fn dubious_role_name() {
     let repo_dir = TempDir::new().unwrap();
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
 
     // Create a repo using tuftool and the reference tuf implementation data
     create_repo(repo_dir.path());
 
     // Set new expiration date for the new role
-    let expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 

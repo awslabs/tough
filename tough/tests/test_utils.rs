@@ -5,6 +5,7 @@
 // cause compiler warnings for unused code, so we suppress them.
 #![allow(unused)]
 
+use chrono::TimeDelta;
 use futures::TryStreamExt;
 use futures_core::Stream;
 use std::io::Read;
@@ -37,4 +38,8 @@ where
     S: IntoVec<E>,
 {
     stream.into_vec().await.unwrap()
+}
+
+pub fn days(value: i64) -> TimeDelta {
+    TimeDelta::try_days(value).unwrap()
 }

@@ -7,9 +7,13 @@ mod tests {
     use crate::key_source::LocalKeySource;
     use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp};
     use crate::TargetName;
-    use chrono::{Duration, Utc};
+    use chrono::{TimeDelta, Utc};
     use std::num::NonZeroU64;
     use std::path::PathBuf;
+
+    fn days(value: i64) -> TimeDelta {
+        TimeDelta::try_days(value).unwrap()
+    }
 
     // Path to the root.json in the reference implementation
     fn tuf_root_path() -> PathBuf {
@@ -109,11 +113,11 @@ mod tests {
         let root = root_path();
         let root_key = key_path();
         let key_source = LocalKeySource { path: root_key };
-        let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+        let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
         let timestamp_version = NonZeroU64::new(1234).unwrap();
-        let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
+        let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
         let snapshot_version = NonZeroU64::new(5432).unwrap();
-        let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
+        let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
         let targets_version = NonZeroU64::new(789).unwrap();
         let target1 = targets_path().join("file1.txt");
         let target2 = targets_path().join("file2.txt");
