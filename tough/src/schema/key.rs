@@ -57,9 +57,19 @@ pub enum Key {
         #[serde(flatten)]
         _extra: HashMap<String, Value>,
     },
-    /// An EcdsaKey
-    #[serde(rename = "ecdsa-sha2-nistp256")]
+    /// An EcdsaKey.
     Ecdsa {
+        /// The Ecdsa key.
+        keyval: EcdsaKey,
+        /// Denotes the key's signature scheme.
+        scheme: EcdsaScheme,
+        /// Any additional fields read during deserialization; will not be used.
+        #[serde(flatten)]
+        _extra: HashMap<String, Value>,
+    },
+    /// An EcdsaKey with the old key type.
+    #[serde(rename = "ecdsa-sha2-nistp256")]
+    EcdsaOld {
         /// The Ecdsa key.
         keyval: EcdsaKey,
         /// Denotes the key's signature scheme.
@@ -151,6 +161,14 @@ impl Key {
                 &ring::signature::ECDSA_P256_SHA256_ASN1,
                 untrusted::Input::from(&keyval.public),
             ),
+            Key::EcdsaOld {
+                scheme: EcdsaScheme::EcdsaSha2Nistp256,
+                keyval,
+                ..
+            } => (
+                &ring::signature::ECDSA_P256_SHA256_ASN1,
+                untrusted::Input::from(&keyval.public),
+            ),
             Key::Ed25519 {
                 scheme: Ed25519Scheme::Ed25519,
                 keyval,
@@ -206,6 +224,15 @@ impl FromStr for Key {
             }
         } else if let Ok(public) = serde_plain::from_str::<Decoded<EcdsaFlex>>(s) {
             Ok(Key::Ecdsa {
+                keyval: EcdsaKey {
+                    public,
+                    _extra: HashMap::new(),
+                },
+                scheme: EcdsaScheme::EcdsaSha2Nistp256,
+                _extra: HashMap::new(),
+            })
+        } else if let Ok(public) = serde_plain::from_str::<Decoded<EcdsaFlex>>(s) {
+            Ok(Key::EcdsaOld {
                 keyval: EcdsaKey {
                     public,
                     _extra: HashMap::new(),
