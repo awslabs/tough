@@ -157,11 +157,8 @@ impl Key {
                 scheme: EcdsaScheme::EcdsaSha2Nistp256,
                 keyval,
                 ..
-            } => (
-                &ring::signature::ECDSA_P256_SHA256_ASN1,
-                untrusted::Input::from(&keyval.public),
-            ),
-            Key::EcdsaOld {
+            }
+            | Key::EcdsaOld {
                 scheme: EcdsaScheme::EcdsaSha2Nistp256,
                 keyval,
                 ..
@@ -224,15 +221,6 @@ impl FromStr for Key {
             }
         } else if let Ok(public) = serde_plain::from_str::<Decoded<EcdsaFlex>>(s) {
             Ok(Key::Ecdsa {
-                keyval: EcdsaKey {
-                    public,
-                    _extra: HashMap::new(),
-                },
-                scheme: EcdsaScheme::EcdsaSha2Nistp256,
-                _extra: HashMap::new(),
-            })
-        } else if let Ok(public) = serde_plain::from_str::<Decoded<EcdsaFlex>>(s) {
-            Ok(Key::EcdsaOld {
                 keyval: EcdsaKey {
                     public,
                     _extra: HashMap::new(),
