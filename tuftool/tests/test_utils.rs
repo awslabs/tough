@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use assert_cmd::Command;
-use chrono::{Duration, Utc};
+use chrono::{TimeDelta, Utc};
 use std::path::{Path, PathBuf};
 use tough::IntoVec;
 use url::Url;
@@ -33,15 +33,20 @@ where
     stream.into_vec().await.unwrap()
 }
 
+#[allow(unused)]
+pub fn days(value: i64) -> TimeDelta {
+    TimeDelta::try_days(value).unwrap()
+}
+
 /// Creates a repository with expired timestamp metadata.
 #[allow(unused)]
 pub fn create_expired_repo<P: AsRef<Path>>(repo_dir: P) {
     // Expired time stamp
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(-1)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(-1)).unwrap();
     let timestamp_version: u64 = 31;
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(2)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(2)).unwrap();
     let snapshot_version: u64 = 25;
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let targets_version: u64 = 17;
     let targets_input_dir = test_data().join("tuf-reference-impl").join("targets");
     let root_json = test_data().join("simple-rsa").join("root.json");

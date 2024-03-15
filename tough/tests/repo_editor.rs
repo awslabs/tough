@@ -1,8 +1,8 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::test_utils::{dir_url, read_to_end, test_data};
-use chrono::{Duration, Utc};
+use crate::test_utils::{days, dir_url, read_to_end, test_data};
+use chrono::Utc;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
@@ -78,11 +78,11 @@ async fn load_tuf_reference_impl(paths: &mut RepoPaths) -> Repository {
 
 async fn test_repo_editor() -> RepositoryEditor {
     let root = root_path();
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
     let snapshot_version = NonZeroU64::new(5432).unwrap();
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
     let targets_version = NonZeroU64::new(789).unwrap();
     let target3 = targets_path().join("file3.txt");
     let target_list = vec![target3];
@@ -127,11 +127,11 @@ async fn repository_editor_from_repository() {
 #[tokio::test]
 async fn create_sign_write_reload_repo() {
     let root = root_path();
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
     let snapshot_version = NonZeroU64::new(5432).unwrap();
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
     let targets_version = NonZeroU64::new(789).unwrap();
     let target3 = targets_path().join("file3.txt");
     let target_list = vec![target3];
@@ -170,7 +170,7 @@ async fn create_sign_write_reload_repo() {
             role1_key,
             PathSet::Paths(vec![PathPattern::new("file?.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
+            Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .await
@@ -190,7 +190,7 @@ async fn create_sign_write_reload_repo() {
             role2_key,
             PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
+            Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .await
@@ -200,7 +200,7 @@ async fn create_sign_write_reload_repo() {
             role1_key,
             PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
+            Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .await
@@ -220,7 +220,7 @@ async fn create_sign_write_reload_repo() {
             role2_key,
             PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
             NonZeroU64::new(1).unwrap(),
-            Utc::now().checked_add_signed(Duration::days(21)).unwrap(),
+            Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
         )
         .await
@@ -277,7 +277,7 @@ async fn create_role_flow() {
     // create new delegated target as "A" and sign with role1_key
     let new_role = TargetsEditor::new("A")
         .version(NonZeroU64::new(1).unwrap())
-        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .expires(Utc::now().checked_add_signed(days(21)).unwrap())
         .sign(role1_key)
         .await
         .unwrap();
@@ -321,11 +321,11 @@ async fn create_role_flow() {
     //sign everything since targets key is the same as snapshot and timestamp
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
     let snapshot_version = NonZeroU64::new(5432).unwrap();
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
     let targets_version = NonZeroU64::new(789).unwrap();
     editor
         .targets_expires(targets_expiration)
@@ -362,7 +362,7 @@ async fn create_role_flow() {
     // create new delegated target as "B" and sign with role2_key
     let new_role = TargetsEditor::new("B")
         .version(NonZeroU64::new(1).unwrap())
-        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .expires(Utc::now().checked_add_signed(days(21)).unwrap())
         .sign(role2_key)
         .await
         .unwrap();
@@ -402,7 +402,7 @@ async fn create_role_flow() {
         .await
         .unwrap()
         .version(NonZeroU64::new(1).unwrap())
-        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
+        .expires(Utc::now().checked_add_signed(days(21)).unwrap());
 
     // sign A and write A and B metadata to output directory
     let signed_roles = editor.sign(role1_key).await.unwrap();
@@ -441,9 +441,9 @@ async fn create_role_flow() {
         .unwrap();
     editor
         .snapshot_version(NonZeroU64::new(1).unwrap())
-        .snapshot_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .snapshot_expires(Utc::now().checked_add_signed(days(21)).unwrap())
         .timestamp_version(NonZeroU64::new(1).unwrap())
-        .timestamp_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
+        .timestamp_expires(Utc::now().checked_add_signed(days(21)).unwrap());
 
     let signed_refreshed_repo = editor.sign(&[Box::new(key_source)]).await.unwrap();
 
@@ -501,7 +501,7 @@ async fn update_targets_flow() {
     // create new delegated target as "A" and sign with role1_key
     let new_role = TargetsEditor::new("A")
         .version(NonZeroU64::new(1).unwrap())
-        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .expires(Utc::now().checked_add_signed(days(21)).unwrap())
         .sign(role1_key)
         .await
         .unwrap();
@@ -545,11 +545,11 @@ async fn update_targets_flow() {
     //sign everything since targets key is the same as snapshot and timestamp
     let root_key = key_path();
     let key_source = LocalKeySource { path: root_key };
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
     let snapshot_version = NonZeroU64::new(5432).unwrap();
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
     let targets_version = NonZeroU64::new(789).unwrap();
     editor
         .targets_expires(targets_expiration)
@@ -586,7 +586,7 @@ async fn update_targets_flow() {
     // create new delegated target as "B" and sign with role2_key
     let new_role = TargetsEditor::new("B")
         .version(NonZeroU64::new(1).unwrap())
-        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .expires(Utc::now().checked_add_signed(days(21)).unwrap())
         .sign(role2_key)
         .await
         .unwrap();
@@ -626,7 +626,7 @@ async fn update_targets_flow() {
         .await
         .unwrap()
         .version(NonZeroU64::new(1).unwrap())
-        .expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
+        .expires(Utc::now().checked_add_signed(days(21)).unwrap());
 
     // sign A and write A and B metadata to output directory
     let signed_roles = editor.sign(role1_key).await.unwrap();
@@ -665,9 +665,9 @@ async fn update_targets_flow() {
         .unwrap();
     editor
         .snapshot_version(NonZeroU64::new(1).unwrap())
-        .snapshot_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap())
+        .snapshot_expires(Utc::now().checked_add_signed(days(21)).unwrap())
         .timestamp_version(NonZeroU64::new(1).unwrap())
-        .timestamp_expires(Utc::now().checked_add_signed(Duration::days(21)).unwrap());
+        .timestamp_expires(Utc::now().checked_add_signed(days(21)).unwrap());
 
     let signed_refreshed_repo = editor.sign(&[Box::new(key_source)]).await.unwrap();
 

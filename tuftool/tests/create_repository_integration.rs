@@ -1,13 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-mod test_utils;
 use assert_cmd::Command;
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use std::env;
 use tempfile::TempDir;
-use test_utils::dir_url;
+use test_utils::{days, dir_url};
 use tough::{RepositoryLoader, TargetName};
+
+mod test_utils;
 
 // This file include integration tests for KeySources: tough-ssm, tough-kms and local file key.
 // Since the tests are run using the actual "AWS SSM and AWS KMS", you would have to configure
@@ -69,6 +70,7 @@ fn gen_key(key: &str, root_json: &str) {
         .assert()
         .success();
 }
+
 fn add_root_key(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
@@ -76,6 +78,7 @@ fn add_root_key(key: &str, root_json: &str) {
         .assert()
         .success();
 }
+
 fn add_key_all_role(key: &str, root_json: &str) {
     Command::cargo_bin("tuftool")
         .unwrap()
@@ -127,11 +130,11 @@ async fn create_repository(root_key: &str, auto_generate: bool) {
     add_key_all_role(root_key, root_json.to_str().unwrap());
     sign_root_json(root_key, root_json.to_str().unwrap());
     // Use root.json file to generate metadata using create command.
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version: u64 = 1234;
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
     let snapshot_version: u64 = 5432;
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
     let targets_version: u64 = 789;
     let targets_input_dir = test_utils::test_data()
         .join("tuf-reference-impl")

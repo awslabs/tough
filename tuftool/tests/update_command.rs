@@ -3,20 +3,21 @@
 
 mod test_utils;
 
+use crate::test_utils::days;
 use assert_cmd::assert::Assert;
 use assert_cmd::Command;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
 use tough::{RepositoryLoader, TargetName};
 
 fn create_repo<P: AsRef<Path>>(repo_dir: P) {
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(1)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(1)).unwrap();
     let timestamp_version: u64 = 31;
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(2)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(2)).unwrap();
     let snapshot_version: u64 = 25;
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let targets_version: u64 = 17;
     let targets_input_dir = test_utils::test_data()
         .join("tuf-reference-impl")
@@ -65,11 +66,11 @@ async fn update_command_without_new_targets() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let update_out = TempDir::new().unwrap();
@@ -137,11 +138,11 @@ async fn update_command_with_new_targets() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let new_targets_input_dir = test_utils::test_data().join("targets");
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
@@ -299,11 +300,11 @@ fn updates_expired_repo(
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     // Set expiration dates and version numbers for the update command
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(4)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let timestamp_version: u64 = 310;
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(5)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let snapshot_version: u64 = 250;
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(6)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let targets_version: u64 = 170;
     let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let mut cmd = Command::cargo_bin("tuftool").unwrap();

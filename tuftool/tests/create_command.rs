@@ -3,8 +3,9 @@
 
 mod test_utils;
 
+use crate::test_utils::days;
 use assert_cmd::Command;
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use tempfile::TempDir;
 use test_utils::dir_url;
 use tough::{RepositoryLoader, TargetName};
@@ -12,11 +13,11 @@ use tough::{RepositoryLoader, TargetName};
 #[tokio::test]
 // Ensure we can read a repo created by the `tuftool` binary using the `tough` library
 async fn create_command() {
-    let timestamp_expiration = Utc::now().checked_add_signed(Duration::days(3)).unwrap();
+    let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version: u64 = 1234;
-    let snapshot_expiration = Utc::now().checked_add_signed(Duration::days(21)).unwrap();
+    let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
     let snapshot_version: u64 = 5432;
-    let targets_expiration = Utc::now().checked_add_signed(Duration::days(13)).unwrap();
+    let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
     let targets_version: u64 = 789;
     let targets_input_dir = test_utils::test_data()
         .join("tuf-reference-impl")

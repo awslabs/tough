@@ -47,7 +47,7 @@ pub(crate) enum Error {
     },
 
     #[snafu(display("Date argument '{}' is invalid: {}", input, msg))]
-    DateArgInvalid { input: String, msg: &'static str },
+    DateArgInvalid { input: String, msg: String },
 
     #[snafu(display(
         "Date argument had count '{}' that failed to parse as integer: {}",
