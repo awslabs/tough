@@ -57,9 +57,19 @@ pub enum Key {
         #[serde(flatten)]
         _extra: HashMap<String, Value>,
     },
-    /// An EcdsaKey
-    #[serde(rename = "ecdsa-sha2-nistp256")]
+    /// An EcdsaKey.
     Ecdsa {
+        /// The Ecdsa key.
+        keyval: EcdsaKey,
+        /// Denotes the key's signature scheme.
+        scheme: EcdsaScheme,
+        /// Any additional fields read during deserialization; will not be used.
+        #[serde(flatten)]
+        _extra: HashMap<String, Value>,
+    },
+    /// An EcdsaKey with the old key type.
+    #[serde(rename = "ecdsa-sha2-nistp256")]
+    EcdsaOld {
         /// The Ecdsa key.
         keyval: EcdsaKey,
         /// Denotes the key's signature scheme.
@@ -144,6 +154,11 @@ impl Key {
     pub(super) fn verify(&self, msg: &[u8], signature: &[u8]) -> bool {
         let (alg, public_key): (&dyn VerificationAlgorithm, untrusted::Input<'_>) = match self {
             Key::Ecdsa {
+                scheme: EcdsaScheme::EcdsaSha2Nistp256,
+                keyval,
+                ..
+            }
+            | Key::EcdsaOld {
                 scheme: EcdsaScheme::EcdsaSha2Nistp256,
                 keyval,
                 ..
