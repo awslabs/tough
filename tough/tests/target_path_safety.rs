@@ -28,7 +28,7 @@ async fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn
         path: test_data().join("snakeoil.pem"),
     })];
 
-    let key_pair = keys.get(0).unwrap().as_sign().await.unwrap().tuf_key();
+    let key_pair = keys.first().unwrap().as_sign().await.unwrap().tuf_key();
     let key_id = key_pair.key_id().unwrap();
 
     let empty_keys = RoleKeys {
