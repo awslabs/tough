@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2024-03-22
+### Changes
+- Adds support for "ecdsa" key type (thanks @jku) [#754]
+- Dependency updates [#759]
+  
+[#754]: https://github.com/awslabs/tough/issues/754
+[#759]: https://github.com/awslabs/tough/pull/759
+
 ## [0.17.0] - 2024-03-15
 ### Fixes
 - Fix a bug in ECDSA parsing (thanks @Xynnn007) [#737]
@@ -260,7 +268,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.17.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.17.1...develop
+[0.17.1]: https://github.com/awslabs/tough/compare/tough-v0.17.0...tough-v0.17.1
 [0.17.0]: https://github.com/awslabs/tough/compare/tough-v0.16.0...tough-v0.17.0
 [0.16.0]: https://github.com/awslabs/tough/compare/tough-v0.15.0...tough-v0.16.0
 [0.15.0]: https://github.com/awslabs/tough/compare/tough-v0.14.0...tough-v0.15.0
