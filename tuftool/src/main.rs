@@ -291,17 +291,17 @@ impl DelegationCommand {
 #[test]
 fn verify_program_cli() {
     use clap::CommandFactory;
-    Program::command().debug_assert()
+    Program::command().debug_assert();
 }
 
 #[test]
 fn verify_command_cli() {
     use clap::CommandFactory;
-    Command::command().debug_assert()
+    Command::command().debug_assert();
 }
 
 #[test]
 fn verify_delegation_cli() {
     use clap::CommandFactory;
-    Delegation::command().debug_assert()
+    Delegation::command().debug_assert();
 }

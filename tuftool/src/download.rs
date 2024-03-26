@@ -142,5 +142,5 @@ async fn handle_download(
 #[test]
 fn verify_download_args_cli() {
     use clap::CommandFactory;
-    DownloadArgs::command().debug_assert()
+    DownloadArgs::command().debug_assert();
 }

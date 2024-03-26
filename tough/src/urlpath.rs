@@ -60,7 +60,7 @@ mod test {
 
         let escaped_test_path = encode_filename("a/../b/././c/..");
         let traversal_url = url_base.join(&escaped_test_path).expect(&format!(
-            "Could not create URL from unusual traveral path '{}' + '{}'",
+            "Could not create URL from unusual traversal path '{}' + '{}'",
             url_base.to_string(),
             escaped_test_path
         ));

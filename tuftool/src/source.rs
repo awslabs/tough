@@ -167,7 +167,7 @@ fn test_parse_path_or_url_path_5() {
 
 #[test]
 fn test_parse_path_or_url_path_6() {
-    let input = r#"C:\foo.txt"#;
+    let input = r"C:\foo.txt";
     let expected = PathOrUrl::Path(PathBuf::from(input));
     let actual = parse_path_or_url(input).unwrap();
     assert_eq!(expected, actual);
@@ -175,7 +175,7 @@ fn test_parse_path_or_url_path_6() {
 
 #[test]
 fn test_parse_path_or_url_path_8() {
-    let input = r#".\"#;
+    let input = r".\";
     let expected = PathOrUrl::Path(PathBuf::from(input));
     let actual = parse_path_or_url(input).unwrap();
     assert_eq!(expected, actual);
