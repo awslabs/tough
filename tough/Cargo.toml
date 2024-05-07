@@ -31,7 +31,7 @@ snafu = { version = "0.8", features = ["futures"] }
 tempfile = "3"
 tokio = { version = "1", default-features = false, features = ["io-util", "sync", "fs", "rt", "time"] }
 tokio-util = { version = "0.7", features = ["io"] }
-typed-path = "0.7"
+typed-path = "0.8"
 untrusted = "0.9"
 url = "2"
 walkdir = "2"
