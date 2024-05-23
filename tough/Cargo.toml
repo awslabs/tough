@@ -22,7 +22,7 @@ log = "0.4"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
-reqwest = { version = "0.11", optional = true, default-features = false, features = ["stream"] }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["stream"] }
 ring = { version = "0.17", features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -39,7 +39,7 @@ walkdir = "2"
 [dev-dependencies]
 failure-server = { path = "../integ/failure-server" }
 hex-literal = "0.4"
-httptest = "0.15"
+httptest = "0.16"
 maplit = "1"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-test = "0.4"

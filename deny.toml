@@ -85,6 +85,20 @@ skip = [
     { name = "windows_x86_64_gnu", version = "=0.48" },
     { name = "windows_x86_64_gnullvm", version = "=0.48" },
     { name = "windows_x86_64_msvc", version = "=0.48" },
+    # aws-smithy-runtime v1.5.4 is using old versions of these libraries
+    { name = "tokio-rustls", version = "=0.24.1" },
+    { name = "rustls", version = "=0.21.11" },
+    { name = "regex-syntax", version = "=0.6.29" },
+    { name = "hyper-rustls", version = "=0.24.2" },
+    { name = "hyper", version = "=0.14.28" },
+    { name = "http-body", version = "=0.4.6" },
+    { name = "h2", version = "=0.3.26" },
+    # toktio-rustls 0.24.1 is using an old version of rustls-webpki
+    { name = "rustls-webpki", version = "=0.101.7" },
+    # noxious-client is using an old versions of these libraries
+    { name = "winreg", version = "=0.50.0" },
+    { name = "reqwest", version = "=0.11.27" },
+    { name = "rustls-pemfile", version = "= 1.0.4" },
 ]
 
 skip-tree = [
