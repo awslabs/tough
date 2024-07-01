@@ -96,7 +96,8 @@ impl Repository {
     {
         self.cache_file_from_transport(
             self.snapshot_filename().as_str(),
-            self.max_snapshot_size()?,
+            self.max_snapshot_size()?
+                .unwrap_or(self.limits.max_snapshot_size),
             "timestamp.json",
             &metadata_outdir,
         )
@@ -237,7 +238,7 @@ impl Repository {
     }
 
     /// Gets the max size of the snapshot.json file as specified by the timestamp file.
-    fn max_snapshot_size(&self) -> Result<u64> {
+    fn max_snapshot_size(&self) -> Result<Option<u64>> {
         let snapshot_meta =
             self.timestamp()
                 .signed
