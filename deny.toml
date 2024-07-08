@@ -1,11 +1,4 @@
 [licenses]
-unlicensed = "deny"
-
-# Deny licenses unless they are specifically listed here
-copyleft = "deny"
-allow-osi-fsf-free = "neither"
-default = "deny"
-
 # We want really high confidence when inferring licenses from text
 confidence-threshold = 0.93
 
@@ -69,8 +62,6 @@ allow-wildcard-paths = true
 skip = [
     # some libraries are using an older version of base64
     { name = "base64", version = "=0.21" },
-    # http-test is using an old version of bstr
-    { name = "bstr", version = "=0.2" },
     # the aws rust sdk is using an older version of http
     { name = "http", version = "=0.2" },
     { name = "http-body", version = "=0.4" },
