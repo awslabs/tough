@@ -26,6 +26,7 @@ pub(crate) fn build_client(profile: Option<&str>) -> Result<SsmClient> {
 }
 
 async fn async_build_client(profile: Option<String>) -> SsmClient {
+    #[allow(deprecated)] // pinning to v2023_11_09 for now
     let config = aws_config::defaults(BehaviorVersion::v2023_11_09());
     let client_config = if let Some(profile) = profile {
         let region = DefaultRegionChain::builder()

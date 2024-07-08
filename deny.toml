@@ -71,17 +71,16 @@ skip = [
     { name = "base64", version = "=0.21" },
     # http-test is using an old version of bstr
     { name = "bstr", version = "=0.2" },
-    # num_cpus and clap is using old versions of hermit-abi
-    { name = "hermit-abi" },
-    # heck duplicates
-    { name = "heck", version = "=0.4" },
     # the aws rust sdk is using an older version of http
     { name = "http", version = "=0.2" },
-    # clap and other crates use an old version of syn
+    { name = "http-body", version = "=0.4" },
+    # noxious and other crates use an old version of syn
     { name = "syn", version = "=1" },
     # several dependencies are using an old version of bitflags
     { name = "bitflags", version = "=1.3" },
+    # several dependencies are using an old version of regex-automata
     { name = "regex-automata", version = "=0.4" },
+    { name = "regex-syntax", version = "=0.6" },
     # noxious, used for testing, is using an old version of tokio-util
     { name = "tokio-util", version = "=0.6.10" },
     # tokio and mio are bringing in older versions of windows libraries while other

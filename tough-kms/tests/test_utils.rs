@@ -48,6 +48,7 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
 
     let conn = StaticReplayClient::new(events);
 
+    #[allow(deprecated)] // pinning to v2023_11_09 for now
     let conf = Config::builder()
         .behavior_version(BehaviorVersion::v2023_11_09())
         .credentials_provider(creds)
@@ -83,6 +84,7 @@ pub fn mock_client_with_status(status: u16) -> Client {
 
     let conn = StaticReplayClient::new(events);
 
+    #[allow(deprecated)] // pinning to v2023_11_09 for now
     let conf = aws_sdk_kms::Config::builder()
         .behavior_version(BehaviorVersion::v2023_11_09())
         .credentials_provider(creds)
