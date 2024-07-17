@@ -49,7 +49,7 @@ pub fn mock_client(data_files: Vec<&str>) -> Client {
     let conn = StaticReplayClient::new(events);
 
     let conf = Config::builder()
-        .behavior_version(BehaviorVersion::v2023_11_09())
+        .behavior_version(BehaviorVersion::v2024_03_28())
         .credentials_provider(creds)
         .region(Region::new("us-east-1"))
         .http_client(conn)
@@ -84,7 +84,7 @@ pub fn mock_client_with_status(status: u16) -> Client {
     let conn = StaticReplayClient::new(events);
 
     let conf = aws_sdk_kms::Config::builder()
-        .behavior_version(BehaviorVersion::v2023_11_09())
+        .behavior_version(BehaviorVersion::v2024_03_28())
         .credentials_provider(creds)
         .region(Region::new("us-east-1"))
         .http_client(conn)
