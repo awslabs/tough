@@ -612,7 +612,7 @@ pub enum Error {
         source: schema::Error,
     },
 
-    /// SignedDelegatedTargets has more than 1 signed targets
+    /// `SignedDelegatedTargets` has more than 1 signed targets
     #[snafu(display("Exactly 1 role was required, but {} were created", count))]
     InvalidRoleCount { count: usize },
 
@@ -620,7 +620,7 @@ pub enum Error {
     #[snafu(display("Could not create a targets map: {}", source))]
     TargetsMap { source: schema::Error },
 
-    /// A key_holder wasn't set
+    /// A `key_holder` wasn't set
     #[snafu(display("A key holder must be set"))]
     NoKeyHolder,
 

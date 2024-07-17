@@ -61,7 +61,7 @@ pub struct KmsKeySource {
     pub profile: Option<String>,
     /// Identifies an asymmetric CMK in AWS KMS.
     pub key_id: String,
-    /// KmsClient Object to query AWS KMS
+    /// `KmsClient` Object to query AWS KMS
     pub client: Option<KmsClient>,
     /// Signing Algorithm to be used for the message digest, only `KmsSigningAlgorithm::RsassaPssSha256` is supported at present.
     pub signing_algorithm: KmsSigningAlgorithm,
@@ -146,7 +146,7 @@ pub struct KmsRsaKey {
     key_id: String,
     /// Aws account profile
     profile: Option<String>,
-    /// KmsClient Object to query AWS KMS
+    /// `KmsClient` Object to query AWS KMS
     client: Option<KmsClient>,
     /// Public Key corresponding to Customer Managed Key
     public_key: Decoded<RsaPem>,

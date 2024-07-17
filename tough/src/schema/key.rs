@@ -57,7 +57,7 @@ pub enum Key {
         #[serde(flatten)]
         _extra: HashMap<String, Value>,
     },
-    /// An EcdsaKey.
+    /// An Ecdsa key.
     Ecdsa {
         /// The Ecdsa key.
         keyval: EcdsaKey,
@@ -67,7 +67,7 @@ pub enum Key {
         #[serde(flatten)]
         _extra: HashMap<String, Value>,
     },
-    /// An EcdsaKey with the old key type.
+    /// An Ecdsa key with the old key type.
     #[serde(rename = "ecdsa-sha2-nistp256")]
     EcdsaOld {
         /// The Ecdsa key.

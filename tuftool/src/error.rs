@@ -127,9 +127,6 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Can't build URL from path '{}'", path.display()))]
-    FileUrl { path: PathBuf, backtrace: Backtrace },
-
     #[snafu(display("Failed to write to {}: {}", path.display(), source))]
     FileWrite {
         path: PathBuf,
@@ -295,25 +292,6 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Failed to add targets from directory '{}': {}", dir.display(), source))]
-    TargetsFromDir {
-        dir: PathBuf,
-        source: tough::error::Error,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Target not found: {}", target))]
-    TargetNotFound {
-        target: String,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Failed to create temporary directory: {}", source))]
-    TempDir {
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
-
     #[snafu(display("Unrecognized URL scheme \"{}\"", scheme))]
     UnrecognizedScheme {
         scheme: String,
@@ -370,12 +348,6 @@ pub(crate) enum Error {
     WriteRoles {
         roles: Vec<String>,
         source: tough::error::Error,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Failed writing target data to disk: {}", source))]
-    WriteTarget {
-        source: std::io::Error,
         backtrace: Backtrace,
     },
 
