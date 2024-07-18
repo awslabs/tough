@@ -39,7 +39,7 @@ walkdir = "2"
 [dev-dependencies]
 failure-server = { path = "../integ/failure-server" }
 hex-literal = "0.4"
-httptest = "0.15"
+httptest = "0.16"
 maplit = "1"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-test = "0.4"
