@@ -17,7 +17,7 @@ use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 pub(crate) struct Datastore {
     /// A lock around retrieving the datastore path.
     path_lock: Arc<RwLock<DatastorePath>>,
-    /// A lock to treat the system_time function as a critical section.
+    /// A lock to treat the `system_time` function as a critical section.
     time_lock: Arc<Mutex<()>>,
 }
 

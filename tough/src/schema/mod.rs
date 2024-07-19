@@ -1,4 +1,4 @@
-#![allow(clippy::used_underscore_binding)] // #20
+#![allow(clippy::used_underscore_binding, clippy::pub_underscore_fields)] // #20
 
 //! Provides the schema objects as defined by the TUF spec.
 
@@ -61,7 +61,7 @@ derive_fromstr_from_deserialize!(RoleType);
 /// A role identifier
 #[derive(Debug, Clone)]
 pub enum RoleId {
-    /// Top level roles are identified by a RoleType
+    /// Top level roles are identified by a `RoleType`
     StandardRole(RoleType),
     /// A delegated role is identified by a String
     DelegatedRole(String),
@@ -898,12 +898,12 @@ pub enum PathSet {
     #[serde(rename = "paths")]
     Paths(Vec<PathPattern>),
 
-    /// The "path_hash_prefixes" list is used to succinctly describe a set of target paths.
-    /// Specifically, each HEX_DIGEST in "path_hash_prefixes" describes a set of target paths;
-    /// therefore, "path_hash_prefixes" is the union over each prefix of its set of target paths.
+    /// The `path_hash_prefixes` list is used to succinctly describe a set of target paths.
+    /// Specifically, each `HEX_DIGEST` in `path_hash_prefixes` describes a set of target paths;
+    /// therefore, `path_hash_prefixes` is the union over each prefix of its set of target paths.
     /// The target paths must meet this condition: each target path, when hashed with the SHA-256
-    /// hash function to produce a 64-byte hexadecimal digest (HEX_DIGEST), must share the same
-    /// prefix as one of the prefixes in "path_hash_prefixes". This is useful to split a large
+    /// hash function to produce a 64-byte hexadecimal digest (`HEX_DIGEST`), must share the same
+    /// prefix as one of the prefixes in `path_hash_prefixes`. This is useful to split a large
     /// number of targets into separate bins identified by consistent hashing.
     #[serde(rename = "path_hash_prefixes")]
     PathHashPrefixes(Vec<PathHashPrefix>),
