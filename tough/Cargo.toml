@@ -38,6 +38,7 @@ typed-path = "0.9"
 untrusted = "0.7.1"
 url = "2"
 walkdir = "2"
+openssl = "0.10"
 
 [dev-dependencies]
 failure-server = { path = "../integ/failure-server" }

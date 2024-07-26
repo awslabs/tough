@@ -49,10 +49,10 @@ use url::Url;
 /// Users are welcome to add their own sources of keys by implementing
 /// the `KeySource` trait in the `tough` library. A user can then add
 /// to this parser to support them in `tuftool`.
-pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
+pub(crate) fn parse_key_source(input: &str, password: Option<String>) -> Result<Box<dyn KeySource>> {
     let path_or_url = parse_path_or_url(input)?;
     match path_or_url {
-        PathOrUrl::Path(path) => Ok(Box::new(LocalKeySource { path })),
+        PathOrUrl::Path(path) => Ok(Box::new(LocalKeySource { path, password })),
         PathOrUrl::Url(url) => {
             match url.scheme() {
                 #[cfg(any(feature = "aws-sdk-rust", feature = "aws-sdk-rust-rustls"))]
