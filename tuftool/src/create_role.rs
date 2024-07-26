@@ -27,6 +27,10 @@ pub(crate) struct CreateRoleArgs {
     #[arg(short, long, required = true)]
     keys: Vec<String>,
 
+    /// [Optional] passwords/passphrases of the Key files
+    #[arg(short, long = "password")]
+    passwords: Option<Vec<String>>,
+
     /// The directory where the repository will be written
     #[arg(short, long)]
     outdir: PathBuf,
@@ -39,8 +43,18 @@ pub(crate) struct CreateRoleArgs {
 impl CreateRoleArgs {
     pub(crate) async fn run(&self, role: &str) -> Result<()> {
         let mut keys = Vec::new();
-        for source in &self.keys {
-            let key_source = parse_key_source(source)?;
+        let default_password = String::new();
+        let passwords = match &self.passwords {
+            Some(pws) => pws,
+            None => &vec![],
+        };
+        if passwords.len() > self.keys.len() {
+            panic!("More passwords provided than key sources");
+        }
+
+        for (i, source) in self.keys.iter().enumerate() {
+            let password = passwords.get(i).unwrap_or(&default_password);
+            let key_source = parse_key_source(source, Some(password.to_string()))?;
             keys.push(key_source);
         }
 

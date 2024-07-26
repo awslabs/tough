@@ -29,6 +29,10 @@ pub(crate) struct RemoveKeyArgs {
     #[arg(short, long = "key", required = true)]
     keys: Vec<String>,
 
+    /// [Optional] passwords/passphrases of the Key files
+    #[arg(short, long = "password")]
+    passwords: Option<Vec<String>>,
+
     /// Key to be removed will look similar to `8ec3a843a0f9328c863cac4046ab1cacbbc67888476ac7acf73d9bcd9a223ada`
     #[arg(long = "keyid", required = true)]
     remove: Decoded<Hex>,
@@ -64,8 +68,18 @@ impl RemoveKeyArgs {
     /// Removes keys from a delegated role using targets Editor
     async fn remove_key(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         let mut keys = Vec::new();
-        for source in &self.keys {
-            let key_source = parse_key_source(source)?;
+        let default_password = String::new();
+        let passwords = match &self.passwords {
+            Some(pws) => pws,
+            None => &vec![], 
+        };
+
+        if passwords.len() > self.keys.len() {
+            panic!("More passwords provided than key sources");
+        }
+        for (i, source) in self.keys.iter().enumerate() {
+            let password = passwords.get(i).unwrap_or(&default_password);
+            let key_source = parse_key_source(source, Some(password.to_string()))?;
             keys.push(key_source);
         }
 

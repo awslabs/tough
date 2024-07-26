@@ -54,7 +54,7 @@ mod tests {
     #[tokio::test]
     async fn empty_repository() {
         let root_key = key_path();
-        let key_source = LocalKeySource { path: root_key };
+        let key_source = LocalKeySource { path: root_key,password: None };
         let root_path = root_path();
 
         let editor = RepositoryEditor::new(root_path).await.unwrap();
@@ -112,7 +112,7 @@ mod tests {
     async fn complete_repository() {
         let root = root_path();
         let root_key = key_path();
-        let key_source = LocalKeySource { path: root_key };
+        let key_source = LocalKeySource { path: root_key, password: None };
         let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
         let timestamp_version = NonZeroU64::new(1234).unwrap();
         let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();

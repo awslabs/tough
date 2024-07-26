@@ -31,6 +31,9 @@ pub(crate) enum Command {
         /// The new key to be added
         #[arg(short, long = "key")]
         key_source: Vec<String>,
+        /// [Optional] password of the new key to be added
+        #[arg(short, long = "password")]
+        password: Option<Vec<String>>,
         /// The role to add the key to
         #[arg(short, long = "role")]
         roles: Vec<RoleType>,
@@ -65,6 +68,9 @@ pub(crate) enum Command {
         /// The role to add the key to
         #[arg(short, long = "role")]
         roles: Vec<RoleType>,
+        /// [Optional] password/passphrase of the new key
+        #[arg(short, long = "password")]
+        password: Option<String>,
     },
     /// Create a new root.json metadata file
     Init {
@@ -107,6 +113,9 @@ pub(crate) enum Command {
         /// Key source(s) to sign the file with
         #[arg(short, long = "key")]
         key_sources: Vec<String>,
+        /// [Optional] passwords/passphrases of the Key files
+        #[arg(short, long = "password")]
+        passwords: Option<Vec<String>>,
         /// Optional - Path of older root.json that contains the key-id
         #[arg(short, long)]
         cross_sign: Option<PathBuf>,
@@ -147,7 +156,8 @@ impl Command {
                 path,
                 roles,
                 key_source,
-            } => Command::add_key(&path, &roles, &key_source).await,
+                password,
+            } => Command::add_key(&path, &roles, &key_source, &password).await,
             Command::RemoveKey { path, key_id, role } => {
                 Command::remove_key(&path, &key_id, role).await
             }
@@ -157,16 +167,27 @@ impl Command {
                 key_source,
                 bits,
                 exponent,
-            } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent).await,
+                password,
+            } => Command::gen_rsa_key(&path, &roles, &key_source, bits, exponent, password).await,
             Command::Sign {
                 path,
                 key_sources,
+                passwords,
                 cross_sign,
                 ignore_threshold,
             } => {
                 let mut keys = Vec::new();
-                for source in &key_sources {
-                    let key_source = parse_key_source(source)?;
+                let default_password = String::new();
+                let passwords = match passwords {
+                    Some(pws) => pws,
+                    None => vec![],
+                };
+                if passwords.len() > key_sources.len() {
+                    panic!("More passwords provided than key sources");
+                }
+                for (i, source) in key_sources.iter().enumerate() {
+                    let password = passwords.get(i).unwrap_or(&default_password); 
+                    let key_source = parse_key_source(source, Some(password.to_string()))?;
                     keys.push(key_source);
                 }
                 Command::sign(&path, &keys, cross_sign, ignore_threshold).await
@@ -239,10 +260,19 @@ impl Command {
     }
 
     #[allow(clippy::borrowed_box)]
-    async fn add_key(path: &Path, roles: &[RoleType], key_source: &Vec<String>) -> Result<()> {
+    async fn add_key(path: &Path, roles: &[RoleType], key_source: &Vec<String>, password: &Option<Vec<String>>) -> Result<()> {
         let mut keys = Vec::new();
-        for source in key_source {
-            let key_source = parse_key_source(source)?;
+        let default_password = String::new();
+        let passwords = match password {
+            Some(pws) => pws,
+            None => &vec![],
+        };
+        if passwords.len() > key_source.len() {
+            panic!("More passwords provided than key sources");
+        }
+        for (i, source) in key_source.iter().enumerate() {
+            let password = passwords.get(i).unwrap_or(&default_password);
+            let key_source = parse_key_source(source, Some(password.to_string()))?;
             keys.push(key_source);
         }
         let mut root: Signed<Root> = load_file(path).await?;
@@ -292,6 +322,7 @@ impl Command {
         key_source: &str,
         bits: u16,
         exponent: u32,
+        password: Option<String>,
     ) -> Result<()> {
         let mut root: Signed<Root> = load_file(path).await?;
 
@@ -303,6 +334,10 @@ impl Command {
         command.arg("-pkeyopt");
         command.arg(format!("rsa_keygen_pubexp:{exponent}"));
 
+        if let Some(password_str) = password.as_deref() {
+            command.args(["-aes256","-pass"]);
+            command.arg(format!("pass:{}",password_str));
+        }
         let command_str = format!("{command:?}");
         let output = command.output().context(error::CommandExecSnafu {
             command_str: &command_str,
@@ -317,9 +352,9 @@ impl Command {
         let stdout =
             String::from_utf8(output.stdout).context(error::CommandUtf8Snafu { command_str })?;
 
-        let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParseSnafu)?;
+        let key_pair = parse_keypair(stdout.as_bytes(),password.as_deref()).context(error::KeyPairParseSnafu)?;
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
-        let key = parse_key_source(key_source)?;
+        let key = parse_key_source(key_source,None)?;
         key.write(&stdout, &key_id)
             .await
             .context(error::WriteKeySourceSnafu)?;

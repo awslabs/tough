@@ -29,9 +29,17 @@ pub(crate) struct AddKeyArgs {
     #[arg(short, long = "key", required = true)]
     keys: Vec<String>,
 
+    /// [Optional] passwords/passphrases of the Key files to sign with
+    #[arg(short, long = "password")]
+    passwords: Option<Vec<String>>,
+
     /// New keys to be used for role
     #[arg(long = "new-key", required = true)]
     new_keys: Vec<String>,
+
+    /// [Optional] passwords/passphrases of the new keys
+    #[arg(long = "new-password")]
+    new_passwords: Option<Vec<String>>,
 
     /// TUF repository metadata base URL
     #[arg(short, long = "metadata-url")]
@@ -66,8 +74,18 @@ impl AddKeyArgs {
     async fn add_key(&self, role: &str, mut editor: TargetsEditor) -> Result<()> {
         // create the keypairs to add
         let mut key_pairs = HashMap::new();
-        for source in &self.new_keys {
-            let key_source = parse_key_source(source)?;
+        let default_password = String::new();
+        let new_passwords = match &self.new_passwords {
+            Some(pws) => pws,
+            None => &vec![],
+        };
+
+        if new_passwords.len() > self.new_keys.len() {
+            panic!("More new passwords provided than new key sources");
+        }
+        for (i, source) in self.new_keys.iter().enumerate() {
+            let password = new_passwords.get(i).unwrap_or(&default_password);
+            let key_source = parse_key_source(source,Some(password.to_string()))?;
             let key_pair = key_source
                 .as_sign()
                 .await
@@ -83,8 +101,17 @@ impl AddKeyArgs {
         }
 
         let mut keys = Vec::new();
-        for source in &self.keys {
-            let key_source = parse_key_source(source)?;
+        let passwords = match &self.passwords {
+            Some(pws) => pws,
+            None => &vec![],
+        };
+        if passwords.len() > self.keys.len() {
+            panic!("More passwords provided than key sources");
+        }
+
+        for (i,source) in self.keys.iter().enumerate() {
+            let password = passwords.get(i).unwrap_or(&default_password);
+            let key_source = parse_key_source(source,Some(password.to_string()))?;
             keys.push(key_source);
         }
 

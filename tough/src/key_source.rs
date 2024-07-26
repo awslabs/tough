@@ -33,6 +33,8 @@ pub trait KeySource: Debug + Send + Sync {
 pub struct LocalKeySource {
     /// The path to a local key file in PEM pkcs8 or RSA format.
     pub path: PathBuf,
+    /// Optional password for the key file.
+    pub password: Option<String>,
 }
 
 /// Implements the `KeySource` trait for a `LocalKeySource` (file)
@@ -44,7 +46,8 @@ impl KeySource for LocalKeySource {
         let data = tokio::fs::read(&self.path)
             .await
             .context(error::FileReadSnafu { path: &self.path })?;
-        Ok(Box::new(parse_keypair(&data)?))
+        let password: Option<&str> = self.password.as_deref();
+        Ok(Box::new(parse_keypair(&data,password)?))
     }
 
     async fn write(

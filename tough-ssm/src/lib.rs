@@ -48,7 +48,7 @@ impl KeySource for SsmKeySource {
             })?
             .as_bytes()
             .to_vec();
-        let sign = Box::new(parse_keypair(&data).context(error::KeyPairParseSnafu)?);
+        let sign = Box::new(parse_keypair(&data,None).context(error::KeyPairParseSnafu)?);
         Ok(sign)
     }
 

@@ -3149,6 +3149,7 @@ dependencies = [
  "log",
  "maplit",
  "olpc-cjson",
+ "openssl",
  "pem",
  "percent-encoding",
  "reqwest 0.12.8",

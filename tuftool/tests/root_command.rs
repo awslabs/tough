@@ -296,6 +296,7 @@ async fn cross_sign_root() {
     let new_root_key = test_utils::test_data().join("snakeoil_2.pem");
     let old_key_source = LocalKeySource {
         path: old_root_key.clone(),
+        password: None,
     };
     let old_key_id = old_key_source
         .as_sign()
