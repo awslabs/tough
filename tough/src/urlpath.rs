@@ -59,11 +59,12 @@ mod test {
             .expect("Could not create URL from CARGO_MANIFEST_DIR");
 
         let escaped_test_path = encode_filename("a/../b/././c/..");
-        let traversal_url = url_base.join(&escaped_test_path).expect(&format!(
-            "Could not create URL from unusual traversal path '{}' + '{}'",
-            url_base.to_string(),
-            escaped_test_path
-        ));
+        let traversal_url = url_base.join(&escaped_test_path).unwrap_or_else(|_| {
+            panic!(
+                "Could not create URL from unusual traversal path '{}' + '{}'",
+                url_base, escaped_test_path
+            )
+        });
 
         assert_eq!(
             manifest_dir().join("a%2F..%2Fb%2F.%2F.%2Fc%2F.."),
