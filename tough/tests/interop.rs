@@ -80,6 +80,7 @@ async fn test_tuf_reference_impl_default_transport() {
         max_root_size: 1000,
         max_targets_size: 2000,
         max_timestamp_size: 3000,
+        max_snapshot_size: 4000,
         max_root_updates: 1,
     })
     .datastore(datastore.path())

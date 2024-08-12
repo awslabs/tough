@@ -250,8 +250,8 @@ impl<'a> RepositoryLoader<'a> {
 /// are set higher than what would reasonably be expected by a repository, but not so high that the
 /// amount of data could interfere with the system.
 ///
-/// `max_root_size` and `max_timestamp_size` are the maximum size for the `root.json` and
-/// `timestamp.json` files, respectively, downloaded from the repository. These must be
+/// `max_root_size`, `max_timestamp_size` and `max_snapshot_size` are the maximum size for the `root.json`,
+/// `timestamp.json` and `snapshot.json` files, respectively, downloaded from the repository. These must be
 /// sufficiently large such that future updates to your repository's key management strategy
 /// will still be supported, but sufficiently small such that you are protected against an
 /// endless data attack (defined by TUF as an attacker responding to clients with extremely
@@ -261,6 +261,7 @@ impl<'a> RepositoryLoader<'a> {
 /// * `max_root_size`: 1 MiB
 /// * `max_targets_size`: 10 MiB
 /// * `max_timestamp_size`: 1 MiB
+/// * `max_snapshot_size`: 1 MiB
 /// * `max_root_updates`: 1024
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {
@@ -275,6 +276,9 @@ pub struct Limits {
     /// The maximum allowable size in bytes for the downloaded timestamp.json file.
     pub max_timestamp_size: u64,
 
+    /// The maximum allowable size in bytes for the downloaded snapshot.json file.
+    pub max_snapshot_size: u64,
+
     /// The maximum number of updates to root.json to download.
     pub max_root_updates: u64,
 }
@@ -285,6 +289,7 @@ impl Default for Limits {
             max_root_size: 1024 * 1024,         // 1 MiB
             max_targets_size: 1024 * 1024 * 10, // 10 MiB
             max_timestamp_size: 1024 * 1024,    // 1 MiB
+            max_snapshot_size: 1024 * 1024,     // 1 MiB
             max_root_updates: 1024,
         }
     }
@@ -360,6 +365,7 @@ impl Repository {
             transport.as_ref(),
             &root,
             &timestamp,
+            limits.max_snapshot_size,
             &datastore,
             &metadata_base_url,
             expiration_enforcement,
@@ -906,10 +912,12 @@ async fn load_timestamp(
 }
 
 /// Step 3 of the client application, which loads the snapshot metadata file.
+#[allow(clippy::too_many_lines)]
 async fn load_snapshot(
     transport: &dyn Transport,
     root: &Signed<Root>,
     timestamp: &Signed<Timestamp>,
+    max_snapshot_size: u64,
     datastore: &Datastore,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
@@ -941,14 +949,25 @@ async fn load_snapshot(
             path: path.clone(),
             url: metadata_base_url.clone(),
         })?;
-    let stream = fetch_sha256(
-        transport,
-        url.clone(),
-        snapshot_meta.length,
-        "timestamp.json",
-        &snapshot_meta.hashes.sha256,
-    )
-    .await?;
+    let stream = if let Some(hashes) = &snapshot_meta.hashes {
+        fetch_sha256(
+            transport,
+            url.clone(),
+            snapshot_meta.length.unwrap_or(max_snapshot_size),
+            "timestamp.json",
+            &hashes.sha256,
+        )
+        .await?
+    } else {
+        fetch_max_size(
+            transport,
+            url.clone(),
+            snapshot_meta.length.unwrap_or(max_snapshot_size),
+            "timestamp.json",
+        )
+        .await?
+    };
+
     let data = stream
         .into_vec()
         .await

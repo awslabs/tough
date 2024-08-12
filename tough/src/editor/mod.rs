@@ -17,8 +17,8 @@ use crate::key_source::KeySource;
 use crate::schema::decoded::{Decoded, Hex};
 use crate::schema::key::Key;
 use crate::schema::{
-    Hashes, KeyHolder, PathSet, Role, RoleType, Root, Signed, Snapshot, SnapshotMeta, Target,
-    Targets, Timestamp, TimestampMeta,
+    Hashes, KeyHolder, Metafile, PathSet, Role, RoleType, Root, Signed, Snapshot, Target, Targets,
+    Timestamp,
 };
 use crate::transport::{IntoVec, Transport};
 use crate::{encode_filename, Limits};
@@ -700,13 +700,13 @@ impl RepositoryEditor {
         Ok(snapshot)
     }
 
-    /// Build a `SnapshotMeta` struct from a given `SignedRole<R>`. This metadata
+    /// Build a `Metafiles` struct from a given `SignedRole<R>`. This metadata
     /// includes the sha256 and length of the signed role.
-    fn snapshot_meta<R>(role: &SignedRole<R>) -> SnapshotMeta
+    fn snapshot_meta<R>(role: &SignedRole<R>) -> Metafile
     where
         R: Role,
     {
-        SnapshotMeta {
+        Metafile {
             hashes: Some(Hashes {
                 sha256: role.sha256.to_vec().into(),
                 _extra: HashMap::new(),
@@ -738,18 +738,18 @@ impl RepositoryEditor {
         Ok(timestamp)
     }
 
-    /// Build a `TimestampMeta` struct from a given `SignedRole<R>`. This metadata
+    /// Build a `Metafiles` struct from a given `SignedRole<R>`. This metadata
     /// includes the sha256 and length of the signed role.
-    fn timestamp_meta<R>(role: &SignedRole<R>) -> TimestampMeta
+    fn timestamp_meta<R>(role: &SignedRole<R>) -> Metafile
     where
         R: Role,
     {
-        TimestampMeta {
-            hashes: Hashes {
+        Metafile {
+            hashes: Some(Hashes {
                 sha256: role.sha256.to_vec().into(),
                 _extra: HashMap::new(),
-            },
-            length: role.length,
+            }),
+            length: Some(role.length),
             version: role.signed.signed.version(),
             _extra: HashMap::new(),
         }
