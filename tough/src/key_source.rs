@@ -47,7 +47,7 @@ impl KeySource for LocalKeySource {
             .await
             .context(error::FileReadSnafu { path: &self.path })?;
         let password: Option<&str> = self.password.as_deref();
-        Ok(Box::new(parse_keypair(&data,password)?))
+        Ok(Box::new(parse_keypair(&data, password)?))
     }
 
     async fn write(

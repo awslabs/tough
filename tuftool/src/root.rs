@@ -186,7 +186,7 @@ impl Command {
                     panic!("More passwords provided than key sources");
                 }
                 for (i, source) in key_sources.iter().enumerate() {
-                    let password = passwords.get(i).unwrap_or(&default_password); 
+                    let password = passwords.get(i).unwrap_or(&default_password);
                     let key_source = parse_key_source(source, Some(password.to_string()))?;
                     keys.push(key_source);
                 }
@@ -260,7 +260,12 @@ impl Command {
     }
 
     #[allow(clippy::borrowed_box)]
-    async fn add_key(path: &Path, roles: &[RoleType], key_source: &Vec<String>, password: &Option<Vec<String>>) -> Result<()> {
+    async fn add_key(
+        path: &Path,
+        roles: &[RoleType],
+        key_source: &Vec<String>,
+        password: &Option<Vec<String>>,
+    ) -> Result<()> {
         let mut keys = Vec::new();
         let default_password = String::new();
         let passwords = match password {
@@ -335,8 +340,8 @@ impl Command {
         command.arg(format!("rsa_keygen_pubexp:{exponent}"));
 
         if let Some(password_str) = password.as_deref() {
-            command.args(["-aes256","-pass"]);
-            command.arg(format!("pass:{}",password_str));
+            command.args(["-aes256", "-pass"]);
+            command.arg(format!("pass:{}", password_str));
         }
         let command_str = format!("{command:?}");
         let output = command.output().context(error::CommandExecSnafu {
@@ -352,9 +357,10 @@ impl Command {
         let stdout =
             String::from_utf8(output.stdout).context(error::CommandUtf8Snafu { command_str })?;
 
-        let key_pair = parse_keypair(stdout.as_bytes(),password.as_deref()).context(error::KeyPairParseSnafu)?;
+        let key_pair = parse_keypair(stdout.as_bytes(), password.as_deref())
+            .context(error::KeyPairParseSnafu)?;
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
-        let key = parse_key_source(key_source,None)?;
+        let key = parse_key_source(key_source, None)?;
         key.write(&stdout, &key_id)
             .await
             .context(error::WriteKeySourceSnafu)?;
