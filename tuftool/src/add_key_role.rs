@@ -85,7 +85,7 @@ impl AddKeyArgs {
         }
         for (i, source) in self.new_keys.iter().enumerate() {
             let password = new_passwords.get(i).unwrap_or(&default_password);
-            let key_source = parse_key_source(source,Some(password.to_string()))?;
+            let key_source = parse_key_source(source, Some(password.to_string()))?;
             let key_pair = key_source
                 .as_sign()
                 .await
@@ -109,9 +109,9 @@ impl AddKeyArgs {
             panic!("More passwords provided than key sources");
         }
 
-        for (i,source) in self.keys.iter().enumerate() {
+        for (i, source) in self.keys.iter().enumerate() {
             let password = passwords.get(i).unwrap_or(&default_password);
-            let key_source = parse_key_source(source,Some(password.to_string()))?;
+            let key_source = parse_key_source(source, Some(password.to_string()))?;
             keys.push(key_source);
         }
 

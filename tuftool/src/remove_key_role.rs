@@ -71,7 +71,7 @@ impl RemoveKeyArgs {
         let default_password = String::new();
         let passwords = match &self.passwords {
             Some(pws) => pws,
-            None => &vec![], 
+            None => &vec![],
         };
 
         if passwords.len() > self.keys.len() {
