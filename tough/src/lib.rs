@@ -616,7 +616,7 @@ impl Repository {
 /// [urllib.parse.quote] (given a 'safe' parameter value of `""`) which follows RFC 3986 and states
 ///
 /// > Replace special characters in string using the %xx escape. Letters, digits, and the characters
-/// `_.-~` are never quoted.
+/// > `_.-~` are never quoted.
 ///
 /// [urllib.parse.quote]: https://docs.python.org/3/library/urllib.parse.html#url-quoting
 const CHARACTERS_TO_ESCAPE: AsciiSet = NON_ALPHANUMERIC

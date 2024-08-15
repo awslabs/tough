@@ -55,7 +55,7 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
         PathOrUrl::Path(path) => Ok(Box::new(LocalKeySource { path })),
         PathOrUrl::Url(url) => {
             match url.scheme() {
-                #[cfg(any(feature = "aws-sdk-rust-native-tls", feature = "aws-sdk-rust-rustls"))]
+                #[cfg(any(feature = "aws-sdk-rust", feature = "aws-sdk-rust-rustls"))]
                 "aws-ssm" => Ok(Box::new(SsmKeySource {
                     profile: url.host_str().and_then(|s| {
                         if s.is_empty() {

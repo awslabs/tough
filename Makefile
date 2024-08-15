@@ -8,7 +8,7 @@ ci: check-licenses build integ
 # installs cargo-deny
 .PHONY: cargo-deny
 cargo-deny:
-	cargo install --version 0.14.20 cargo-deny --locked
+	cargo install --version 0.14.24 cargo-deny --locked
 
 # checks each crate, and evaluates licenses. requires cargo-deny.
 .PHONY: check-licenses
