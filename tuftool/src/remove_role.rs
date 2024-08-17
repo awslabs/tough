@@ -73,7 +73,7 @@ impl RemoveRoleArgs {
             None => &vec![],
         };
         if passwords.len() > self.keys.len() {
-            panic!("More passwords provided than key sources");
+            error::MorePasswordsSnafu.fail()?;
         }
         for (i, source) in self.keys.iter().enumerate() {
             let password = passwords.get(i).unwrap_or(&default_password);

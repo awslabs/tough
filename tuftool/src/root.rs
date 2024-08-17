@@ -183,7 +183,7 @@ impl Command {
                     None => vec![],
                 };
                 if passwords.len() > key_sources.len() {
-                    panic!("More passwords provided than key sources");
+                    error::MorePasswordsSnafu.fail()?;
                 }
                 for (i, source) in key_sources.iter().enumerate() {
                     let password = passwords.get(i).unwrap_or(&default_password);
@@ -263,7 +263,7 @@ impl Command {
     async fn add_key(
         path: &Path,
         roles: &[RoleType],
-        key_source: &Vec<String>,
+        key_source: &[String],
         password: &Option<Vec<String>>,
     ) -> Result<()> {
         let mut keys = Vec::new();
@@ -273,7 +273,7 @@ impl Command {
             None => &vec![],
         };
         if passwords.len() > key_source.len() {
-            panic!("More passwords provided than key sources");
+            error::MorePasswordsSnafu.fail()?;
         }
         for (i, source) in key_source.iter().enumerate() {
             let password = passwords.get(i).unwrap_or(&default_password);
