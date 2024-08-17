@@ -38,8 +38,6 @@ typed-path = "0.9"
 untrusted = "0.7.1"
 url = "2"
 walkdir = "2"
-pkcs8 = { version = "0.7", features = ["encryption", "pem", "std"] }
-base64 = "0.21"
 
 [dev-dependencies]
 failure-server = { path = "../integ/failure-server" }

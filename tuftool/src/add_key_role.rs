@@ -81,7 +81,7 @@ impl AddKeyArgs {
         };
 
         if new_passwords.len() > self.new_keys.len() {
-            panic!("More new passwords provided than new key sources");
+            error::MoreNewPasswordsSnafu.fail()?;
         }
         for (i, source) in self.new_keys.iter().enumerate() {
             let password = new_passwords.get(i).unwrap_or(&default_password);
@@ -106,7 +106,7 @@ impl AddKeyArgs {
             None => &vec![],
         };
         if passwords.len() > self.keys.len() {
-            panic!("More passwords provided than key sources");
+            error::MorePasswordsSnafu.fail()?;
         }
 
         for (i, source) in self.keys.iter().enumerate() {
