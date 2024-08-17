@@ -341,7 +341,7 @@ impl Command {
 
         if let Some(password_str) = password.as_deref() {
             command.args(["-aes256", "-pass"]);
-            command.arg(format!("pass:{}", password_str));
+            command.arg(format!("pass:{password_str}"));
         }
         let command_str = format!("{command:?}");
         let output = command.output().context(error::CommandExecSnafu {
