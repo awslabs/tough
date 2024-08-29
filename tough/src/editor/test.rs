@@ -165,11 +165,5 @@ mod tests {
             .unwrap()
             .timestamp(timestamp.signed)
             .unwrap();
-
-        assert!(editor.snapshot_version.is_none());
-        assert!(editor.timestamp_version.is_none());
-
-        assert!(editor.snapshot_expires.is_none());
-        assert!(editor.timestamp_expires.is_none());
     }
 }

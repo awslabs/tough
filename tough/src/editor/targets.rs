@@ -47,8 +47,7 @@ const SPEC_VERSION: &str = "1.0.0";
 /// expirations are discarded. It is good practice to update these whenever
 /// a repo is changed.
 ///
-/// A  `Targets` from an existing repository can be loaded using the `from_repo()` method.
-/// `Targets` loaded this way will have the versions and expirations removed, but the
+/// A  `Targets` from an existing repository can be loaded using the `from_repo()` method.The
 /// proper keyholder to sign the targets and the `Transport` used to load the repo will be saved.
 ///
 /// Targets, versions, and expirations may be added to their respective roles
@@ -103,15 +102,14 @@ impl TargetsEditor {
     }
 
     /// Creates a `TargetsEditor` with the provided targets and keyholder
-    /// `version` and `expires` are thrown out to encourage updating the version and expiration
     pub fn from_targets(name: &str, targets: Targets, key_holder: KeyHolder) -> Self {
         TargetsEditor {
             key_holder: Some(key_holder),
             delegations: targets.delegations,
             new_targets: None,
             existing_targets: Some(targets.targets),
-            version: None,
-            expires: None,
+            version: targets.version.checked_add(1),
+            expires: Some(targets.expires),
             name: name.to_string(),
             new_roles: None,
             _extra: Some(targets._extra),
@@ -120,8 +118,7 @@ impl TargetsEditor {
         }
     }
 
-    /// Creates a `TargetsEditor` with the provided targets from an already loaded repo
-    /// `version` and `expires` are thrown out to encourage updating the version and expiration
+    /// Creates a `TargetsEditor` with the provided targets from an already loaded repo.
     /// If a `Repository` has been loaded, use `from_repo()` to preserve the `Transport` and `Limits`.
     pub fn from_repo(repo: Repository, name: &str) -> Result<Self> {
         let (targets, key_holder) = if name == "targets" {

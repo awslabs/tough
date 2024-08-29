@@ -9,7 +9,7 @@ use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use snafu::{OptionExt, ResultExt};
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use tough::editor::signed::PathExists;
 use tough::editor::RepositoryEditor;
@@ -61,11 +61,7 @@ pub(crate) struct UpdateArgs {
     /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    snapshot_expires: DateTime<Utc>,
-
-    /// Version of snapshot.json file
-    #[arg(long)]
-    snapshot_version: NonZeroU64,
+    snapshot_expires: Option<DateTime<Utc>>,
 
     /// Directory of targets
     #[arg(short, long = "add-targets")]
@@ -80,20 +76,12 @@ pub(crate) struct UpdateArgs {
     /// Expiration of targets.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    targets_expires: DateTime<Utc>,
-
-    /// Version of targets.json file
-    #[arg(long)]
-    targets_version: NonZeroU64,
+    targets_expires: Option<DateTime<Utc>>,
 
     /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    timestamp_expires: DateTime<Utc>,
-
-    /// Version of timestamp.json file
-    #[arg(long)]
-    timestamp_version: NonZeroU64,
+    timestamp_expires: Option<DateTime<Utc>>,
 }
 
 fn expired_repo_warning<P: AsRef<Path>>(path: P) {
@@ -139,16 +127,20 @@ impl UpdateArgs {
             let key_source = parse_key_source(source)?;
             keys.push(key_source);
         }
+        
+        if self.targets_expires.is_some() {
+            editor
+                .targets_expires(self.targets_expires.unwrap())
+                .context(error::DelegationStructureSnafu)?;
+        }
 
-        editor
-            .targets_version(self.targets_version)
-            .context(error::DelegationStructureSnafu)?
-            .targets_expires(self.targets_expires)
-            .context(error::DelegationStructureSnafu)?
-            .snapshot_version(self.snapshot_version)
-            .snapshot_expires(self.snapshot_expires)
-            .timestamp_version(self.timestamp_version)
-            .timestamp_expires(self.timestamp_expires);
+        if self.snapshot_expires.is_some() {
+            editor.snapshot_expires(self.snapshot_expires.unwrap());
+        }
+
+        if self.timestamp_expires.is_some() {
+            editor.timestamp_expires(self.timestamp_expires.unwrap());
+        };
 
         // If the "add-targets" argument was passed, build a list of targets
         // and add them to the repository. If a user specifies job count we

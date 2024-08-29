@@ -67,11 +67,8 @@ async fn update_command_without_new_targets() {
 
     // Set new expiration dates and version numbers for the update command
     let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
-    let new_timestamp_version: u64 = 310;
     let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
-    let new_snapshot_version: u64 = 250;
     let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
-    let new_targets_version: u64 = 170;
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let update_out = TempDir::new().unwrap();
 
@@ -90,16 +87,10 @@ async fn update_command_without_new_targets() {
             metadata_base_url.as_str(),
             "--targets-expires",
             new_targets_expiration.to_rfc3339().as_str(),
-            "--targets-version",
-            format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
             new_snapshot_expiration.to_rfc3339().as_str(),
-            "--snapshot-version",
-            format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
             new_timestamp_expiration.to_rfc3339().as_str(),
-            "--timestamp-version",
-            format!("{}", new_timestamp_version).as_str(),
         ])
         .assert()
         .success();
@@ -118,11 +109,8 @@ async fn update_command_without_new_targets() {
     assert_eq!(repo.targets().signed.targets.len(), 3);
 
     // Ensure all the metadata has been updated
-    assert_eq!(repo.targets().signed.version.get(), new_targets_version);
     assert_eq!(repo.targets().signed.expires, new_targets_expiration);
-    assert_eq!(repo.snapshot().signed.version.get(), new_snapshot_version);
     assert_eq!(repo.snapshot().signed.expires, new_snapshot_expiration);
-    assert_eq!(repo.timestamp().signed.version.get(), new_timestamp_version);
     assert_eq!(repo.timestamp().signed.expires, new_timestamp_expiration);
 }
 
@@ -139,11 +127,8 @@ async fn update_command_with_new_targets() {
 
     // Set new expiration dates and version numbers for the update command
     let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
-    let new_timestamp_version: u64 = 310;
     let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
-    let new_snapshot_version: u64 = 250;
     let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
-    let new_targets_version: u64 = 170;
     let new_targets_input_dir = test_utils::test_data().join("targets");
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let update_out = TempDir::new().unwrap();
@@ -165,16 +150,10 @@ async fn update_command_with_new_targets() {
             metadata_base_url.as_str(),
             "--targets-expires",
             new_targets_expiration.to_rfc3339().as_str(),
-            "--targets-version",
-            format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
             new_snapshot_expiration.to_rfc3339().as_str(),
-            "--snapshot-version",
-            format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
             new_timestamp_expiration.to_rfc3339().as_str(),
-            "--timestamp-version",
-            format!("{}", new_timestamp_version).as_str(),
         ])
         .assert()
         .success();
@@ -210,11 +189,8 @@ async fn update_command_with_new_targets() {
     );
 
     // Ensure all the metadata has been updated
-    assert_eq!(repo.targets().signed.version.get(), new_targets_version);
     assert_eq!(repo.targets().signed.expires, new_targets_expiration);
-    assert_eq!(repo.snapshot().signed.version.get(), new_snapshot_version);
     assert_eq!(repo.snapshot().signed.expires, new_snapshot_expiration);
-    assert_eq!(repo.timestamp().signed.version.get(), new_timestamp_version);
     assert_eq!(repo.timestamp().signed.expires, new_timestamp_expiration);
 }
 
@@ -288,24 +264,13 @@ fn updates_expired_repo(
     outdir: &TempDir,
     repo_dir: &TempDir,
     allow_expired_repo: bool,
-) -> (
-    Assert,
-    DateTime<Utc>,
-    u64,
-    DateTime<Utc>,
-    u64,
-    DateTime<Utc>,
-    u64,
-) {
+) -> (Assert, DateTime<Utc>, DateTime<Utc>, DateTime<Utc>) {
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let root_key = test_utils::test_data().join("snakeoil.pem");
     // Set expiration dates and version numbers for the update command
     let timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
-    let timestamp_version: u64 = 310;
     let snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
-    let snapshot_version: u64 = 250;
     let targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
-    let targets_version: u64 = 170;
     let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
     cmd.args([
@@ -320,16 +285,10 @@ fn updates_expired_repo(
         metadata_base_url.as_str(),
         "--targets-expires",
         targets_expiration.to_rfc3339().as_str(),
-        "--targets-version",
-        format!("{}", targets_version).as_str(),
         "--snapshot-expires",
         snapshot_expiration.to_rfc3339().as_str(),
-        "--snapshot-version",
-        format!("{}", snapshot_version).as_str(),
         "--timestamp-expires",
         timestamp_expiration.to_rfc3339().as_str(),
-        "--timestamp-version",
-        format!("{}", timestamp_version).as_str(),
     ]);
     let assert = if allow_expired_repo {
         cmd.arg("--allow-expired-repo").assert()
@@ -339,11 +298,8 @@ fn updates_expired_repo(
     (
         assert,
         timestamp_expiration,
-        timestamp_version,
         snapshot_expiration,
-        snapshot_version,
         targets_expiration,
-        targets_version,
     )
 }
 
@@ -383,9 +339,6 @@ async fn update_command_expired_repo_allow() {
     assert_eq!(repo.targets().signed.targets.len(), 3);
     // Ensure all the metadata has been updated
     assert_eq!(repo.timestamp().signed.expires, update_expected.1);
-    assert_eq!(repo.timestamp().signed.version.get(), update_expected.2);
-    assert_eq!(repo.snapshot().signed.expires, update_expected.3);
-    assert_eq!(repo.snapshot().signed.version.get(), update_expected.4);
-    assert_eq!(repo.targets().signed.expires, update_expected.5);
-    assert_eq!(repo.targets().signed.version.get(), update_expected.6);
+    assert_eq!(repo.snapshot().signed.expires, update_expected.2);
+    assert_eq!(repo.targets().signed.expires, update_expected.3);
 }

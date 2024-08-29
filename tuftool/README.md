@@ -102,17 +102,15 @@ ls "${WRK}/tuf-repo/targets"
 # Change one of the target files
 echo "1.1" > "${WRK}/input/1.txt"
 
-# update tuf repo!
+# update tuf repo! Version will be automatically calculated, and expiry flags are optional. 
+# If no expires flag is passed, existing values will be passed on to the new updated version.
 tuftool update \
    --root "${ROOT}" \
    --key "${WRK}/keys/root.pem" \
    --add-targets  "${WRK}/input" \
    --targets-expires 'in 3 weeks' \
-   --targets-version 2 \
    --snapshot-expires 'in 3 weeks' \
-   --snapshot-version 2 \
    --timestamp-expires 'in 1 week' \
-   --timestamp-version 2 \
    --outdir "${WRK}/tuf-repo" \
    --metadata-url file:///$WRK/tuf-repo/metadata
 ```

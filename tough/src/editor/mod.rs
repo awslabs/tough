@@ -44,9 +44,7 @@ const SPEC_VERSION: &str = "1.0.0";
 /// A new repository may be started using the `new()` method.
 ///
 /// An existing `tough::Repository` may be loaded and edited using the
-/// `from_repo()` method. When a repo is loaded in this way, versions and
-/// expirations are discarded. It is good practice to update these whenever
-/// a repo is changed.
+/// `from_repo()` method.
 ///
 /// Targets, versions, and expirations may be added to their respective roles
 /// via the provided "setter" methods. The final step in the process is the
@@ -142,8 +140,7 @@ impl RepositoryEditor {
 
     /// Given a `tough::Repository` and the path to a valid root.json, create a
     /// `RepositoryEditor`. This `RepositoryEditor` will include all of the targets
-    /// and bits of _extra metadata from the roles included. It will not, however,
-    /// include the versions or expirations and the user is expected to set them.
+    /// versions, expiration and _extra bits of data from the roles included.
     pub async fn from_repo<P>(root_path: P, repo: Repository) -> Result<RepositoryEditor>
     where
         P: AsRef<Path>,
@@ -232,7 +229,7 @@ impl RepositoryEditor {
         Ok(self)
     }
 
-    /// Add an existing `Snapshot` to the repository. Only the `_extra` data
+    /// Add an existing `Snapshot` to the repository. Only the `_extra` and `expires` data
     /// is preserved
     pub fn snapshot(&mut self, snapshot: Snapshot) -> Result<&mut Self> {
         ensure!(
@@ -243,11 +240,13 @@ impl RepositoryEditor {
             }
         );
         self.snapshot_extra = Some(snapshot._extra);
+        self.snapshot_expires = Some(snapshot.expires);
+        self.snapshot_version = snapshot.version.checked_add(1);
         Ok(self)
     }
 
-    /// Add an existing `Timestamp` to the repository. Only the `_extra` data
-    /// is preserved
+    /// Add an existing `Timestamp` to the repository. Only the `_extra`, `version`, and `expires`
+    /// data is preserved
     pub fn timestamp(&mut self, timestamp: Timestamp) -> Result<&mut Self> {
         ensure!(
             timestamp.spec_version == SPEC_VERSION,
@@ -257,6 +256,8 @@ impl RepositoryEditor {
             }
         );
         self.timestamp_extra = Some(timestamp._extra);
+        self.timestamp_expires = Some(timestamp.expires);
+        self.timestamp_version = timestamp.version.checked_add(1);
         Ok(self)
     }
 
