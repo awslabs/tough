@@ -1,5 +1,5 @@
 use crate::error::{self, Result};
-use crate::fetch::{fetch_max_size, fetch_sha256};
+use crate::fetch::{fetch_max_size, fetch_sha256, fetch_sha512};
 use crate::schema::{RoleType, Target};
 use crate::transport::IntoVec;
 use crate::{encode_filename, Prefix, Repository, TargetName};
@@ -257,15 +257,27 @@ impl Repository {
         &self,
         target: &Target,
         name: &TargetName,
-    ) -> (Vec<u8>, String) {
-        let sha256 = &target.hashes.sha256.clone().into_vec();
-        if self.consistent_snapshot {
-            (
-                sha256.clone(),
-                format!("{}.{}", hex::encode(sha256), name.resolved()),
-            )
+    ) -> Result<(Vec<u8>, String)> {
+        let sha256 = target.hashes.sha256.as_ref().map(|d| d.clone().into_vec());
+        let sha512 = target.hashes.sha512.as_ref().map(|d| d.clone().into_vec());
+
+        let digest = if let Some(sha256) = sha256 {
+            sha256
+        } else if let Some(sha512) = sha512 {
+            sha512
         } else {
-            (sha256.clone(), name.resolved().to_owned())
+            return Err(error::NoValidHashSnafu {
+                name: format!("{:?}", name),
+            }
+            .build());
+        };
+        if self.consistent_snapshot {
+            Ok((
+                digest.clone(),
+                format!("{}.{}", hex::encode(digest), name.resolved()),
+            ))
+        } else {
+            Ok((digest, name.resolved().to_owned()))
         }
     }
 
@@ -284,15 +296,28 @@ impl Repository {
                 path: filename,
                 url: self.targets_base_url.clone(),
             })?;
-        Ok(fetch_sha256(
-            self.transport.as_ref(),
-            url.clone(),
-            target.length,
-            "targets.json",
-            digest,
-        )
-        .await?
-        .context(error::TransportSnafu { url })
-        .boxed())
+        if target.hashes.sha256.is_some() {
+            Ok(fetch_sha256(
+                self.transport.as_ref(),
+                url.clone(),
+                target.length,
+                "targets.json",
+                digest,
+            )
+            .await?
+            .context(error::TransportSnafu { url })
+            .boxed())
+        } else {
+            Ok(fetch_sha512(
+                self.transport.as_ref(),
+                url.clone(),
+                target.length,
+                "targets.json",
+                digest,
+            )
+            .await?
+            .context(error::TransportSnafu { url })
+            .boxed())
+        }
     }
 }

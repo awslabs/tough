@@ -14,7 +14,7 @@ use crate::schema::{
     Targets, Timestamp,
 };
 use async_trait::async_trait;
-use aws_lc_rs::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
+use aws_lc_rs::digest::{digest, SHA256, SHA256_OUTPUT_LEN, SHA512, SHA512_OUTPUT_LEN};
 use aws_lc_rs::rand::SecureRandom;
 use futures::TryStreamExt;
 use olpc_cjson::CanonicalFormatter;
@@ -48,6 +48,7 @@ pub struct SignedRole<T> {
     pub(crate) signed: Signed<T>,
     pub(crate) buffer: Vec<u8>,
     pub(crate) sha256: [u8; SHA256_OUTPUT_LEN],
+    pub(crate) sha512: [u8; SHA512_OUTPUT_LEN],
     pub(crate) length: u64,
 }
 
@@ -123,12 +124,17 @@ where
         let mut sha256 = [0; SHA256_OUTPUT_LEN];
         sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
 
+        // Calculate SHA-512
+        let mut sha512 = [0; SHA512_OUTPUT_LEN];
+        sha512.copy_from_slice(digest(&SHA512, &buffer).as_ref());
+
         // Create the `SignedRole` containing, the `Signed<role>`, serialized
         // buffer, length and sha256.
         let signed_role = SignedRole {
             signed: role,
             buffer,
             sha256,
+            sha512,
             length,
         };
 
@@ -146,9 +152,22 @@ where
         &self.buffer
     }
 
-    /// Provides the sha256 digest of the signed role.
-    pub fn sha256(&self) -> &[u8] {
-        &self.sha256
+    /// Provides the sha256 digest of the signed role, if available.
+    pub fn sha256(&self) -> Option<&[u8]> {
+        if self.sha256.iter().any(|&byte| byte != 0) {
+            Some(&self.sha256)
+        } else {
+            None
+        }
+    }
+
+    /// Provides the sha512 digest of the signed role, if available.
+    pub fn sha512(&self) -> Option<&[u8]> {
+        if self.sha512.iter().any(|&byte| byte != 0) {
+            Some(&self.sha512)
+        } else {
+            None
+        }
     }
 
     /// Provides the length in bytes of the serialized representation of the signed role.
@@ -762,18 +781,61 @@ trait TargetsWalker {
         // should match, or we alert the caller; if target replacement is intended, it should
         // happen earlier, in RepositoryEditor.
         ensure!(
-            target_from_path.hashes.sha256 == repo_target.hashes.sha256,
+            target_from_path.hashes.sha256 == repo_target.hashes.sha256
+                || target_from_path.hashes.sha512 == repo_target.hashes.sha512,
             error::HashMismatchSnafu {
                 context: "target",
-                calculated: hex::encode(target_from_path.hashes.sha256),
-                expected: hex::encode(&repo_target.hashes.sha256),
+                calculated: format!(
+                    "SHA-256: {}, SHA-512: {}",
+                    hex::encode(
+                        target_from_path
+                            .hashes
+                            .sha256
+                            .as_ref()
+                            .map(|d| d.as_ref())
+                            .unwrap_or(&[])
+                    ),
+                    hex::encode(
+                        target_from_path
+                            .hashes
+                            .sha512
+                            .as_ref()
+                            .map(|d| d.as_ref())
+                            .unwrap_or(&[])
+                    )
+                ),
+                expected: format!(
+                    "SHA-256: {}, SHA-512: {}",
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha256
+                            .as_ref()
+                            .map(|d| d.as_ref())
+                            .unwrap_or(&[])
+                    ),
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha512
+                            .as_ref()
+                            .map(|d| d.as_ref())
+                            .unwrap_or(&[])
+                    )
+                ),
             }
         );
 
         let dest = if self.consistent_snapshot() {
             outdir.join(format!(
                 "{}.{}",
-                hex::encode(&target_from_path.hashes.sha256),
+                hex::encode(
+                    target_from_path
+                        .hashes
+                        .sha256
+                        .or(target_from_path.hashes.sha512)
+                        .unwrap()
+                ),
                 target_name.resolved()
             ))
         } else {
@@ -798,14 +860,57 @@ trait TargetsWalker {
                 .fetch(url.clone())
                 .await
                 .with_context(|_| error::TransportSnafu { url: url.clone() })?;
-            let stream = DigestAdapter::sha256(stream, &repo_target.hashes.sha256, url.clone());
 
-            // The act of reading with the DigestAdapter verifies the checksum, assuming the read
-            // succeeds.
-            stream
-                .try_for_each(|_| ready(Ok(())))
-                .await
-                .context(error::TransportSnafu { url })?;
+            let sha256_verified = if let Some(sha256) = &repo_target.hashes.sha256 {
+                let sha256_stream = DigestAdapter::sha256(stream, sha256, url.clone());
+                // Verify SHA-256 checksum
+                sha256_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
+            } else {
+                false
+            };
+
+            let sha512_verified = if !sha256_verified {
+                let stream = FilesystemTransport
+                    .fetch(url.clone())
+                    .await
+                    .with_context(|_| error::TransportSnafu { url: url.clone() })?;
+                if let Some(sha512) = &repo_target.hashes.sha512 {
+                    let sha512_stream = DigestAdapter::sha512(stream, sha512, url.clone());
+                    // Verify SHA-512 checksum
+                    sha512_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
+                } else {
+                    false
+                }
+            } else {
+                true
+            };
+
+            if !sha256_verified && !sha512_verified {
+                return error::HashMismatchSnafu {
+                    context: "target",
+                    calculated: format!(
+                        "SHA-256: {}, SHA-512: {}",
+                        hex::encode(
+                            repo_target
+                                .hashes
+                                .sha256
+                                .as_ref()
+                                .map(|d| d.as_ref())
+                                .unwrap_or(&[])
+                        ),
+                        hex::encode(
+                            repo_target
+                                .hashes
+                                .sha512
+                                .as_ref()
+                                .map(|d| d.as_ref())
+                                .unwrap_or(&[])
+                        )
+                    ),
+                    expected: "None".to_string(),
+                }
+                .fail();
+            }
         }
 
         let metadata = symlink_metadata(&dest)
