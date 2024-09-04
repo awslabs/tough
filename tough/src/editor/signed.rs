@@ -864,6 +864,7 @@ trait TargetsWalker {
         }
     }
 
+    // Helper function used in target_path
     async fn verify_existing_target(&self, dest: PathBuf, repo_target: &&Target) -> Result<()> {
         let url = Url::from_file_path(&dest)
             .ok()
