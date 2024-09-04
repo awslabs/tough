@@ -267,7 +267,7 @@ impl Repository {
             sha512
         } else {
             return Err(error::NoValidHashSnafu {
-                name: format!("{:?}", name),
+                name: format!("{name:?}"),
             }
             .build());
         };

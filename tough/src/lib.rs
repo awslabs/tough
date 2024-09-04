@@ -59,6 +59,7 @@ pub use crate::target_name::TargetName;
 pub use crate::transport::IntoVec;
 pub use crate::transport::{
     DefaultTransport, FilesystemTransport, Transport, TransportError, TransportErrorKind,
+    TransportStream,
 };
 pub use crate::urlpath::SafeUrlPath;
 use async_recursion::async_recursion;
@@ -541,7 +542,7 @@ impl Repository {
                     sha512.clone().into_vec()
                 } else {
                     return error::NoValidHashSnafu {
-                        name: format!("{:?}", name),
+                        name: format!("{name:?}"),
                     }
                     .fail();
                 };
@@ -965,7 +966,7 @@ async fn load_snapshot(
                 url.clone(),
                 snapshot_meta.length.unwrap_or(max_snapshot_size),
                 "timestamp.json",
-                &sha256_hash.as_ref(),
+                sha256_hash.as_ref(),
             )
             .await?
         } else if let Some(sha512_hash) = &hashes.sha512 {
@@ -974,7 +975,7 @@ async fn load_snapshot(
                 url.clone(),
                 snapshot_meta.length.unwrap_or(max_snapshot_size),
                 "timestamp.json",
-                &sha512_hash.as_ref(),
+                sha512_hash.as_ref(),
             )
             .await?
         } else {
@@ -1139,34 +1140,14 @@ async fn load_targets(
         Some(length) => (length, "snapshot.json"),
         None => (max_targets_size, "max_targets_size parameter"),
     };
-    let stream = if let Some(hashes) = &targets_meta.hashes {
-        if let Some(sha256_hash) = &hashes.sha256 {
-            fetch_sha256(
-                transport,
-                targets_url.clone(),
-                max_targets_size,
-                specifier,
-                sha256_hash.as_ref(),
-            )
-            .await?
-        } else if let Some(sha512_hash) = &hashes.sha512 {
-            fetch_sha512(
-                transport,
-                targets_url.clone(),
-                max_targets_size,
-                specifier,
-                sha512_hash.as_ref(),
-            )
-            .await?
-        } else {
-            error::NoValidHashSnafu {
-                name: targets_url.path().to_string(),
-            }
-            .fail()?
-        }
-    } else {
-        fetch_max_size(transport, targets_url.clone(), max_targets_size, specifier).await?
-    };
+    let stream = fetch_target_metadata(
+        transport,
+        targets_url.clone(),
+        max_targets_size,
+        specifier,
+        &targets_meta.hashes,
+    )
+    .await?;
     let data = stream
         .into_vec()
         .await
@@ -1347,6 +1328,46 @@ async fn load_delegations(
         }
     }
     Ok(())
+}
+
+// Helper function for load_targets
+async fn fetch_target_metadata(
+    transport: &dyn Transport,
+    targets_url: Url,
+    max_targets_size: u64,
+    specifier: &'static str,
+    hashes: &Option<crate::schema::Hashes>,
+) -> Result<TransportStream> {
+    let stream = if let Some(hashes) = hashes {
+        if let Some(sha256_hash) = &hashes.sha256 {
+            fetch_sha256(
+                transport,
+                targets_url.clone(),
+                max_targets_size,
+                specifier,
+                sha256_hash.as_ref(),
+            )
+            .await?
+        } else if let Some(sha512_hash) = &hashes.sha512 {
+            fetch_sha512(
+                transport,
+                targets_url.clone(),
+                max_targets_size,
+                specifier,
+                sha512_hash.as_ref(),
+            )
+            .await?
+        } else {
+            error::NoValidHashSnafu {
+                name: targets_url.path().to_string(),
+            }
+            .fail()?
+        }
+    } else {
+        fetch_max_size(transport, targets_url.clone(), max_targets_size, specifier).await?
+    };
+
+    Ok(stream)
 }
 
 #[cfg(test)]

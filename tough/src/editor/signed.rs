@@ -792,16 +792,14 @@ trait TargetsWalker {
                             .hashes
                             .sha256
                             .as_ref()
-                            .map(|d| d.as_ref())
-                            .unwrap_or(&[])
+                            .map_or(&[] as &[u8], |d| d.as_ref())
                     ),
                     hex::encode(
                         target_from_path
                             .hashes
                             .sha512
                             .as_ref()
-                            .map(|d| d.as_ref())
-                            .unwrap_or(&[])
+                            .map_or(&[] as &[u8], |d| d.as_ref())
                     )
                 ),
                 expected: format!(
@@ -811,16 +809,14 @@ trait TargetsWalker {
                             .hashes
                             .sha256
                             .as_ref()
-                            .map(|d| d.as_ref())
-                            .unwrap_or(&[])
+                            .map_or(&[] as &[u8], |d| d.as_ref())
                     ),
                     hex::encode(
                         repo_target
                             .hashes
                             .sha512
                             .as_ref()
-                            .map(|d| d.as_ref())
-                            .unwrap_or(&[])
+                            .map_or(&[] as &[u8], |d| d.as_ref())
                     )
                 ),
             }
@@ -852,65 +848,8 @@ trait TargetsWalker {
         // unique; if we're not, then there could be a target from another repo with the same name
         // but different checksum.  We can't assume such conflicts are OK, so we fail.
         if !self.consistent_snapshot() {
-            let url = Url::from_file_path(&dest)
-                .ok() // dump unhelpful `()` error
-                .context(error::FileUrlSnafu { path: &dest })?;
-
-            let stream = FilesystemTransport
-                .fetch(url.clone())
-                .await
-                .with_context(|_| error::TransportSnafu { url: url.clone() })?;
-
-            let sha256_verified = if let Some(sha256) = &repo_target.hashes.sha256 {
-                let sha256_stream = DigestAdapter::sha256(stream, sha256, url.clone());
-                // Verify SHA-256 checksum
-                sha256_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
-            } else {
-                false
-            };
-
-            let sha512_verified = if !sha256_verified {
-                let stream = FilesystemTransport
-                    .fetch(url.clone())
-                    .await
-                    .with_context(|_| error::TransportSnafu { url: url.clone() })?;
-                if let Some(sha512) = &repo_target.hashes.sha512 {
-                    let sha512_stream = DigestAdapter::sha512(stream, sha512, url.clone());
-                    // Verify SHA-512 checksum
-                    sha512_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
-                } else {
-                    false
-                }
-            } else {
-                true
-            };
-
-            if !sha256_verified && !sha512_verified {
-                return error::HashMismatchSnafu {
-                    context: "target",
-                    calculated: format!(
-                        "SHA-256: {}, SHA-512: {}",
-                        hex::encode(
-                            repo_target
-                                .hashes
-                                .sha256
-                                .as_ref()
-                                .map(|d| d.as_ref())
-                                .unwrap_or(&[])
-                        ),
-                        hex::encode(
-                            repo_target
-                                .hashes
-                                .sha512
-                                .as_ref()
-                                .map(|d| d.as_ref())
-                                .unwrap_or(&[])
-                        )
-                    ),
-                    expected: "None".to_string(),
-                }
-                .fail();
-            }
+            self.verify_existing_target(dest.clone(), repo_target)
+                .await?;
         }
 
         let metadata = symlink_metadata(&dest)
@@ -922,6 +861,67 @@ trait TargetsWalker {
             Ok(TargetPath::Symlink { path: dest })
         } else {
             error::InvalidFileTypeSnafu { path: dest }.fail()
+        }
+    }
+
+    async fn verify_existing_target(&self, dest: PathBuf, repo_target: &&Target) -> Result<()> {
+        let url = Url::from_file_path(&dest)
+            .ok()
+            .context(error::FileUrlSnafu { path: &dest })?;
+
+        let stream = FilesystemTransport
+            .fetch(url.clone())
+            .await
+            .with_context(|_| error::TransportSnafu { url: url.clone() })?;
+
+        let sha256_verified = if let Some(sha256) = &repo_target.hashes.sha256 {
+            let sha256_stream = DigestAdapter::sha256(stream, sha256, url.clone());
+            sha256_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
+        } else {
+            false
+        };
+
+        let sha512_verified = if sha256_verified {
+            true
+        } else {
+            let stream = FilesystemTransport
+                .fetch(url.clone())
+                .await
+                .with_context(|_| error::TransportSnafu { url: url.clone() })?;
+
+            if let Some(sha512) = &repo_target.hashes.sha512 {
+                let sha512_stream = DigestAdapter::sha512(stream, sha512, url.clone());
+                sha512_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
+            } else {
+                false
+            }
+        };
+
+        if !sha256_verified && !sha512_verified {
+            error::HashMismatchSnafu {
+                context: "target",
+                calculated: format!(
+                    "SHA-256: {}, SHA-512: {}",
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha256
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    ),
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha512
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    )
+                ),
+                expected: "None".to_string(),
+            }
+            .fail()
+        } else {
+            Ok(())
         }
     }
 }
