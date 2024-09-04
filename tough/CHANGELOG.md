@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2024-09-04
+### Changes
+- timestamp.json meta can has optional fields (thanks @flavio) [#778]
+- Dependency updates [#763], [#765], [#780], [#802]
+
+[#763]: https://github.com/awslabs/tough/pull/763
+[#765]: https://github.com/awslabs/tough/pull/765
+[#778]: https://github.com/awslabs/tough/pull/778
+[#780]: https://github.com/awslabs/tough/pull/780 
+[#802]: https://github.com/awslabs/tough/pull/802
+
 ## [0.17.1] - 2024-03-22
 ### Changes
 - Adds support for "ecdsa" key type (thanks @jku) [#754]
@@ -268,7 +279,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.17.1...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.18.0...develop
+[0.18.0]: https://github.com/awslabs/tough/compare/tough-v0.17.1...tough-v0.18.0
 [0.17.1]: https://github.com/awslabs/tough/compare/tough-v0.17.0...tough-v0.17.1
 [0.17.0]: https://github.com/awslabs/tough/compare/tough-v0.16.0...tough-v0.17.0
 [0.16.0]: https://github.com/awslabs/tough/compare/tough-v0.15.0...tough-v0.16.0
