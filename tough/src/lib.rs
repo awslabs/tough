@@ -1330,7 +1330,7 @@ async fn load_delegations(
     Ok(())
 }
 
-// Helper function for load_targets
+// Helper function: used in load_targets function
 async fn fetch_target_metadata(
     transport: &dyn Transport,
     targets_url: Url,
