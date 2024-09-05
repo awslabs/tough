@@ -26,7 +26,7 @@ log = "0.4"
 maplit = "1"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 rayon = "1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
 ring = { version = "0.17", features = ["std"] }
 serde = "1"
 serde_json = "1"
@@ -34,6 +34,7 @@ simplelog = "0.12"
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+# Cannot use "http-v1" feature until aws-smithy-runtime moves to hyper v1
 tough = { version = "0.18", path = "../tough", features = ["http"] }
 tough-kms = { version = "0.10", path = "../tough-kms" }
 tough-ssm = { version = "0.13", path = "../tough-ssm" }
@@ -44,4 +45,5 @@ walkdir = "2"
 assert_cmd = "2"
 futures = "0.3"
 futures-core = "0.3"
-httptest = "0.16"
+# Cannot upgrade to httptest >= 0.16 until the move to hyper v1 is done
+httptest = "0.15"

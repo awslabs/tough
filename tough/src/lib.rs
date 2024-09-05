@@ -35,7 +35,7 @@ mod datastore;
 pub mod editor;
 pub mod error;
 mod fetch;
-#[cfg(feature = "http")]
+#[cfg(any(feature = "http", feature = "http-v1"))]
 pub mod http;
 mod io;
 pub mod key_source;
@@ -49,7 +49,7 @@ use crate::datastore::Datastore;
 use crate::error::Result;
 use crate::fetch::{fetch_max_size, fetch_sha256};
 /// An HTTP transport that includes retries.
-#[cfg(feature = "http")]
+#[cfg(any(feature = "http", feature = "http-v1"))]
 pub use crate::http::{HttpTransport, HttpTransportBuilder};
 use crate::io::is_dir;
 use crate::schema::{

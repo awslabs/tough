@@ -1,5 +1,9 @@
 //! The `http` module provides `HttpTransport` which enables `Repository` objects to be
 //! loaded over HTTP
+
+#[cfg(feature = "http-v1")]
+use reqwest_hyper_v1 as reqwest;
+
 use crate::transport::TransportStream;
 use crate::{Transport, TransportError, TransportErrorKind};
 use async_trait::async_trait;

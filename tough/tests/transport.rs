@@ -9,7 +9,7 @@ mod test_utils;
 
 /// If the `http` feature is not enabled, we should get an error message indicating that the feature
 /// is not enabled.
-#[cfg(not(feature = "http"))]
+#[cfg(not(any(feature = "http", feature = "http-v1")))]
 #[tokio::test]
 async fn default_transport_error_no_http() {
     let transport = DefaultTransport::new();

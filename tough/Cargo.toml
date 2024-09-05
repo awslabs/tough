@@ -22,7 +22,8 @@ log = "0.4"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
-reqwest = { version = "0.12", optional = true, default-features = false, features = ["stream"] }
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["stream"] }
+reqwest-hyper-v1 = { package = "reqwest", version = "0.12", optional = true, default-features = false, features = ["stream"] }
 ring = { version = "0.17", features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -46,6 +47,7 @@ tokio-test = "0.4"
 
 [features]
 http = ["reqwest"]
+http-v1 = ["reqwest-hyper-v1"]
 
 # The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.
 integ = []

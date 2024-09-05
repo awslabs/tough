@@ -1,5 +1,5 @@
 use crate::SafeUrlPath;
-#[cfg(feature = "http")]
+#[cfg(any(feature = "http", feature = "http-v1"))]
 use crate::{HttpTransport, HttpTransportBuilder};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -220,7 +220,7 @@ impl Transport for FilesystemTransport {
 #[derive(Debug, Clone, Copy)]
 pub struct DefaultTransport {
     file: FilesystemTransport,
-    #[cfg(feature = "http")]
+    #[cfg(any(feature = "http", feature = "http-v1"))]
     http: HttpTransport,
 }
 
@@ -228,7 +228,7 @@ impl Default for DefaultTransport {
     fn default() -> Self {
         Self {
             file: FilesystemTransport,
-            #[cfg(feature = "http")]
+            #[cfg(any(feature = "http", feature = "http-v1"))]
             http: HttpTransport::default(),
         }
     }
@@ -241,7 +241,7 @@ impl DefaultTransport {
     }
 }
 
-#[cfg(feature = "http")]
+#[cfg(any(feature = "http", feature = "http-v1"))]
 impl DefaultTransport {
     /// Create a new `DefaultTransport` with potentially customized settings.
     pub fn new_with_http_settings(builder: HttpTransportBuilder) -> Self {
@@ -267,7 +267,7 @@ impl Transport for DefaultTransport {
 }
 
 impl DefaultTransport {
-    #[cfg(not(feature = "http"))]
+    #[cfg(not(any(feature = "http", feature = "http-v1")))]
     #[allow(clippy::trivially_copy_pass_by_ref, clippy::unused_self)]
     async fn handle_http(&self, url: Url) -> Result<TransportStream, TransportError> {
         Err(TransportError::new_with_cause(
@@ -277,7 +277,7 @@ impl DefaultTransport {
         ))
     }
 
-    #[cfg(feature = "http")]
+    #[cfg(any(feature = "http", feature = "http-v1"))]
     async fn handle_http(&self, url: Url) -> Result<TransportStream, TransportError> {
         self.http.fetch(url).await
     }
