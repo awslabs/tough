@@ -178,10 +178,7 @@ impl Command {
             } => {
                 let mut keys = Vec::new();
                 let default_password = String::new();
-                let passwords = match passwords {
-                    Some(pws) => pws,
-                    None => vec![],
-                };
+                let passwords = passwords.unwrap_or_default();
                 if passwords.len() > key_sources.len() {
                     error::MorePasswordsSnafu.fail()?;
                 }
