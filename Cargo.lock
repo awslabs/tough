@@ -1626,6 +1626,7 @@ name = "olpc-cjson"
 version = "0.1.3"
 dependencies = [
  "serde",
+ "serde_derive",
  "serde_json",
  "unicode-normalization",
 ]
