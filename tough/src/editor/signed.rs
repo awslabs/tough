@@ -14,10 +14,10 @@ use crate::schema::{
     Targets, Timestamp,
 };
 use async_trait::async_trait;
+use aws_lc_rs::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
+use aws_lc_rs::rand::SecureRandom;
 use futures::TryStreamExt;
 use olpc_cjson::CanonicalFormatter;
-use ring::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
-use ring::rand::SecureRandom;
 use serde::{Deserialize, Serialize};
 use serde_plain::derive_fromstr_from_deserialize;
 use snafu::{ensure, OptionExt, ResultExt};

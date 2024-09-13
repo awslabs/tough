@@ -4,9 +4,9 @@
 
 use crate::schema::decoded::{Decoded, EcdsaFlex, Hex, RsaPem};
 use crate::schema::error::{self, Result};
+use aws_lc_rs::digest::{digest, SHA256};
+use aws_lc_rs::signature::VerificationAlgorithm;
 use olpc_cjson::CanonicalFormatter;
-use ring::digest::{digest, SHA256};
-use ring::signature::VerificationAlgorithm;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
@@ -163,7 +163,7 @@ impl Key {
                 keyval,
                 ..
             } => (
-                &ring::signature::ECDSA_P256_SHA256_ASN1,
+                &aws_lc_rs::signature::ECDSA_P256_SHA256_ASN1,
                 untrusted::Input::from(&keyval.public),
             ),
             Key::Ed25519 {
@@ -171,7 +171,7 @@ impl Key {
                 keyval,
                 ..
             } => (
-                &ring::signature::ED25519,
+                &aws_lc_rs::signature::ED25519,
                 untrusted::Input::from(&keyval.public),
             ),
             Key::Rsa {
@@ -179,17 +179,13 @@ impl Key {
                 keyval,
                 ..
             } => (
-                &ring::signature::RSA_PSS_2048_8192_SHA256,
+                &aws_lc_rs::signature::RSA_PSS_2048_8192_SHA256,
                 untrusted::Input::from(&keyval.public),
             ),
         };
 
-        alg.verify(
-            public_key,
-            untrusted::Input::from(msg),
-            untrusted::Input::from(signature),
-        )
-        .is_ok()
+        alg.verify_sig(public_key.as_slice_less_safe(), msg, signature)
+            .is_ok()
     }
 }
 
@@ -207,7 +203,7 @@ impl FromStr for Key {
                 _extra: HashMap::new(),
             })
         } else if let Ok(public) = serde_plain::from_str::<Decoded<Hex>>(s) {
-            if public.len() == ring::signature::ED25519_PUBLIC_KEY_LEN {
+            if public.len() == aws_lc_rs::signature::ED25519_PUBLIC_KEY_LEN {
                 Ok(Key::Ed25519 {
                     keyval: Ed25519Key {
                         public,

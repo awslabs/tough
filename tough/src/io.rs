@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::{error, transport::TransportStream, TransportError};
+use aws_lc_rs::digest::{Context, SHA256};
 use futures::StreamExt;
 use futures_core::Stream;
-use ring::digest::{Context, SHA256};
 use std::{convert::TryInto, path::Path, task::Poll};
 use tokio::fs;
 use url::Url;

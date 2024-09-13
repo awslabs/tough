@@ -18,7 +18,7 @@
 //! [2]: https://docs.rs/ring/0.14.6/ring/signature/index.html#signing-and-verifying-with-rsa-pkcs1-15-padding
 
 use super::error::{self, Compat, Result};
-use ring::io::der;
+use aws_lc_rs::io::der;
 use snafu::{OptionExt, ResultExt};
 use untrusted::Input;
 
@@ -62,12 +62,12 @@ pub(super) fn decode(
         .map_err(Compat)
         .context(error::PemDecodeSnafu)?;
     Ok(untrusted::Input::from(pem.contents())
-        .read_all(ring::error::Unspecified, |input| {
+        .read_all(aws_lc_rs::error::Unspecified, |input| {
             der::expect_tag_and_get_value(input, der::Tag::Sequence).and_then(|spki| {
-                spki.read_all(ring::error::Unspecified, |input| {
+                spki.read_all(aws_lc_rs::error::Unspecified, |input| {
                     der::expect_tag_and_get_value(input, der::Tag::Sequence).and_then(
                         |alg_ident| {
-                            alg_ident.read_all(ring::error::Unspecified, |input| {
+                            alg_ident.read_all(aws_lc_rs::error::Unspecified, |input| {
                                 let expected_tag_value =
                                     der::expect_tag_and_get_value(input, der::Tag::OID)?;
 
@@ -80,7 +80,7 @@ pub(super) fn decode(
                                 if expected_tag_value.as_slice_less_safe()
                                     != algo_encode_oid.as_slice_less_safe()
                                 {
-                                    return Err(ring::error::Unspecified);
+                                    return Err(aws_lc_rs::error::Unspecified);
                                 }
 
                                 if let Some(parameters_oid) = parameters_oid {
@@ -92,7 +92,7 @@ pub(super) fn decode(
                                     if expected_tag_value.as_slice_less_safe()
                                         != param_encode_oid.as_slice_less_safe()
                                     {
-                                        return Err(ring::error::Unspecified);
+                                        return Err(aws_lc_rs::error::Unspecified);
                                     }
                                 } else {
                                     der::expect_tag_and_get_value(input, der::Tag::Null)?;
