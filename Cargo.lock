@@ -3106,6 +3106,7 @@ version = "0.11.1"
 dependencies = [
  "assert_cmd",
  "aws-config",
+ "aws-lc-rs",
  "aws-sdk-kms",
  "aws-sdk-ssm",
  "chrono",
@@ -3119,7 +3120,6 @@ dependencies = [
  "olpc-cjson",
  "rayon",
  "reqwest",
- "ring",
  "serde",
  "serde_json",
  "simplelog",
