@@ -1,9 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 mod test_utils;
+use aws_lc_rs::rand::SystemRandom;
 use base64::engine::general_purpose::STANDARD as base64_engine;
 use base64::Engine as _;
-use ring::rand::SystemRandom;
 use serde::{Deserialize, Deserializer};
 use std::fs::File;
 use std::io::BufReader;
