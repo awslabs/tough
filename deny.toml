@@ -74,6 +74,8 @@ skip = [
     { name = "regex-syntax", version = "=0.6" },
     # noxious, used for testing, is using an old version of tokio-util
     { name = "tokio-util", version = "=0.6.10" },
+    # aws-lc-rs uses an older version of untrusted
+    { name = "untrusted", version = "=0.7.1" },
     # tokio and mio are bringing in older versions of windows libraries while other
     # libraries, are bringing in newer versions
     { name = "windows-sys", version = "=0.48" },
