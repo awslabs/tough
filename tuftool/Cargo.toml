@@ -15,7 +15,7 @@ aws-sdk-rust = ["aws-sdk-rust-rustls"]
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls", ]
 
 [dependencies]
-aws-config = "1"
+aws-config = { version = "1", default-features = false, features = ["credentials-process"] }
 aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
 aws-sdk-kms = "1"
 aws-sdk-ssm = "1"
