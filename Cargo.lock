@@ -1038,12 +1038,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data-encoding"
-version = "2.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
-
-[[package]]
 name = "crypto-mac"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1052,6 +1046,12 @@ dependencies = [
  "generic-array",
  "subtle",
 ]
+
+[[package]]
+name = "data-encoding"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 
 [[package]]
 name = "der"
@@ -3336,8 +3336,12 @@ version = "0.19.0"
 dependencies = [
  "async-recursion",
  "async-trait",
+<<<<<<< HEAD
  "aws-lc-rs",
  "base64 0.21.7",
+=======
+ "base64 0.22.1",
+>>>>>>> b85189b (upgrade to base64 v0.22)
  "bytes",
  "chrono",
  "dyn-clone",
