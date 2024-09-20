@@ -12,6 +12,7 @@ edition = "2018"
 async-recursion = "1"
 async-trait = "0.1"
 aws-lc-rs = "1"
+base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "alloc", "serde", "clock"] }
 dyn-clone = "1"
