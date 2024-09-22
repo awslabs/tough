@@ -43,68 +43,87 @@ fn initialize_root_json(root_json: &str) {
         .success();
 }
 
-fn add_key_root(keys: &Vec<&str>, root_json: &str) {
+fn add_key_root(keys: &Vec<&str>, root_json: &str, password: Option<&str>) {
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
-
     cmd.args(["root", "add-key", root_json, "--role", "root"]);
 
     for key in keys {
         cmd.args(["-k", key]);
     }
-
+    if let Some(pass) = password {
+        if !pass.is_empty() {
+            cmd.args(["--password", pass]);
+        }
+    }
     cmd.assert().success();
 }
 
-fn add_key_timestamp(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args([
-            "root",
-            "add-key",
-            root_json,
-            "-k",
-            key,
-            "--role",
-            "timestamp",
-        ])
-        .assert()
-        .success();
+fn add_key_timestamp(key: &str, root_json: &str, password: Option<&str>) {
+    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    cmd.args([
+        "root",
+        "add-key",
+        root_json,
+        "-k",
+        key,
+        "--role",
+        "timestamp",
+    ]);
+
+    if let Some(pass) = password {
+        if !pass.is_empty() {
+            cmd.args(["--password", pass]);
+        }
+    }
+    cmd.assert().success();
 }
 
-fn add_key_snapshot(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args([
-            "root", "add-key", root_json, "-k", key, "--role", "snapshot",
-        ])
-        .assert()
-        .success();
+fn add_key_snapshot(key: &str, root_json: &str, password: Option<&str>) {
+    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    cmd.args([
+        "root", "add-key", root_json, "-k", key, "--role", "snapshot",
+    ]);
+
+    if let Some(pass) = password {
+        if !pass.is_empty() {
+            cmd.args(["--password", pass]);
+        }
+    }
+    cmd.assert().success();
 }
-fn add_key_targets(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        .args(["root", "add-key", root_json, "-k", key, "--role", "targets"])
-        .assert()
-        .success();
+fn add_key_targets(key: &str, root_json: &str, password: Option<&str>) {
+    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    cmd.args(["root", "add-key", root_json, "-k", key, "--role", "targets"]);
+
+    if let Some(pass) = password {
+        if !pass.is_empty() {
+            cmd.args(["--password", pass]);
+        }
+    }
+    cmd.assert().success();
 }
 
 fn add_keys_all_roles(keys: Vec<&str>, root_json: &str) {
-    add_key_root(&keys, root_json);
+    add_key_root(&keys, root_json, None);
 
     // Only add the first key for the rest until we have tests that want it for all keys
     let key = keys.first().unwrap();
-    add_key_timestamp(key, root_json);
-    add_key_snapshot(key, root_json);
-    add_key_targets(key, root_json);
+    add_key_timestamp(key, root_json, None);
+    add_key_snapshot(key, root_json, None);
+    add_key_targets(key, root_json, None);
 }
 
-fn sign_root_json(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
-        // We don't have enough signatures to meet the threshold, so we have to pass `-i`
-        .args(["root", "sign", root_json, "-i", "-k", key])
-        .assert()
-        .success();
+fn sign_root_json(key: &str, root_json: &str, password: Option<&str>) {
+    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    // We don't have enough signatures to meet the threshold, so we have to pass `-i`
+    cmd.args(["root", "sign", root_json, "-i", "-k", key]);
+
+    if let Some(pass) = password {
+        if !pass.is_empty() {
+            cmd.args(["--password", pass]);
+        }
+    }
+    cmd.assert().success();
 }
 
 fn sign_root_json_failure(key: &str, root_json: &str) {
@@ -174,7 +193,11 @@ fn create_root() {
     // Add keys for all roles
     add_keys_all_roles(vec![key_1.to_str().unwrap()], root_json.to_str().unwrap());
     // Add second key for root role
-    add_key_root(&vec![key_2.to_str().unwrap()], root_json.to_str().unwrap());
+    add_key_root(
+        &vec![key_2.to_str().unwrap()],
+        root_json.to_str().unwrap(),
+        None,
+    );
     // Sign root.json with 1 key
     sign_root_json_two_keys(
         key_1.to_str().unwrap(),
@@ -370,11 +393,15 @@ fn append_signature_root() {
     // Add key_1 for all roles
     add_keys_all_roles(vec![key_1.to_str().unwrap()], root_json.to_str().unwrap());
     // Add key_2 to root
-    add_key_root(&vec![key_2.to_str().unwrap()], root_json.to_str().unwrap());
+    add_key_root(
+        &vec![key_2.to_str().unwrap()],
+        root_json.to_str().unwrap(),
+        None,
+    );
     // Sign root.json with key_1
-    sign_root_json(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    sign_root_json(key_1.to_str().unwrap(), root_json.to_str().unwrap(), None);
     // Sign root.json with key_2
-    sign_root_json(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+    sign_root_json(key_2.to_str().unwrap(), root_json.to_str().unwrap(), None);
 
     //validate number of signatures
     assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
@@ -395,9 +422,9 @@ fn add_multiple_keys_root() {
         root_json.to_str().unwrap(),
     );
     // Sign root.json with key_1
-    sign_root_json(key_1.to_str().unwrap(), root_json.to_str().unwrap());
+    sign_root_json(key_1.to_str().unwrap(), root_json.to_str().unwrap(), None);
     // Sign root.json with key_2
-    sign_root_json(key_2.to_str().unwrap(), root_json.to_str().unwrap());
+    sign_root_json(key_2.to_str().unwrap(), root_json.to_str().unwrap(), None);
 
     //validate number of signatures
     assert_eq!(get_sign_len(root_json.to_str().unwrap()), 2);
@@ -414,7 +441,11 @@ fn below_threshold_failure() {
     // Add key_1 for all roles
     add_keys_all_roles(vec![key_1.to_str().unwrap()], root_json.to_str().unwrap());
     // Add key_2 to root
-    add_key_root(&vec![key_2.to_str().unwrap()], root_json.to_str().unwrap());
+    add_key_root(
+        &vec![key_2.to_str().unwrap()],
+        root_json.to_str().unwrap(),
+        None,
+    );
     // Sign root.json with key_1 fails, when no `--ignore-threshold` is passed
     sign_root_json_failure(key_1.to_str().unwrap(), root_json.to_str().unwrap());
 }
@@ -437,4 +468,68 @@ fn set_version_root() {
 
     // validate version number
     assert_eq!(get_version(root_json.to_str().unwrap()), version);
+}
+
+#[test]
+// Ensure we can create and sign a root file with a password encrypted key
+fn create_root_encrypted_key() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_1 = test_utils::test_data().join("snakeoil_3.pem");
+
+    // Password used to decrypt key
+    let password = "test_password";
+    // Create and initialise root.json
+    initialize_root_json(root_json.to_str().unwrap());
+    // Add key for all roles
+    add_key_root(
+        &vec![key_1.to_str().unwrap()],
+        root_json.to_str().unwrap(),
+        Some(password),
+    );
+    add_key_timestamp(
+        key_1.to_str().unwrap(),
+        root_json.to_str().unwrap(),
+        Some(password),
+    );
+    add_key_snapshot(
+        key_1.to_str().unwrap(),
+        root_json.to_str().unwrap(),
+        Some(password),
+    );
+    add_key_targets(
+        key_1.to_str().unwrap(),
+        root_json.to_str().unwrap(),
+        Some(password),
+    );
+
+    // Sign root.json
+    sign_root_json(
+        key_1.to_str().unwrap(),
+        root_json.to_str().unwrap(),
+        Some(password),
+    );
+    assert_eq!(get_sign_len(root_json.to_str().unwrap()), 1);
+}
+
+#[test]
+// Add encryped key with an invalid password 
+fn create_root_encrypted_key_invalid_password() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_1 = test_utils::test_data().join("snakeoil_3.pem");
+
+    // Invalid password
+    let password = "invalid_password";
+    // Create and initialise root.json
+    initialize_root_json(root_json.to_str().unwrap());
+    // Add key to root role
+    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    cmd.args(["root", "add-key", root_json.to_str().unwrap(), "--role", "root"])
+        .arg("-k").arg(key_1.to_str().unwrap());
+    if !password.is_empty() {
+        cmd.args(["--password", password]);
+    }
+    cmd.assert().failure();
+
 }
