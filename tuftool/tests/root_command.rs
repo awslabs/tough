@@ -475,7 +475,7 @@ fn set_version_root() {
 fn create_root_encrypted_key() {
     let out_dir = TempDir::new().unwrap();
     let root_json = out_dir.path().join("root.json");
-    let key_1 = test_utils::test_data().join("snakeoil_3.pem");
+    let key = test_utils::test_data().join("snakeoil_3.pem");
 
     // Password used to decrypt key
     let password = "test_password";
@@ -483,29 +483,29 @@ fn create_root_encrypted_key() {
     initialize_root_json(root_json.to_str().unwrap());
     // Add key for all roles
     add_key_root(
-        &vec![key_1.to_str().unwrap()],
+        &vec![key.to_str().unwrap()],
         root_json.to_str().unwrap(),
         Some(password),
     );
     add_key_timestamp(
-        key_1.to_str().unwrap(),
+        key.to_str().unwrap(),
         root_json.to_str().unwrap(),
         Some(password),
     );
     add_key_snapshot(
-        key_1.to_str().unwrap(),
+        key.to_str().unwrap(),
         root_json.to_str().unwrap(),
         Some(password),
     );
     add_key_targets(
-        key_1.to_str().unwrap(),
+        key.to_str().unwrap(),
         root_json.to_str().unwrap(),
         Some(password),
     );
 
     // Sign root.json
     sign_root_json(
-        key_1.to_str().unwrap(),
+        key.to_str().unwrap(),
         root_json.to_str().unwrap(),
         Some(password),
     );
@@ -513,11 +513,11 @@ fn create_root_encrypted_key() {
 }
 
 #[test]
-// Add encryped key with an invalid password 
+// Add encryped key with an invalid password
 fn create_root_encrypted_key_invalid_password() {
     let out_dir = TempDir::new().unwrap();
     let root_json = out_dir.path().join("root.json");
-    let key_1 = test_utils::test_data().join("snakeoil_3.pem");
+    let key = test_utils::test_data().join("snakeoil_3.pem");
 
     // Invalid password
     let password = "invalid_password";
@@ -525,11 +525,17 @@ fn create_root_encrypted_key_invalid_password() {
     initialize_root_json(root_json.to_str().unwrap());
     // Add key to root role
     let mut cmd = Command::cargo_bin("tuftool").unwrap();
-    cmd.args(["root", "add-key", root_json.to_str().unwrap(), "--role", "root"])
-        .arg("-k").arg(key_1.to_str().unwrap());
+    cmd.args([
+        "root",
+        "add-key",
+        root_json.to_str().unwrap(),
+        "--role",
+        "root",
+    ])
+    .arg("-k")
+    .arg(key.to_str().unwrap());
     if !password.is_empty() {
         cmd.args(["--password", password]);
     }
     cmd.assert().failure();
-
 }
