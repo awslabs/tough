@@ -11,6 +11,7 @@ use log::trace;
 use reqwest::header::{self, HeaderValue, ACCEPT_RANGES};
 use reqwest::{Client, ClientBuilder, Request, Response};
 use reqwest::{Error, Method};
+use rustls::crypto::{aws_lc_rs, CryptoProvider};
 use snafu::ResultExt;
 use snafu::Snafu;
 use std::cmp::Ordering;
@@ -45,6 +46,14 @@ pub struct HttpTransportBuilder {
 
 impl Default for HttpTransportBuilder {
     fn default() -> Self {
+        // Set the aws_lc_rs CryptoProvider for rustls. This is to ensure that the reqwest client
+        // is using a FIPS enabled aws_lc_rs when creating a client. Otherwise, ring is used:
+        // https://github.com/seanmonstar/reqwest/blob/d85f44b217f36f8bef065fe95877eab98c52c2e5/src/async_impl/client.rs#L577-L587
+        // This can be called successfully at most once in any process execution: https://docs.rs/rustls/latest/rustls/crypto/struct.CryptoProvider.html#method.install_default
+        // The return type is Result<(), Arc<Self>>, which can be dropped.
+        if CryptoProvider::get_default().is_none() {
+            let _ = aws_lc_rs::default_provider().install_default();
+        }
         Self {
             timeout: std::time::Duration::from_secs(30),
             connect_timeout: std::time::Duration::from_secs(10),
@@ -322,7 +331,6 @@ impl RetryStream {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> Result<Poll<Option<Result<bytes::Bytes, TransportError>>>, HttpError> {
-        // create a reqwest client
         let client = ClientBuilder::new()
             .timeout(self.settings.timeout)
             .connect_timeout(self.settings.connect_timeout)
