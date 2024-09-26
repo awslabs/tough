@@ -217,11 +217,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-lc-fips-sys"
+version = "0.12.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33d41a5d02120c5eca009507574fa0d4885fa370cbda6b561d91ba463c3025a7"
+dependencies = [
+ "bindgen",
+ "cmake",
+ "dunce",
+ "fs_extra",
+ "libc",
+ "paste",
+]
+
+[[package]]
 name = "aws-lc-rs"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f95446d919226d587817a7d21379e6eb099b97b45110a7f272a444ca5c54070"
 dependencies = [
+ "aws-lc-fips-sys",
  "aws-lc-sys",
  "mirai-annotations",
  "paste",
@@ -2385,6 +2400,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2dabaac7466917e566adb06783a81ca48944c6898a1b08b9374106dd671f4c8"
 dependencies = [
  "aws-lc-rs",
+ "log",
  "once_cell",
  "rustls-pki-types",
  "rustls-webpki 0.102.8",
@@ -3031,6 +3047,7 @@ dependencies = [
  "pem",
  "percent-encoding",
  "reqwest",
+ "rustls 0.23.13",
  "serde",
  "serde_json",
  "serde_plain",
@@ -3245,6 +3262,7 @@ dependencies = [
  "olpc-cjson",
  "rayon",
  "reqwest",
+ "rustls 0.23.13",
  "serde",
  "serde_json",
  "simplelog",

@@ -11,7 +11,7 @@ edition = "2018"
 [dependencies]
 async-recursion = "1"
 async-trait = "0.1"
-aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
+aws-lc-rs = "1"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "alloc", "serde", "clock"] }
 dyn-clone = "1"
@@ -24,6 +24,7 @@ olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["stream"] }
+rustls = "0.23"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_plain = "1"
@@ -47,6 +48,7 @@ tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-test = "0.4"
 
 [features]
+fips = ["aws-lc-rs/fips", "rustls/fips"]
 http = ["reqwest"]
 
 # The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.

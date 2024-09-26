@@ -12,6 +12,7 @@ edition = "2018"
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls"]
+fips = ["tough/fips"]
 
 [dependencies]
 tough = { version = "0.18", path = "../tough", features = ["http"] }
