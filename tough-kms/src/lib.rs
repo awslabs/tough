@@ -22,10 +22,10 @@
 
 mod client;
 pub mod error;
+use aws_lc_rs::digest::{digest, SHA256};
+use aws_lc_rs::rand::SecureRandom;
 use aws_sdk_kms::primitives::Blob;
 use aws_sdk_kms::Client as KmsClient;
-use ring::digest::{digest, SHA256};
-use ring::rand::SecureRandom;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::fmt;

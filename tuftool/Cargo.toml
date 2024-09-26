@@ -16,6 +16,7 @@ aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/r
 
 [dependencies]
 aws-config = "1"
+aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
 aws-sdk-kms = "1"
 aws-sdk-ssm = "1"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
@@ -27,7 +28,6 @@ maplit = "1"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 rayon = "1"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"] }
-ring = { version = "0.17", features = ["std"] }
 serde = "1"
 serde_json = "1"
 simplelog = "0.12"

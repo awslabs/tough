@@ -17,8 +17,8 @@ use crate::schema::{
 use crate::transport::{IntoVec, Transport};
 use crate::{encode_filename, Limits};
 use crate::{Repository, TargetName};
+use aws_lc_rs::rand::SystemRandom;
 use chrono::{DateTime, Utc};
-use ring::rand::SystemRandom;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};
 use std::borrow::Cow;

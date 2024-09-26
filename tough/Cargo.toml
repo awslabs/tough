@@ -11,6 +11,7 @@ edition = "2018"
 [dependencies]
 async-recursion = "1"
 async-trait = "0.1"
+aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "alloc", "serde", "clock"] }
 dyn-clone = "1"
@@ -23,7 +24,6 @@ olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
 reqwest = { version = "0.11", optional = true, default-features = false, features = ["stream"] }
-ring = { version = "0.17", features = ["std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_plain = "1"
@@ -32,7 +32,9 @@ tempfile = "3"
 tokio = { version = "1", default-features = false, features = ["io-util", "sync", "fs", "rt", "time"] }
 tokio-util = { version = "0.7", features = ["io"] }
 typed-path = "0.9"
-untrusted = "0.9"
+# pinned due to aws-lc-rs locked to this version
+# https://github.com/aws/aws-lc-rs/issues/468
+untrusted = "0.7.1"
 url = "2"
 walkdir = "2"
 

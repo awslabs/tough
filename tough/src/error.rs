@@ -178,7 +178,7 @@ pub enum Error {
 
     #[snafu(display("Private key rejected: {}", source))]
     KeyRejected {
-        source: ring::error::KeyRejected,
+        source: aws_lc_rs::error::KeyRejected,
         backtrace: Backtrace,
     },
 
@@ -378,7 +378,7 @@ pub enum Error {
 
     #[snafu(display("Failed to sign message"))]
     Sign {
-        source: ring::error::Unspecified,
+        source: aws_lc_rs::error::Unspecified,
         backtrace: Backtrace,
     },
 

@@ -9,8 +9,8 @@ use crate::sign::SignKeyPair::ECDSA;
 use crate::sign::SignKeyPair::ED25519;
 use crate::sign::SignKeyPair::RSA;
 use async_trait::async_trait;
-use ring::rand::{self, SecureRandom};
-use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, RsaKeyPair};
+use aws_lc_rs::rand::SecureRandom;
+use aws_lc_rs::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, RsaKeyPair};
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::error::Error;
@@ -93,9 +93,14 @@ impl Sign for RsaKeyPair {
         msg: &[u8],
         rng: &(dyn SecureRandom + Sync),
     ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
-        let mut signature = vec![0; self.public().modulus_len()];
-        self.sign(&ring::signature::RSA_PSS_SHA256, rng, msg, &mut signature)
-            .context(error::SignSnafu)?;
+        let mut signature = vec![0; self.public_modulus_len()];
+        self.sign(
+            &aws_lc_rs::signature::RSA_PSS_SHA256,
+            rng,
+            msg,
+            &mut signature,
+        )
+        .context(error::SignSnafu)?;
         Ok(signature)
     }
 }
@@ -167,11 +172,9 @@ impl Sign for SignKeyPair {
 pub fn parse_keypair(key: &[u8]) -> Result<impl Sign> {
     if let Ok(ed25519_key_pair) = Ed25519KeyPair::from_pkcs8(key) {
         Ok(SignKeyPair::ED25519(ed25519_key_pair))
-    } else if let Ok(ecdsa_key_pair) = EcdsaKeyPair::from_pkcs8(
-        &ring::signature::ECDSA_P256_SHA256_ASN1_SIGNING,
-        key,
-        &rand::SystemRandom::new(),
-    ) {
+    } else if let Ok(ecdsa_key_pair) =
+        EcdsaKeyPair::from_pkcs8(&aws_lc_rs::signature::ECDSA_P256_SHA256_ASN1_SIGNING, key)
+    {
         Ok(SignKeyPair::ECDSA(ecdsa_key_pair))
     } else if let Ok(pem) = pem::parse(key) {
         match pem.tag() {

@@ -15,7 +15,7 @@ aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-kms/rustls"]
 
 [dependencies]
 tough = { version = "0.18", path = "../tough", features = ["http"] }
-ring = { version = "0.17", features = ["std"] }
+aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
 aws-sdk-kms = "1"
 aws-config = "1"
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
