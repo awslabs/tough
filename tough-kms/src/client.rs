@@ -5,10 +5,14 @@ use aws_config::default_provider::credentials::DefaultCredentialsChain;
 use aws_config::default_provider::region::DefaultRegionChain;
 use aws_config::BehaviorVersion;
 use aws_sdk_kms::Client as KmsClient;
+use aws_smithy_experimental::hyper_1_0::{CryptoMode, HyperClientBuilder};
 
 /// Builds a KMS client for a given profile name.
 pub(crate) async fn build_client_kms(profile: Option<&str>) -> KmsClient {
-    let config = aws_config::defaults(BehaviorVersion::v2024_03_28());
+    let http_client = HyperClientBuilder::new()
+        .crypto_mode(CryptoMode::AwsLc) // Choose a crypto provider.
+        .build_https();
+    let config = aws_config::defaults(BehaviorVersion::v2024_03_28()).http_client(http_client);
     let client_config = if let Some(profile) = profile {
         let region = DefaultRegionChain::builder()
             .profile_name(profile)
