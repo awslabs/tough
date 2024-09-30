@@ -169,7 +169,7 @@ impl Sign for SignKeyPair {
 }
 
 /// Decrypts an RSA private key in PEM format using the given password.
-/// Returns the decrypted key in PKCS8 format.
+/// Returns the decrypted key in PKCS8 format
 pub fn decrypt_key(
     encrypted_key: &[u8],
     password: &str,
