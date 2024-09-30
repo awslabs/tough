@@ -28,7 +28,7 @@ log = "0.4"
 maplit = "1"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 rayon = "1"
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots"] }
 rustls = "0.23"
 serde = "1"
 serde_json = "1"
@@ -46,4 +46,4 @@ walkdir = "2"
 assert_cmd = "2"
 futures = "0.3"
 futures-core = "0.3"
-httptest = "0.15"
+httptest = "0.16"
