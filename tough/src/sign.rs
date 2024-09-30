@@ -1,4 +1,3 @@
-
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
@@ -201,9 +200,10 @@ pub fn parse_keypair(key: &[u8], password: Option<&str>) -> Result<impl Sign> {
 
     if let Ok(ed25519_key_pair) = Ed25519KeyPair::from_pkcs8(decrypted_key_slice) {
         Ok(SignKeyPair::ED25519(ed25519_key_pair))
-    } else if let Ok(ecdsa_key_pair) =
-        EcdsaKeyPair::from_pkcs8(&aws_lc_rs::signature::ECDSA_P256_SHA256_ASN1_SIGNING, decrypted_key_slice)
-    {
+    } else if let Ok(ecdsa_key_pair) = EcdsaKeyPair::from_pkcs8(
+        &aws_lc_rs::signature::ECDSA_P256_SHA256_ASN1_SIGNING,
+        decrypted_key_slice,
+    ) {
         Ok(SignKeyPair::ECDSA(ecdsa_key_pair))
     } else if let Ok(pem) = pem::parse(decrypted_key_slice) {
         match pem.tag() {
