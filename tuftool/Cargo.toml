@@ -13,10 +13,11 @@ integ = []
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls", ]
+fips = ["tough/fips", "rustls/fips"]
 
 [dependencies]
 aws-config = { version = "1", default-features = false, features = ["credentials-process"] }
-aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
+aws-lc-rs = "1"
 aws-sdk-kms = "1"
 aws-sdk-ssm = "1"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
@@ -27,7 +28,8 @@ log = "0.4"
 maplit = "1"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 rayon = "1"
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots"] }
+rustls = "0.23"
 serde = "1"
 serde_json = "1"
 simplelog = "0.12"
@@ -44,4 +46,4 @@ walkdir = "2"
 assert_cmd = "2"
 futures = "0.3"
 futures-core = "0.3"
-httptest = "0.15"
+httptest = "0.16"

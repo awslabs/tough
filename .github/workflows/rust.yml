@@ -15,13 +15,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        make_target: ["check-licenses", "build", "integ"]
+        make_target: ["check-licenses", "build", "integ", "integ-fips"]
         os: [ubuntu-latest, windows-latest, macos-latest]
         exclude:
           - os: windows-latest
             make_target: check-licenses
           - os: macos-latest
             make_target: check-licenses
+          - os: macos-latest
+            make_target: integ-fips
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +35,9 @@ jobs:
           key: ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}
+      - uses: ilammy/setup-nasm@v1 # requirement for windows FIPS builds
+      - name: Install ninja-build tool
+        uses: seanmiddleditch/gha-setup-ninja@v4
       # print the current rustc. replace stable to pin to a specific toolchain version.
       - run: rustup default stable
       - run: rustup component add rustfmt

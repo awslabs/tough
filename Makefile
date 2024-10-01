@@ -42,4 +42,10 @@ noxious:
 integ: noxious
 	set +e
 	cargo test --manifest-path tough/Cargo.toml --features '' --locked
+	cargo test --manifest-path tough/Cargo.toml --features 'http' --features 'integ' --locked
+
+# tests tough fips features with and without the http feature.
+integ-fips: noxious
+	set +e
+	cargo test --manifest-path tough/Cargo.toml --features 'fips' --locked
 	cargo test --manifest-path tough/Cargo.toml --all-features --locked

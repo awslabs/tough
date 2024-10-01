@@ -90,8 +90,10 @@ skip = [
 ]
 
 skip-tree = [
-    # reqwest is using several older dependencies
+    # noxious-client is using an older version of reqwest
     { name = "reqwest", version = "=0.11" },
+    # aws-smithy-runtime-experimental is using several newer dependencies
+    { name = "aws-smithy-experimental", version = "=0.1" },
 ]
 
 [sources]

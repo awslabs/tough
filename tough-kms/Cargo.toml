@@ -12,10 +12,11 @@ edition = "2018"
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
 aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-kms/rustls"]
+fips = ["aws-lc-rs/fips", "tough/fips"]
 
 [dependencies]
 tough = { version = "0.18", path = "../tough", features = ["http"] }
-aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
+aws-lc-rs = "1"
 aws-sdk-kms = "1"
 aws-config = { version = "1", default-features = false, features = ["credentials-process"] }
 aws-smithy-experimental = { version = "0.1", features = ["crypto-aws-lc"] }
