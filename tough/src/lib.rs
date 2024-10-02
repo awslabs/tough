@@ -796,6 +796,9 @@ async fn load_root<R: AsRef<[u8]>>(
         }
     }
 
+    datastore.remove("root.json");
+    datastore.create("root.json", &root).await?;
+
     // TUF v1.0.16, 5.2.9. Check for a freeze attack. The expiration timestamp in the trusted root
     // metadata file MUST be higher than the fixed update start time. If the trusted root metadata
     // file has expired, abort the update cycle, report the potential freeze attack. On the next
