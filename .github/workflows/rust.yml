@@ -37,7 +37,7 @@ jobs:
             ${{ hashFiles('.github/cache_bust') }}-${{ runner.os }}-${{ matrix.make_target }}
       - uses: ilammy/setup-nasm@v1 # requirement for windows FIPS builds
       - name: Install ninja-build tool
-        uses: seanmiddleditch/gha-setup-ninja@v4
+        uses: seanmiddleditch/gha-setup-ninja@v5
       # print the current rustc. replace stable to pin to a specific toolchain version.
       - run: rustup default stable
       - run: rustup component add rustfmt
