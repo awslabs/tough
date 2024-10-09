@@ -146,10 +146,12 @@ impl Formatter for CanonicalFormatter {
     wrapper!(write_i16, i16);
     wrapper!(write_i32, i32);
     wrapper!(write_i64, i64);
+    wrapper!(write_i128, i128);
     wrapper!(write_u8, u8);
     wrapper!(write_u16, u16);
     wrapper!(write_u32, u32);
     wrapper!(write_u64, u64);
+    wrapper!(write_u128, u128);
 
     fn write_f32<W: Write + ?Sized>(&mut self, _writer: &mut W, _value: f32) -> Result<()> {
         float_err!()
@@ -467,5 +469,33 @@ mod tests {
             52, 54, 48, 53, 53, 49, 50, 125, 125,
         ];
         assert_eq!(expected, encoded);
+    }
+
+    #[test]
+    fn encode_u128_i128() {
+        #[derive(serde_derive::Serialize)]
+        struct Object {
+            u128: u128,
+            i128: i128,
+        }
+
+        let value = Object {
+            u128: u128::MAX,
+            i128: i128::MIN,
+        };
+
+        let mut buf = Vec::new();
+        let mut ser = Serializer::with_formatter(&mut buf, CanonicalFormatter::new());
+        value.serialize(&mut ser).unwrap();
+
+        let expected = [
+            123, 34, 105, 49, 50, 56, 34, 58, 45, 49, 55, 48, 49, 52, 49, 49, 56, 51, 52, 54, 48,
+            52, 54, 57, 50, 51, 49, 55, 51, 49, 54, 56, 55, 51, 48, 51, 55, 49, 53, 56, 56, 52, 49,
+            48, 53, 55, 50, 56, 44, 34, 117, 49, 50, 56, 34, 58, 51, 52, 48, 50, 56, 50, 51, 54,
+            54, 57, 50, 48, 57, 51, 56, 52, 54, 51, 52, 54, 51, 51, 55, 52, 54, 48, 55, 52, 51, 49,
+            55, 54, 56, 50, 49, 49, 52, 53, 53, 125,
+        ];
+
+        assert_eq!(buf, expected);
     }
 }
