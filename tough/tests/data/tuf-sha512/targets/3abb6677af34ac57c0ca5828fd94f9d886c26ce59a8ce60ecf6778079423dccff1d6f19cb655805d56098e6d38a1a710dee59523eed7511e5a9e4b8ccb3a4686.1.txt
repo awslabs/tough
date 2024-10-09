@@ -1,1 +1,1 @@
-/home/fghanmi/git-clones/tough/target/tuftool-hash-1/input/1.txt
+1
