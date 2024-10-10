@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2023-10-10
+### Changes
+- Fix 128bit integer serialization (thanks @aumetra) [#820]
+
+[#820]: https://github.com/awslabs/tough/pull/820
+
 ## [0.1.3] - 2023-03-02
 ### Changed
 - Remove minor/patch versions from Cargo.tomls.  [#573]
@@ -46,7 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/olpc-cjson-v0.1.3...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/olpc-cjson-v0.1.4...develop
+[0.1.4]: https://github.com/awslabs/tough/compare/olpc-cjson-v0.1.3...olpc-cjson-v0.1.4
 [0.1.3]: https://github.com/awslabs/tough/compare/olpc-cjson-v0.1.2...olpc-cjson-v0.1.3
 [0.1.2]: https://github.com/awslabs/tough/compare/olpc-cjson-v0.1.1...olpc-cjson-v0.1.2
 [0.1.1]: https://github.com/awslabs/tough/compare/olpc-cjson-v0.1.0...olpc-cjson-v0.1.1
