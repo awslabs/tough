@@ -1,6 +1,6 @@
 [package]
 name = "tough-kms"
-version = "0.10.0"
+version = "0.11.0"
 description = "Implements AWS KMS as a key source for TUF signing keys"
 authors = ["Shailesh Gothi <gothisg@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@ aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-kms/rustls"]
 fips = ["aws-lc-rs/fips", "tough/fips"]
 
 [dependencies]
-tough = { version = "0.18", path = "../tough", features = ["http"] }
+tough = { version = "0.19", path = "../tough", features = ["http"] }
 aws-lc-rs = "1"
 aws-sdk-kms = "1"
 aws-config = { version = "1", default-features = false, features = ["credentials-process"] }

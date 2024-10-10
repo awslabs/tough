@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2024-10-10
+### Changes
+- Add FIPS support [#828] 
+- Dependency updates [#825]
+
+[#825]: https://github.com/awslabs/tough/pull/825
+[#828]: https://github.com/awslabs/tough/pull/828
+
 ## [0.18.0] - 2024-09-04
 ### Changes
 - timestamp.json meta can has optional fields (thanks @flavio) [#778]
@@ -279,7 +287,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.18.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.19.0...develop
+[0.19.0]: https://github.com/awslabs/tough/compare/tough-v0.18.0...tough-v0.19.0
 [0.18.0]: https://github.com/awslabs/tough/compare/tough-v0.17.1...tough-v0.18.0
 [0.17.1]: https://github.com/awslabs/tough/compare/tough-v0.17.0...tough-v0.17.1
 [0.17.0]: https://github.com/awslabs/tough/compare/tough-v0.16.0...tough-v0.17.0
