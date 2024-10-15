@@ -356,6 +356,12 @@ pub(crate) enum Error {
         source: tokio::task::JoinError,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("More passwords provided than key sources"))]
+    MorePasswords { backtrace: Backtrace },
+
+    #[snafu(display("More new passwords provided than new key sources"))]
+    MoreNewPasswords { backtrace: Backtrace },
 }
 
 // Extracts the status code from a reqwest::Error and converts it to a string to be displayed
