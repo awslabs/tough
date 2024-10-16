@@ -14,6 +14,12 @@ use std::pin::Pin;
 use tokio_util::io::ReaderStream;
 use url::Url;
 
+/// A type alias representing a pinned boxed stream that yields a `Result<Bytes, TransportError>`.
+///
+/// This stream is used to transport data in chunks of `Bytes`. The `Result` allows the stream
+/// to yield either a successful chunk or a `TransportError`. The `Send` bound ensures that
+/// the stream can be sent between threads, making it suitable for asynchronous operations
+/// across different parts of a program.
 pub type TransportStream = Pin<Box<dyn Stream<Item = Result<Bytes, TransportError>> + Send>>;
 
 /// Fallible byte streams that collect into a `Vec<u8>`.

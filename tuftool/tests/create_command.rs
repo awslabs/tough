@@ -67,10 +67,29 @@ async fn create_command() {
 
     // Ensure we can read the targets
     let file1 = TargetName::new("file1.txt").unwrap();
+    let file1_target_metadata = &repo.targets().signed.targets[&file1];
     assert_eq!(
         test_utils::read_to_end(repo.read_target(&file1).await.unwrap().unwrap()).await,
         &b"This is an example target file."[..]
     );
+
+    // Check the sha256 and sha512 hashes for file1 from target.json
+    assert_eq!(
+        hex::encode(
+            file1_target_metadata
+                .hashes
+                .sha256
+                .as_ref()
+                .unwrap()
+                .as_ref()
+        ),
+        "65b8c67f51c993d898250f40aa57a317d854900b3a04895464313e48785440da"
+    );
+    assert_eq!(
+        hex::encode(file1_target_metadata.hashes.sha512.as_ref().unwrap().as_ref()),
+        "467430a68afae8e9f9c0771ea5d78bf0b3a0d79a2d3d3b40c69fde4dd42c461448aef76fcef4f5284931a1ffd0ac096d138ba3a0d6ca83fa8d7285a47a296f77"
+    );
+
     let file2 = TargetName::new("file2.txt").unwrap();
     assert_eq!(
         test_utils::read_to_end(repo.read_target(&file2).await.unwrap().unwrap()).await,

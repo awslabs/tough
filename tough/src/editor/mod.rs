@@ -23,7 +23,7 @@ use crate::schema::{
 use crate::transport::{IntoVec, Transport};
 use crate::{encode_filename, Limits};
 use crate::{Repository, TargetName};
-use aws_lc_rs::digest::{SHA256, SHA256_OUTPUT_LEN};
+use aws_lc_rs::digest::{SHA256, SHA256_OUTPUT_LEN, SHA512, SHA512_OUTPUT_LEN};
 use aws_lc_rs::rand::SystemRandom;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -112,13 +112,17 @@ impl RepositoryEditor {
             }
         }
 
-        let mut digest = [0; SHA256_OUTPUT_LEN];
-        digest.copy_from_slice(aws_lc_rs::digest::digest(&SHA256, &root_buf).as_ref());
+        let mut sha256_digest = [0; SHA256_OUTPUT_LEN];
+        sha256_digest.copy_from_slice(aws_lc_rs::digest::digest(&SHA256, &root_buf).as_ref());
+
+        let mut sha512_digest = [0; SHA512_OUTPUT_LEN];
+        sha512_digest.copy_from_slice(aws_lc_rs::digest::digest(&SHA512, &root_buf).as_ref());
 
         let signed_root = SignedRole {
             signed: root,
             buffer: root_buf,
-            sha256: digest,
+            sha256: sha256_digest,
+            sha512: sha512_digest,
             length: root_buf_len,
         };
 
@@ -708,7 +712,8 @@ impl RepositoryEditor {
     {
         Metafile {
             hashes: Some(Hashes {
-                sha256: role.sha256.to_vec().into(),
+                sha256: Some(role.sha256.to_vec().into()),
+                sha512: Some(role.sha512.to_vec().into()),
                 _extra: HashMap::new(),
             }),
             length: Some(role.length),
@@ -746,7 +751,8 @@ impl RepositoryEditor {
     {
         Metafile {
             hashes: Some(Hashes {
-                sha256: role.sha256.to_vec().into(),
+                sha256: Some(role.sha256.to_vec().into()),
+                sha512: Some(role.sha512.to_vec().into()),
                 _extra: HashMap::new(),
             }),
             length: Some(role.length),

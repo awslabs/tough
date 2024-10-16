@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::{error, transport::TransportStream, TransportError};
-use aws_lc_rs::digest::{Context, SHA256};
+use aws_lc_rs::digest::{Context, SHA256, SHA512};
 use futures::StreamExt;
 use futures_core::Stream;
 use std::{convert::TryInto, path::Path, task::Poll};
@@ -23,6 +23,15 @@ impl DigestAdapter {
             stream,
             hash: hash.to_owned(),
             digest: Context::new(&SHA256),
+        }
+        .boxed()
+    }
+    pub(crate) fn sha512(stream: TransportStream, hash: &[u8], url: Url) -> TransportStream {
+        Self {
+            url,
+            stream,
+            hash: hash.to_owned(),
+            digest: Context::new(&SHA512),
         }
         .boxed()
     }

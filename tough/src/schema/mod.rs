@@ -17,7 +17,7 @@ use crate::schema::key::Key;
 use crate::sign::Sign;
 pub use crate::transport::{FilesystemTransport, Transport};
 use crate::{encode_filename, TargetName};
-use aws_lc_rs::digest::{digest, Context, SHA256};
+use aws_lc_rs::digest::{digest, Context, SHA256, SHA512};
 use chrono::{DateTime, Utc};
 use globset::{Glob, GlobMatcher};
 use hex::ToHex;
@@ -324,7 +324,11 @@ pub struct Metafile {
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Hashes {
     /// The SHA 256 digest of a metadata file.
-    pub sha256: Decoded<Hex>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<Decoded<Hex>>,
+    /// The SHA 512 digest of a metadata file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha512: Option<Decoded<Hex>>,
 
     /// Extra arguments found during deserialization.
     ///
@@ -465,11 +469,13 @@ impl Target {
             return error::TargetNotAFileSnafu { path }.fail();
         }
 
-        // Get the sha256 and length of the target
+        // Get the sha256 (and sha512) and length of the target
         let mut file = File::open(path)
             .await
             .context(error::FileOpenSnafu { path })?;
-        let mut digest = Context::new(&SHA256);
+
+        let mut sha256_digest = Context::new(&SHA256);
+        let mut sha512_digest = Context::new(&SHA512);
         let mut buf = [0; 8 * 1024];
         let mut length = 0;
         loop {
@@ -480,7 +486,8 @@ impl Target {
             {
                 0 => break,
                 n => {
-                    digest.update(&buf[..n]);
+                    sha256_digest.update(&buf[..n]);
+                    sha512_digest.update(&buf[..n]);
                     length += n as u64;
                 }
             }
@@ -489,7 +496,8 @@ impl Target {
         Ok(Target {
             length,
             hashes: Hashes {
-                sha256: Decoded::from(digest.finish().as_ref().to_vec()),
+                sha256: Some(Decoded::from(sha256_digest.finish().as_ref().to_vec())),
+                sha512: Some(Decoded::from(sha512_digest.finish().as_ref().to_vec())),
                 _extra: HashMap::new(),
             },
             custom: HashMap::new(),
@@ -1161,7 +1169,8 @@ fn targets_iter_and_map_test() {
     let nothing = Target {
         length: 0,
         hashes: Hashes {
-            sha256: [0u8].to_vec().into(),
+            sha256: Some([0u8].to_vec().into()),
+            sha512: None,
             _extra: HashMap::default(),
         },
         custom: HashMap::default(),

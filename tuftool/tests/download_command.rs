@@ -190,3 +190,46 @@ fn download_safe_target_paths() {
     assert!(outdir.join("data1.txt").is_file());
     assert!(outdir.join("foo/bar/data2.txt").is_file())
 }
+
+#[test]
+// Ensure that the download command works with a repo that only uses sha512.
+fn download_file_transport_sha512() {
+    let repo_dir = test_utils::test_data().join("tuf-sha512");
+    let metadata_base_url = test_utils::dir_url(repo_dir.join("metadata").to_str().unwrap());
+    let targets_base_url = test_utils::dir_url(repo_dir.join("targets").to_str().unwrap());
+
+    let tempdir = TempDir::new().unwrap();
+    let outdir = tempdir.path().join("outdir");
+    let root_json = test_utils::test_data()
+        .join("tuf-sha512")
+        .join("metadata")
+        .join("root.json");
+
+    // Download a test repo.
+    Command::cargo_bin("tuftool")
+        .unwrap()
+        .args([
+            "download",
+            "-r",
+            root_json.to_str().unwrap(),
+            "--metadata-url",
+            metadata_base_url.as_str(),
+            "--targets-url",
+            targets_base_url.as_str(),
+            outdir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    // Assert the files are exactly correct
+    let filename = "1.txt";
+    let got = read_to_string(outdir.join(filename)).unwrap();
+    let want = read_to_string(
+        test_utils::test_data()
+            .join("tuf-sha512")
+            .join("targets")
+            .join(format!("3abb6677af34ac57c0ca5828fd94f9d886c26ce59a8ce60ecf6778079423dccff1d6f19cb655805d56098e6d38a1a710dee59523eed7511e5a9e4b8ccb3a4686.{}", filename)),
+    )
+    .unwrap();
+    assert_eq!(got, want, "{} contents do not match.", filename);
+}
