@@ -70,7 +70,7 @@ use futures_core::Stream;
 use log::warn;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use snafu::{ensure, OptionExt, ResultExt};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use tokio::fs::{canonicalize, create_dir_all};
@@ -1199,6 +1199,7 @@ async fn load_targets(
     // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
     //   with the top-level targets role.
     if let Some(delegations) = &mut targets.signed.delegations {
+        let mut loaded_roles: BTreeSet<String> = BTreeSet::new();
         load_delegations(
             transport,
             snapshot,
@@ -1207,6 +1208,7 @@ async fn load_targets(
             max_targets_size,
             delegations,
             datastore,
+            &mut loaded_roles,
         )
         .await?;
     }
@@ -1227,10 +1229,15 @@ async fn load_delegations(
     max_targets_size: u64,
     delegation: &mut Delegations,
     datastore: &Datastore,
+    loaded_roles: &mut BTreeSet<String>,
 ) -> Result<()> {
     let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
         HashMap::new();
     for delegated_role in &delegation.roles {
+        if loaded_roles.contains(&delegated_role.name) {
+            // we have already loaded this role, continue
+            continue;
+        }
         // find the role file metadata
         let role_meta = snapshot
             .signed
@@ -1288,6 +1295,10 @@ async fn load_delegations(
     }
     // load all roles delegated by this role
     for delegated_role in &mut delegation.roles {
+        if loaded_roles.contains(&delegated_role.name) {
+            continue;
+        }
+        loaded_roles.insert(delegated_role.name.clone());
         delegated_role.targets =
             delegated_roles
                 .remove(&delegated_role.name)
@@ -1304,6 +1315,7 @@ async fn load_delegations(
                     max_targets_size,
                     delegations,
                     datastore,
+                    loaded_roles,
                 )
                 .await?;
             }
