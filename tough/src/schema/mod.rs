@@ -27,7 +27,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_plain::{derive_display_from_serialize, derive_fromstr_from_deserialize};
 use snafu::ResultExt;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::num::NonZeroU64;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
@@ -516,21 +516,43 @@ impl Targets {
     ///
     /// **Caution**: does not imply that delegations in this struct or any child are valid.
     ///
-    pub fn find_target(&self, target_name: &TargetName) -> Result<&Target> {
+    pub fn find_target(
+        &self,
+        target_name: &TargetName,
+        visited: &mut BTreeSet<String>,
+        terminated: &mut bool,
+        permissive: bool,
+    ) -> Result<&Target> {
         if let Some(target) = self.targets.get(target_name) {
             return Ok(target);
         }
         if let Some(delegations) = &self.delegations {
             for role in &delegations.roles {
                 // If the target cannot match this DelegatedRole, then we do not want to recurse and
-                // check any of its child roles either.
-                if !role.paths.matches_target_name(target_name) {
+                // check any of its child roles either. If we have already visited this role, we
+                // do not need to visit it again.
+                if !role.paths.matches_target_name(target_name) || visited.contains(&role.name) {
                     continue;
                 }
+                visited.insert(role.name.clone());
                 if let Some(targets) = &role.targets {
-                    if let Ok(target) = targets.signed.find_target(target_name) {
+                    if let Ok(target) =
+                        targets
+                            .signed
+                            .find_target(target_name, visited, terminated, permissive)
+                    {
                         return Ok(target);
                     }
+                    if !permissive && *terminated {
+                        // we encountered a terminating delegation, so we stop iterating immediately
+                        break;
+                    }
+                }
+                if role.terminating && !permissive {
+                    // this role was terminating, so set terminated. This will cause all ancestors
+                    // to stop iterating and return not-found.
+                    *terminated = true;
+                    break;
                 }
             }
         }
@@ -724,7 +746,9 @@ impl Targets {
     /// that the ownership of each target is valid.
     pub(crate) fn validate(&self) -> Result<()> {
         for (target_name, _) in self.targets_iter() {
-            self.find_target(target_name)?;
+            let mut terminated = false;
+            let mut visited_roles: BTreeSet<String> = BTreeSet::new();
+            self.find_target(target_name, &mut visited_roles, &mut terminated, true)?;
         }
         Ok(())
     }

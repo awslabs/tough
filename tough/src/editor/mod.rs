@@ -352,6 +352,7 @@ impl RepositoryEditor {
         name: &str,
         key_source: &[Box<dyn KeySource>],
         paths: PathSet,
+        terminating: bool,
         threshold: NonZeroU64,
         expiration: DateTime<Utc>,
         version: NonZeroU64,
@@ -387,6 +388,7 @@ impl RepositoryEditor {
         self.targets_editor_mut()?.delegate_role(
             new_targets,
             paths,
+            terminating,
             key_pairs,
             keyids,
             threshold,
@@ -646,6 +648,7 @@ impl RepositoryEditor {
         name: &str,
         metadata_url: &str,
         paths: PathSet,
+        terminating: bool,
         threshold: NonZeroU64,
         keys: Option<HashMap<Decoded<Hex>, Key>>,
     ) -> Result<&mut Self> {
@@ -658,7 +661,7 @@ impl RepositoryEditor {
         self.targets_editor_mut()?.limits(limits);
         self.targets_editor_mut()?.transport(transport.clone());
         self.targets_editor_mut()?
-            .add_role(name, metadata_url, paths, threshold, keys)
+            .add_role(name, metadata_url, paths, terminating, threshold, keys)
             .await?;
 
         Ok(self)

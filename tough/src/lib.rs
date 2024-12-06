@@ -483,12 +483,20 @@ impl Repository {
         //   HASH is one of the hashes of the targets file listed in the targets metadata file
         //   found earlier in step 4. In either case, the client MUST write the file to
         //   non-volatile storage as FILENAME.EXT.
-        Ok(if let Ok(target) = self.targets.signed.find_target(name) {
-            let (sha256, file) = self.target_digest_and_filename(target, name);
-            Some(self.fetch_target(target, &sha256, file.as_str()).await?)
-        } else {
-            None
-        })
+        let mut visited_roles: BTreeSet<String> = BTreeSet::new();
+        let mut terminated = false;
+        Ok(
+            if let Ok(target) =
+                self.targets
+                    .signed
+                    .find_target(name, &mut visited_roles, &mut terminated, false)
+            {
+                let (sha256, file) = self.target_digest_and_filename(target, name);
+                Some(self.fetch_target(target, &sha256, file.as_str()).await?)
+            } else {
+                None
+            },
+        )
     }
 
     /// Fetches a target from the repository and saves it to `outdir`. Attempts to do this as safely
@@ -535,11 +543,15 @@ impl Repository {
 
         let filename = match prepend {
             Prefix::Digest => {
-                let target = self.targets.signed.find_target(name).with_context(|_| {
-                    error::CacheTargetMissingSnafu {
+                let mut visited_roles: BTreeSet<String> = BTreeSet::new();
+                let mut terminated = false;
+                let target = self
+                    .targets
+                    .signed
+                    .find_target(name, &mut visited_roles, &mut terminated, false)
+                    .with_context(|_| error::CacheTargetMissingSnafu {
                         target_name: name.clone(),
-                    }
-                })?;
+                    })?;
                 let sha256 = target.hashes.sha256.clone().into_vec();
                 format!("{}.{}", hex::encode(sha256), name.resolved())
             }
@@ -1220,6 +1232,7 @@ async fn load_targets(
 }
 
 // Follow the paths of delegations starting with the top level targets.json delegation
+#[allow(clippy::too_many_arguments)]
 #[async_recursion]
 async fn load_delegations(
     transport: &dyn Transport,

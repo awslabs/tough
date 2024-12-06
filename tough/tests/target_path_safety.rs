@@ -91,6 +91,7 @@ async fn safe_target_paths() {
             "delegated",
             &keys,
             PathSet::Paths(vec![PathPattern::new("delegated/*").unwrap()]),
+            false,
             one,
             later(),
             one,
