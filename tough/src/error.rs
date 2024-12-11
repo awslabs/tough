@@ -256,6 +256,34 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    /// A timestamp metadata file must contain exactly one entry
+    #[snafu(display(
+        "Timestamp version {} meta length {} is not exactly one",
+        version,
+        meta_length
+    ))]
+    TimestampMetaLength { version: u64, meta_length: usize },
+
+    /// A timestamp metadata file must contain a meta entry for snapshot.json
+    #[snafu(display("No snapshot meta in timestamp.json version {}", version))]
+    MissingSnapshotMeta { version: u64 },
+
+    /// The snapshot version in a newer timestamp metadata file must be greater than
+    /// or equal to the version in an older timestamp.
+    #[snafu(display(
+        "Snapshot version {} in timestamp {} is less than {} in timestamp {}",
+        snapshot_new,
+        timestamp_new,
+        snapshot_old,
+        timestamp_old
+    ))]
+    OlderSnapshotInTimestamp {
+        snapshot_new: u64,
+        timestamp_new: u64,
+        snapshot_old: u64,
+        timestamp_old: u64,
+    },
+
     /// The library failed to parse a metadata file, either because it was not valid JSON or it did
     /// not conform to the expected schema.
     ///

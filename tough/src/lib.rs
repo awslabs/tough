@@ -883,7 +883,7 @@ async fn load_timestamp(
             role: RoleType::Timestamp,
         })?;
 
-    // 2.1. Check signatures. The new timestamp metadata file must have been signed by a threshold
+    // 5.4.2. Check signatures. The new timestamp metadata file must have been signed by a threshold
     //   of keys specified in the trusted root metadata file. If the new timestamp metadata file is
     //   not properly signed, discard it, abort the update cycle, and report the signature failure.
     root.signed
@@ -892,7 +892,22 @@ async fn load_timestamp(
             role: RoleType::Timestamp,
         })?;
 
-    // 2.2. Check for a rollback attack. The version number of the trusted timestamp metadata file,
+    // 4.6. The meta component must contain exactly one entry, snapshot.json
+    ensure!(
+        timestamp.signed.meta.len() == 1,
+        error::TimestampMetaLengthSnafu {
+            version: timestamp.signed.version,
+            meta_length: timestamp.signed.meta.len(),
+        }
+    );
+    let snapshot_meta = timestamp.signed.meta.get("snapshot.json");
+    ensure!(
+        snapshot_meta.is_some(),
+        error::MissingSnapshotMetaSnafu {
+            version: timestamp.signed.version,
+        }
+    );
+    // 5.4.3.1. Check for a rollback attack. The version number of the trusted timestamp metadata file,
     //   if any, must be less than or equal to the version number of the new timestamp metadata
     //   file. If the new timestamp metadata file is older than the trusted timestamp metadata
     //   file, discard it, abort the update cycle, and report the potential rollback attack.
@@ -908,6 +923,32 @@ async fn load_timestamp(
                     role: RoleType::Timestamp,
                     current_version: old_timestamp.signed.version,
                     new_version: timestamp.signed.version
+                }
+            );
+            // 4.6 trusted timestamp meta must have one entry, snapshot.json
+            ensure!(
+                old_timestamp.signed.meta.len() == 1,
+                error::TimestampMetaLengthSnafu {
+                    version: old_timestamp.signed.version,
+                    meta_length: old_timestamp.signed.meta.len(),
+                }
+            );
+            let old_snapshot_meta = old_timestamp.signed.meta.get("snapshot.json");
+            ensure!(
+                old_snapshot_meta.is_some(),
+                error::MissingSnapshotMetaSnafu {
+                    version: old_timestamp.signed.version,
+                }
+            );
+            // 5.4.3.2 trusted snapshot version less than or equal to new snapshot version
+            // (rollback attack to fetch older snapshot object)
+            ensure!(
+                old_snapshot_meta.unwrap().version <= snapshot_meta.unwrap().version,
+                error::OlderSnapshotInTimestampSnafu {
+                    snapshot_new: snapshot_meta.unwrap().version,
+                    timestamp_new: timestamp.signed.version,
+                    snapshot_old: old_snapshot_meta.unwrap().version,
+                    timestamp_old: old_timestamp.signed.version,
                 }
             );
         }
