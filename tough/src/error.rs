@@ -284,6 +284,40 @@ pub enum Error {
         timestamp_old: u64,
     },
 
+    /// The snapshot meta must contain targets.json
+    #[snafu(display("Snapshot version {} does not contain targets.json", version))]
+    SnapshotTargetsMetaMissing { version: u64 },
+
+    /// Any role in the trusted snapshot meta must also appear in the new snapshot meta
+    #[snafu(display(
+        "Role {} appears in snapshot version {} but not version {}",
+        role,
+        old_version,
+        new_version
+    ))]
+    SnapshotRoleMissing {
+        role: String,
+        old_version: u64,
+        new_version: u64,
+    },
+
+    /// Role version in trusted snapshot must be less than or equal to version in new snapshot
+    #[snafu(display(
+        "Role {} version {} in snapshot {} is greater than version {} in snapshot {}",
+        role,
+        old_role_version,
+        old_snapshot_version,
+        new_role_version,
+        new_snapshot_version
+    ))]
+    SnapshotRoleRollback {
+        role: String,
+        old_role_version: u64,
+        old_snapshot_version: u64,
+        new_role_version: u64,
+        new_snapshot_version: u64,
+    },
+
     /// The library failed to parse a metadata file, either because it was not valid JSON or it did
     /// not conform to the expected schema.
     ///

@@ -65,6 +65,7 @@ use async_recursion::async_recursion;
 pub use async_trait::async_trait;
 pub use bytes::Bytes;
 use chrono::{DateTime, Utc};
+use error::SnapshotTargetsMetaMissingSnafu;
 use futures::StreamExt;
 use futures_core::Stream;
 use log::warn;
@@ -1060,6 +1061,13 @@ async fn load_snapshot(
             role: RoleType::Snapshot,
         })?;
 
+    // 4.4 Check that snapshot.meta contains at least targets.json
+    ensure!(
+        snapshot.signed.meta.contains_key("targets.json"),
+        SnapshotTargetsMetaMissingSnafu {
+            version: snapshot.signed.version,
+        }
+    );
     // 3.3. Check for a rollback attack.
     //
     // 3.3.1. Note that the trusted snapshot metadata file may be checked for authenticity, but its
@@ -1090,6 +1098,35 @@ async fn load_snapshot(
             //   metadata file, if any, MUST continue to be listed in the new snapshot metadata
             //   file. If any of these conditions are not met, discard the new snapshot metadata
             //   file, abort the update cycle, and report the failure.
+
+            // Ensure that the trusted snapshot has at least targets.json
+            ensure!(
+                old_snapshot.signed.meta.contains_key("targets.json"),
+                error::SnapshotTargetsMetaMissingSnafu {
+                    version: old_snapshot.signed.version,
+                }
+            );
+            for (name, meta) in &old_snapshot.signed.meta {
+                ensure!(
+                    snapshot.signed.meta.contains_key(name),
+                    error::SnapshotRoleMissingSnafu {
+                        role: name,
+                        old_version: old_snapshot.signed.version,
+                        new_version: snapshot.signed.version,
+                    }
+                );
+                let new_meta = snapshot.signed.meta.get(name).unwrap();
+                ensure!(
+                    meta.version <= new_meta.version,
+                    error::SnapshotRoleRollbackSnafu {
+                        role: name,
+                        old_role_version: meta.version,
+                        old_snapshot_version: old_snapshot.signed.version,
+                        new_role_version: new_meta.version,
+                        new_snapshot_version: snapshot.signed.version,
+                    }
+                );
+            }
             if let Some(old_targets_meta) = old_snapshot.signed.meta.get("targets.json") {
                 let targets_meta =
                     snapshot
