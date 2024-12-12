@@ -1209,6 +1209,8 @@ async fn load_targets(
         None => (max_targets_size, "max_targets_size parameter"),
     };
     let stream = if let Some(hashes) = &targets_meta.hashes {
+        // 5.6.2. The hashes of the new targets metadata file MUST match the hashes, if any,
+        // listed in the trusted snapshot metadata.
         fetch_sha256(
             transport,
             targets_url.clone(),
@@ -1229,22 +1231,7 @@ async fn load_targets(
             role: RoleType::Targets,
         })?;
 
-    // 4.1. Check against snapshot metadata. The hashes (if any), and version number of the new
-    //   targets metadata file MUST match the trusted snapshot metadata. This is done, in part, to
-    //   prevent a mix-and-match attack by man-in-the-middle attackers. If the new targets metadata
-    //   file does not match, discard it, abort the update cycle, and report the failure.
-    //
-    // (We already checked the hash in `fetch_sha256` above.)
-    ensure!(
-        targets.signed.version == targets_meta.version,
-        error::VersionMismatchSnafu {
-            role: RoleType::Targets,
-            fetched: targets.signed.version,
-            expected: targets_meta.version
-        }
-    );
-
-    // 4.2. Check for an arbitrary software attack. The new targets metadata file MUST have been
+    // 5.6.3. Check for an arbitrary software attack. The new targets metadata file MUST have been
     //   signed by a threshold of keys specified in the trusted root metadata file. If the new
     //   targets metadata file is not signed as required, discard it, abort the update cycle, and
     //   report the failure.
@@ -1254,28 +1241,16 @@ async fn load_targets(
             role: RoleType::Targets,
         })?;
 
-    // 4.3. Check for a rollback attack. The version number of the trusted targets metadata file,
-    //   if any, MUST be less than or equal to the version number of the new targets metadata file.
-    //   If the new targets metadata file is older than the trusted targets metadata file, discard
-    //   it, abort the update cycle, and report the potential rollback attack.
-    if let Some(Ok(old_targets)) = datastore
-        .bytes("targets.json")
-        .await?
-        .map(|b| serde_json::from_slice::<Signed<crate::schema::Targets>>(&b))
-    {
-        if root.signed.verify_role(&old_targets).is_ok() {
-            ensure!(
-                old_targets.signed.version <= targets.signed.version,
-                error::OlderMetadataSnafu {
-                    role: RoleType::Targets,
-                    current_version: old_targets.signed.version,
-                    new_version: targets.signed.version
-                }
-            );
+    // 5.6.4. Check against the snapshot role's targets version
+    ensure!(
+        targets.signed.version == targets_meta.version,
+        error::VersionMismatchSnafu {
+            role: RoleType::Targets,
+            fetched: targets.signed.version,
+            expected: targets_meta.version
         }
-    }
-
-    // TUF v1.0.16, 5.5.4. Check for a freeze attack. The expiration timestamp in the new targets
+    );
+    // 5.6.5. Check for a freeze attack. The expiration timestamp in the new targets
     // metadata file MUST be higher than the fixed update start time. If so, the new targets
     // metadata file becomes the trusted targets metadata file. If the new targets metadata file is
     // expired, discard it, abort the update cycle, and report the potential freeze attack.
@@ -1333,11 +1308,14 @@ async fn load_delegations(
         let role_meta = snapshot
             .signed
             .meta
-            .get(&format!("{}.json", &delegated_role.name))
-            .with_context(|| error::RoleNotInMetaSnafu {
-                name: delegated_role.name.clone(),
-            })?;
+            .get(&format!("{}.json", &delegated_role.name));
 
+        if role_meta.is_none() {
+            // 5.5.6: If any metadata requested in steps 5.6.7.1 - 5.6.7.2 cannot be downloaded nor validated, end the search and report that the target cannot be found.
+            loaded_roles.insert(delegated_role.name.clone());
+            return Ok(());
+        }
+        let role_meta = role_meta.unwrap();
         let path = if consistent_snapshot {
             format!(
                 "{}.{}.json",

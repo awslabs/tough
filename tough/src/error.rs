@@ -637,8 +637,8 @@ pub enum Error {
     #[snafu(display("Invalid file permissions"))]
     InvalidPath { source: crate::schema::Error },
 
-    #[snafu(display("Role missing from snapshot meta: {}", name))]
-    RoleNotInMeta { name: String },
+    #[snafu(display("Role missing from snapshot meta: {} ({})", name, parent))]
+    RoleNotInMeta { name: String, parent: String },
 
     #[snafu(display("The key for {} was not included", role))]
     KeyNotFound {
