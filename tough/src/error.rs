@@ -674,6 +674,10 @@ pub enum Error {
         source: schema::Error,
     },
 
+    /// Duplicate keyids (4.2.1)
+    #[snafu(display("Duplicate keyid {} in signatures", keyid))]
+    DuplicateKeyid { keyid: String },
+
     /// `SignedDelegatedTargets` has more than 1 signed targets
     #[snafu(display("Exactly 1 role was required, but {} were created", count))]
     InvalidRoleCount { count: usize },
