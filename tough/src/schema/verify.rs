@@ -36,10 +36,11 @@ impl Root {
             if role_keys.keyids.contains(&signature.keyid) {
                 if let Some(key) = self.keys.get(&signature.keyid) {
                     if key.verify(&data, &signature.sig) {
-                        // Ignore duplicate keyids.
-                        if valid_keyids.insert(&signature.keyid) {
-                            valid += 1;
-                        }
+                        // we have ensured that this keyid is not already
+                        // present in valid_keyids with the test on
+                        // contained_keyids.
+                        valid_keyids.insert(&signature.keyid);
+                        valid += 1;
                     }
                 }
             }

@@ -674,7 +674,7 @@ fn parse_url(url: Url) -> Result<Url> {
 
 /// Steps 0 and 1 of the client application, which load the current root metadata file based on a
 /// trusted root metadata file.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn load_root<R: AsRef<[u8]>>(
     transport: &dyn Transport,
     root: R,
@@ -901,13 +901,15 @@ async fn load_timestamp(
             meta_length: timestamp.signed.meta.len(),
         }
     );
-    let snapshot_meta = timestamp.signed.meta.get("snapshot.json");
-    ensure!(
-        snapshot_meta.is_some(),
-        error::MissingSnapshotMetaSnafu {
-            version: timestamp.signed.version,
-        }
-    );
+    let snapshot_meta =
+        timestamp
+            .signed
+            .meta
+            .get("snapshot.json")
+            .context(error::MissingSnapshotMetaSnafu {
+                version: timestamp.signed.version,
+            })?;
+
     // 5.4.3.1. Check for a rollback attack. The version number of the trusted timestamp metadata file,
     //   if any, must be less than or equal to the version number of the new timestamp metadata
     //   file. If the new timestamp metadata file is older than the trusted timestamp metadata
@@ -934,21 +936,19 @@ async fn load_timestamp(
                     meta_length: old_timestamp.signed.meta.len(),
                 }
             );
-            let old_snapshot_meta = old_timestamp.signed.meta.get("snapshot.json");
-            ensure!(
-                old_snapshot_meta.is_some(),
+            let old_snapshot_meta = old_timestamp.signed.meta.get("snapshot.json").context(
                 error::MissingSnapshotMetaSnafu {
                     version: old_timestamp.signed.version,
-                }
-            );
+                },
+            )?;
             // 5.4.3.2 trusted snapshot version less than or equal to new snapshot version
             // (rollback attack to fetch older snapshot object)
             ensure!(
-                old_snapshot_meta.unwrap().version <= snapshot_meta.unwrap().version,
+                old_snapshot_meta.version <= snapshot_meta.version,
                 error::OlderSnapshotInTimestampSnafu {
-                    snapshot_new: snapshot_meta.unwrap().version,
+                    snapshot_new: snapshot_meta.version,
                     timestamp_new: timestamp.signed.version,
-                    snapshot_old: old_snapshot_meta.unwrap().version,
+                    snapshot_old: old_snapshot_meta.version,
                     timestamp_old: old_timestamp.signed.version,
                 }
             );
@@ -970,7 +970,7 @@ async fn load_timestamp(
 }
 
 /// Step 3 of the client application, which loads the snapshot metadata file.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+#[expect(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn load_snapshot(
     transport: &dyn Transport,
     root: &Signed<Root>,
@@ -1164,7 +1164,7 @@ async fn load_snapshot(
 }
 
 /// Step 4 of the client application, which loads the targets metadata file.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn load_targets(
     transport: &dyn Transport,
     root: &Signed<Root>,
@@ -1285,7 +1285,7 @@ async fn load_targets(
 }
 
 // Follow the paths of delegations starting with the top level targets.json delegation
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 #[async_recursion]
 async fn load_delegations(
     transport: &dyn Transport,
@@ -1311,7 +1311,7 @@ async fn load_delegations(
             .get(&format!("{}.json", &delegated_role.name));
 
         if role_meta.is_none() {
-            // 5.5.6: If any metadata requested in steps 5.6.7.1 - 5.6.7.2 cannot be downloaded nor validated, end the search and report that the target cannot be found.
+            // 5.6.7: If any metadata requested in steps 5.6.7.1 - 5.6.7.2 cannot be downloaded nor validated, end the search and report that the target cannot be found.
             loaded_roles.insert(delegated_role.name.clone());
             return Ok(());
         }
