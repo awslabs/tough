@@ -32,7 +32,7 @@ pub trait Sign: Sync + Send {
 
 /// Implements `Sign` for a reference to any type that implements `Sign`.
 #[async_trait]
-impl<'a, T: Sign> Sign for &'a T {
+impl<T: Sign> Sign for &T {
     fn tuf_key(&self) -> Key {
         (*self).tuf_key()
     }
