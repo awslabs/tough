@@ -516,7 +516,18 @@ impl Targets {
     ///
     /// **Caution**: does not imply that delegations in this struct or any child are valid.
     ///
-    pub fn find_target(
+    pub fn find_target(&self, target_name: &TargetName, permissive: bool) -> Result<&Target> {
+        // visited roles: specification 5.6.7.1 only visit a role once while searching
+        // This breaks any cyclic delegation, and speeds up searches with redundant
+        // delegation.
+        let mut visited: BTreeSet<String> = BTreeSet::new();
+        // terminated: set true when a terminating delegation is selected. No
+        // subsequent delegations should be consulted.
+        let mut terminated = false;
+        self.find_target_from_role(target_name, &mut visited, &mut terminated, permissive)
+    }
+
+    fn find_target_from_role(
         &self,
         target_name: &TargetName,
         visited: &mut BTreeSet<String>,
@@ -536,11 +547,12 @@ impl Targets {
                 }
                 visited.insert(role.name.clone());
                 if let Some(targets) = &role.targets {
-                    if let Ok(target) =
-                        targets
-                            .signed
-                            .find_target(target_name, visited, terminated, permissive)
-                    {
+                    if let Ok(target) = targets.signed.find_target_from_role(
+                        target_name,
+                        visited,
+                        terminated,
+                        permissive,
+                    ) {
                         return Ok(target);
                     }
                     if !permissive && *terminated {
@@ -746,9 +758,7 @@ impl Targets {
     /// that the ownership of each target is valid.
     pub(crate) fn validate(&self) -> Result<()> {
         for (target_name, _) in self.targets_iter() {
-            let mut terminated = false;
-            let mut visited_roles: BTreeSet<String> = BTreeSet::new();
-            self.find_target(target_name, &mut visited_roles, &mut terminated, true)?;
+            self.find_target(target_name, true)?;
         }
         Ok(())
     }

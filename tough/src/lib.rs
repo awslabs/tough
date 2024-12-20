@@ -484,14 +484,8 @@ impl Repository {
         //   HASH is one of the hashes of the targets file listed in the targets metadata file
         //   found earlier in step 4. In either case, the client MUST write the file to
         //   non-volatile storage as FILENAME.EXT.
-        let mut visited_roles: BTreeSet<String> = BTreeSet::new();
-        let mut terminated = false;
         Ok(
-            if let Ok(target) =
-                self.targets
-                    .signed
-                    .find_target(name, &mut visited_roles, &mut terminated, false)
-            {
+            if let Ok(target) = self.targets.signed.find_target(name, false) {
                 let (sha256, file) = self.target_digest_and_filename(target, name);
                 Some(self.fetch_target(target, &sha256, file.as_str()).await?)
             } else {
@@ -544,12 +538,10 @@ impl Repository {
 
         let filename = match prepend {
             Prefix::Digest => {
-                let mut visited_roles: BTreeSet<String> = BTreeSet::new();
-                let mut terminated = false;
                 let target = self
                     .targets
                     .signed
-                    .find_target(name, &mut visited_roles, &mut terminated, false)
+                    .find_target(name, false)
                     .with_context(|_| error::CacheTargetMissingSnafu {
                         target_name: name.clone(),
                     })?;
