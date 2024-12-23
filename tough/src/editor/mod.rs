@@ -190,7 +190,8 @@ impl RepositoryEditor {
             })
         };
 
-        let signed_snapshot = self.build_snapshot(&signed_targets, &signed_delegated_targets)?;
+        let signed_snapshot =
+            self.build_snapshot(&signed_targets, signed_delegated_targets.as_ref())?;
         let signed_snapshot = SignedRole::new(signed_snapshot, &root, keys, &rng).await?;
         let signed_timestamp = self.build_timestamp(&signed_snapshot)?;
         let signed_timestamp = SignedRole::new(signed_timestamp, &root, keys, &rng).await?;
@@ -669,7 +670,7 @@ impl RepositoryEditor {
     fn build_snapshot(
         &self,
         signed_targets: &SignedRole<Targets>,
-        signed_delegated_targets: &Option<SignedDelegatedTargets>,
+        signed_delegated_targets: Option<&SignedDelegatedTargets>,
     ) -> Result<Snapshot> {
         let version = self.snapshot_version.context(error::MissingSnafu {
             field: "snapshot version",
@@ -687,7 +688,7 @@ impl RepositoryEditor {
             .meta
             .insert("targets.json".to_owned(), targets_meta);
 
-        if let Some(signed_delegated_targets) = signed_delegated_targets.as_ref() {
+        if let Some(signed_delegated_targets) = signed_delegated_targets {
             for delegated_targets in &signed_delegated_targets.roles {
                 let meta = Self::snapshot_meta(delegated_targets);
                 snapshot.meta.insert(

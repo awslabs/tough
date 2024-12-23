@@ -8,7 +8,6 @@ use tough::IntoVec;
 use url::Url;
 
 /// Utilities for tests. Not every test module uses every function, so we suppress unused warnings.
-
 /// Returns the path to our test data directory
 #[allow(unused)]
 pub fn test_data() -> PathBuf {

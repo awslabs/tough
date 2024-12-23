@@ -14,7 +14,6 @@ use tough::IntoVec;
 use url::Url;
 
 /// Utilities for tests. Not every test module uses every function, so we suppress unused warnings.
-
 pub const DATA_1: &str = "123\n456\n789\n0\n";
 pub const DATA_2: &str = "abc\ndef\nhij\nk\n";
 pub const DATA_3: &str = "!@#\n$%^\n&*(\n)\n";
