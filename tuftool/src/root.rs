@@ -157,7 +157,7 @@ impl Command {
                 roles,
                 key_source,
                 password,
-            } => Command::add_key(&path, &roles, &key_source, &password).await,
+            } => Command::add_key(&path, &roles, &key_source, password.as_ref()).await,
             Command::RemoveKey { path, key_id, role } => {
                 Command::remove_key(&path, &key_id, role).await
             }
@@ -261,7 +261,7 @@ impl Command {
         path: &Path,
         roles: &[RoleType],
         key_source: &[String],
-        password: &Option<Vec<String>>,
+        password: Option<&Vec<String>>,
     ) -> Result<()> {
         let mut keys = Vec::new();
         let default_password = String::new();
