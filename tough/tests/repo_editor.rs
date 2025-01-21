@@ -153,14 +153,19 @@ async fn create_sign_write_reload_repo() {
         .unwrap();
 
     let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
-        &[Box::new(LocalKeySource { path: key_path() })];
+        &[Box::new(LocalKeySource {
+            path: key_path(),
+            password: None,
+        })];
     let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path(),
+            password: None,
         })];
     let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path1(),
+            password: None,
         })];
 
     // add role1 to targets
@@ -257,14 +262,19 @@ async fn create_role_flow() {
     let editor = test_repo_editor().await;
 
     let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
-        &[Box::new(LocalKeySource { path: key_path() })];
+        &[Box::new(LocalKeySource {
+            path: key_path(),
+            password: None,
+        })];
     let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path(),
+            password: None,
         })];
     let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path1(),
+            password: None,
         })];
 
     // write the repo to temp location
@@ -320,7 +330,10 @@ async fn create_role_flow() {
 
     //sign everything since targets key is the same as snapshot and timestamp
     let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
+    let key_source = LocalKeySource {
+        path: root_key,
+        password: None,
+    };
     let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
     let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
@@ -430,7 +443,10 @@ async fn create_role_flow() {
     let metadata_base_url_out = dir_url(&metadata_destination_out);
     // add outdir to repo
     let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
+    let key_source = LocalKeySource {
+        path: root_key,
+        password: None,
+    };
 
     let mut editor = RepositoryEditor::from_repo(root_path(), new_repo)
         .await
@@ -481,14 +497,19 @@ async fn update_targets_flow() {
     let editor = test_repo_editor().await;
 
     let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
-        &[Box::new(LocalKeySource { path: key_path() })];
+        &[Box::new(LocalKeySource {
+            path: key_path(),
+            password: None,
+        })];
     let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path(),
+            password: None,
         })];
     let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path1(),
+            password: None,
         })];
 
     // write the repo to temp location
@@ -544,7 +565,10 @@ async fn update_targets_flow() {
 
     //sign everything since targets key is the same as snapshot and timestamp
     let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
+    let key_source = LocalKeySource {
+        path: root_key,
+        password: None,
+    };
     let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let timestamp_version = NonZeroU64::new(1234).unwrap();
     let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
@@ -654,7 +678,10 @@ async fn update_targets_flow() {
     let metadata_base_url_out = dir_url(&metadata_destination_out);
     // add outdir to repo
     let root_key = key_path();
-    let key_source = LocalKeySource { path: root_key };
+    let key_source = LocalKeySource {
+        path: root_key,
+        password: None,
+    };
 
     let mut editor = RepositoryEditor::from_repo(root_path(), new_repo)
         .await

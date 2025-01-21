@@ -26,6 +26,7 @@ fn later() -> DateTime<Utc> {
 async fn create_root(root_path: &Path, consistent_snapshot: bool) -> Vec<Box<dyn KeySource>> {
     let keys: Vec<Box<dyn KeySource>> = vec![Box::new(LocalKeySource {
         path: test_data().join("snakeoil.pem"),
+        password: None,
     })];
 
     let key_pair = keys.first().unwrap().as_sign().await.unwrap().tuf_key();

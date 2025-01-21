@@ -33,6 +33,10 @@ pub(crate) struct AddRoleArgs {
     #[arg(short, long = "key", required = true)]
     keys: Vec<String>,
 
+    /// [Optional] passwords/passphrases of the Key files
+    #[arg(long = "password")]
+    passwords: Option<Vec<String>>,
+
     /// TUF repository metadata base URL
     #[arg(short, long = "metadata-url")]
     metadata_base_url: Url,
@@ -120,8 +124,17 @@ impl AddRoleArgs {
         };
 
         let mut keys = Vec::new();
-        for source in &self.keys {
-            let key_source = parse_key_source(source)?;
+        let default_password = String::new();
+        let passwords = match &self.passwords {
+            Some(pws) => pws,
+            None => &vec![],
+        };
+        if passwords.len() > self.keys.len() {
+            error::MorePasswordsSnafu.fail()?;
+        }
+        for (i, source) in self.keys.iter().enumerate() {
+            let password = passwords.get(i).unwrap_or(&default_password);
+            let key_source = parse_key_source(source, Some(password.to_string()))?;
             keys.push(key_source);
         }
 
@@ -155,8 +168,17 @@ impl AddRoleArgs {
     /// Adds a role to metadata using repo Editor
     async fn with_repo_editor(&self, role: &str, mut editor: RepositoryEditor) -> Result<()> {
         let mut keys = Vec::new();
-        for source in &self.keys {
-            let key_source = parse_key_source(source)?;
+        let default_password = String::new();
+        let passwords = match &self.passwords {
+            Some(pws) => pws,
+            None => &vec![],
+        };
+        if passwords.len() > self.keys.len() {
+            error::MorePasswordsSnafu.fail()?;
+        }
+        for (i, source) in self.keys.iter().enumerate() {
+            let password = passwords.get(i).unwrap_or(&default_password);
+            let key_source = parse_key_source(source, Some(password.to_string()))?;
             keys.push(key_source);
         }
 
