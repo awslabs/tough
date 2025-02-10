@@ -14,7 +14,7 @@ use crate::schema::{
     Targets, Timestamp,
 };
 use async_trait::async_trait;
-use aws_lc_rs::digest::{digest, SHA256, SHA256_OUTPUT_LEN};
+use aws_lc_rs::digest::{digest, SHA256, SHA256_OUTPUT_LEN, SHA512, SHA512_OUTPUT_LEN};
 use aws_lc_rs::rand::SecureRandom;
 use futures::TryStreamExt;
 use olpc_cjson::CanonicalFormatter;
@@ -48,6 +48,7 @@ pub struct SignedRole<T> {
     pub(crate) signed: Signed<T>,
     pub(crate) buffer: Vec<u8>,
     pub(crate) sha256: [u8; SHA256_OUTPUT_LEN],
+    pub(crate) sha512: [u8; SHA512_OUTPUT_LEN],
     pub(crate) length: u64,
 }
 
@@ -123,12 +124,17 @@ where
         let mut sha256 = [0; SHA256_OUTPUT_LEN];
         sha256.copy_from_slice(digest(&SHA256, &buffer).as_ref());
 
+        // Calculate SHA-512
+        let mut sha512 = [0; SHA512_OUTPUT_LEN];
+        sha512.copy_from_slice(digest(&SHA512, &buffer).as_ref());
+
         // Create the `SignedRole` containing, the `Signed<role>`, serialized
         // buffer, length and sha256.
         let signed_role = SignedRole {
             signed: role,
             buffer,
             sha256,
+            sha512,
             length,
         };
 
@@ -146,9 +152,22 @@ where
         &self.buffer
     }
 
-    /// Provides the sha256 digest of the signed role.
-    pub fn sha256(&self) -> &[u8] {
-        &self.sha256
+    /// Provides the sha256 digest of the signed role, if available.
+    pub fn sha256(&self) -> Option<&[u8]> {
+        if self.sha256.iter().any(|&byte| byte != 0) {
+            Some(&self.sha256)
+        } else {
+            None
+        }
+    }
+
+    /// Provides the sha512 digest of the signed role, if available.
+    pub fn sha512(&self) -> Option<&[u8]> {
+        if self.sha512.iter().any(|&byte| byte != 0) {
+            Some(&self.sha512)
+        } else {
+            None
+        }
     }
 
     /// Provides the length in bytes of the serialized representation of the signed role.
@@ -332,34 +351,71 @@ impl SignedRepository {
             is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self
+
+        // Fetch both sha256 and sha512 paths from target_path
+        let (sha256_target, sha512_target) = self
             .target_path(input_path, outdir, target_filename)
-            .await?
-        {
-            TargetPath::New { path } => {
-                symlink(input_path, &path)
-                    .await
-                    .context(error::LinkCreateSnafu { path })?;
-            }
-            TargetPath::Symlink { path } => match replace_behavior {
-                PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
-                PathExists::Replace => {
-                    remove_file(&path)
-                        .await
-                        .context(error::RemoveTargetSnafu { path: &path })?;
+            .await?;
+
+        // Handle the sha256 path if it exists
+        if let Some(sha256_target) = sha256_target {
+            match sha256_target {
+                TargetPath::New { path } => {
                     symlink(input_path, &path)
                         .await
                         .context(error::LinkCreateSnafu { path })?;
                 }
-            },
-            TargetPath::File { path } => {
-                error::TargetFileTypeMismatchSnafu {
-                    expected: "symlink",
-                    found: "regular file",
-                    path,
+                TargetPath::Symlink { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        symlink(input_path, &path)
+                            .await
+                            .context(error::LinkCreateSnafu { path })?;
+                    }
+                },
+                TargetPath::File { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "symlink",
+                        found: "regular file",
+                        path,
+                    }
+                    .fail()?;
                 }
-                .fail()?;
+            }
+        }
+
+        // Handle the sha512 path if it exists
+        if let Some(sha512_target) = sha512_target {
+            match sha512_target {
+                TargetPath::New { path } => {
+                    symlink(input_path, &path)
+                        .await
+                        .context(error::LinkCreateSnafu { path })?;
+                }
+                TargetPath::Symlink { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        symlink(input_path, &path)
+                            .await
+                            .context(error::LinkCreateSnafu { path })?;
+                    }
+                },
+                TargetPath::File { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "symlink",
+                        found: "regular file",
+                        path,
+                    }
+                    .fail()?;
+                }
             }
         }
 
@@ -383,34 +439,71 @@ impl SignedRepository {
             is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self
+
+        // Fetch both sha256 and sha512 paths from target_path
+        let (sha256_target, sha512_target) = self
             .target_path(input_path, outdir, target_filename)
-            .await?
-        {
-            TargetPath::New { path } => {
-                copy(input_path, &path)
-                    .await
-                    .context(error::FileWriteSnafu { path })?;
-            }
-            TargetPath::File { path } => match replace_behavior {
-                PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
-                PathExists::Replace => {
-                    remove_file(&path)
-                        .await
-                        .context(error::RemoveTargetSnafu { path: &path })?;
+            .await?;
+
+        // Handle the sha256 path if it exists
+        if let Some(sha256_target) = sha256_target {
+            match sha256_target {
+                TargetPath::New { path } => {
                     copy(input_path, &path)
                         .await
                         .context(error::FileWriteSnafu { path })?;
                 }
-            },
-            TargetPath::Symlink { path } => {
-                error::TargetFileTypeMismatchSnafu {
-                    expected: "regular file",
-                    found: "symlink",
-                    path,
+                TargetPath::File { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        copy(input_path, &path)
+                            .await
+                            .context(error::FileWriteSnafu { path })?;
+                    }
+                },
+                TargetPath::Symlink { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "regular file",
+                        found: "symlink",
+                        path,
+                    }
+                    .fail()?;
                 }
-                .fail()?;
+            }
+        }
+
+        // Handle the sha512 path if it exists
+        if let Some(sha512_target) = sha512_target {
+            match sha512_target {
+                TargetPath::New { path } => {
+                    copy(input_path, &path)
+                        .await
+                        .context(error::FileWriteSnafu { path })?;
+                }
+                TargetPath::File { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        copy(input_path, &path)
+                            .await
+                            .context(error::FileWriteSnafu { path })?;
+                    }
+                },
+                TargetPath::Symlink { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "regular file",
+                        found: "symlink",
+                        path,
+                    }
+                    .fail()?;
+                }
             }
         }
 
@@ -526,34 +619,71 @@ impl SignedDelegatedTargets {
             is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self
+
+        // Fetch both sha256 and sha512 paths from target_path
+        let (sha256_target, sha512_target) = self
             .target_path(input_path, outdir, target_filename)
-            .await?
-        {
-            TargetPath::New { path } => {
-                symlink(input_path, &path)
-                    .await
-                    .context(error::LinkCreateSnafu { path })?;
-            }
-            TargetPath::Symlink { path } => match replace_behavior {
-                PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
-                PathExists::Replace => {
-                    remove_file(&path)
-                        .await
-                        .context(error::RemoveTargetSnafu { path: &path })?;
+            .await?;
+
+        // Handle the sha256 path if it exists
+        if let Some(sha256_target) = sha256_target {
+            match sha256_target {
+                TargetPath::New { path } => {
                     symlink(input_path, &path)
                         .await
                         .context(error::LinkCreateSnafu { path })?;
                 }
-            },
-            TargetPath::File { path } => {
-                error::TargetFileTypeMismatchSnafu {
-                    expected: "symlink",
-                    found: "regular file",
-                    path,
+                TargetPath::Symlink { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        symlink(input_path, &path)
+                            .await
+                            .context(error::LinkCreateSnafu { path })?;
+                    }
+                },
+                TargetPath::File { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "symlink",
+                        found: "regular file",
+                        path,
+                    }
+                    .fail()?;
                 }
-                .fail()?;
+            }
+        }
+
+        // Handle the sha512 path if it exists
+        if let Some(sha512_target) = sha512_target {
+            match sha512_target {
+                TargetPath::New { path } => {
+                    symlink(input_path, &path)
+                        .await
+                        .context(error::LinkCreateSnafu { path })?;
+                }
+                TargetPath::Symlink { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        symlink(input_path, &path)
+                            .await
+                            .context(error::LinkCreateSnafu { path })?;
+                    }
+                },
+                TargetPath::File { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "symlink",
+                        found: "regular file",
+                        path,
+                    }
+                    .fail()?;
+                }
             }
         }
 
@@ -577,34 +707,71 @@ impl SignedDelegatedTargets {
             is_file(input_path).await,
             error::PathIsNotFileSnafu { path: input_path }
         );
-        match self
+
+        // Fetch both sha256 and sha512 paths from target_path
+        let (sha256_target, sha512_target) = self
             .target_path(input_path, outdir, target_filename)
-            .await?
-        {
-            TargetPath::New { path } => {
-                copy(input_path, &path)
-                    .await
-                    .context(error::FileWriteSnafu { path })?;
-            }
-            TargetPath::File { path } => match replace_behavior {
-                PathExists::Skip => {}
-                PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
-                PathExists::Replace => {
-                    remove_file(&path)
-                        .await
-                        .context(error::RemoveTargetSnafu { path: &path })?;
+            .await?;
+
+        // Handle the sha256 path if it exists
+        if let Some(sha256_target) = sha256_target {
+            match sha256_target {
+                TargetPath::New { path } => {
                     copy(input_path, &path)
                         .await
                         .context(error::FileWriteSnafu { path })?;
                 }
-            },
-            TargetPath::Symlink { path } => {
-                error::TargetFileTypeMismatchSnafu {
-                    expected: "regular file",
-                    found: "symlink",
-                    path,
+                TargetPath::File { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        copy(input_path, &path)
+                            .await
+                            .context(error::FileWriteSnafu { path })?;
+                    }
+                },
+                TargetPath::Symlink { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "regular file",
+                        found: "symlink",
+                        path,
+                    }
+                    .fail()?;
                 }
-                .fail()?;
+            }
+        }
+
+        // Handle the sha512 path if it exists
+        if let Some(sha512_target) = sha512_target {
+            match sha512_target {
+                TargetPath::New { path } => {
+                    copy(input_path, &path)
+                        .await
+                        .context(error::FileWriteSnafu { path })?;
+                }
+                TargetPath::File { path } => match replace_behavior {
+                    PathExists::Skip => {}
+                    PathExists::Fail => error::PathExistsFailSnafu { path }.fail()?,
+                    PathExists::Replace => {
+                        remove_file(&path)
+                            .await
+                            .context(error::RemoveTargetSnafu { path: &path })?;
+                        copy(input_path, &path)
+                            .await
+                            .context(error::FileWriteSnafu { path })?;
+                    }
+                },
+                TargetPath::Symlink { path } => {
+                    error::TargetFileTypeMismatchSnafu {
+                        expected: "regular file",
+                        found: "symlink",
+                        path,
+                    }
+                    .fail()?;
+                }
             }
         }
 
@@ -720,6 +887,7 @@ trait TargetsWalker {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     /// Determines the output path of a target based on consistent snapshot rules. Returns Err if
     /// the target already exists in the repo with a different hash, or if the target is not known
     /// to the repo.  (We're dealing with a signed repo, so it's too late to add targets.)
@@ -728,7 +896,7 @@ trait TargetsWalker {
         input: &Path,
         outdir: &Path,
         target_filename: Option<&TargetName>,
-    ) -> Result<TargetPath> {
+    ) -> Result<(Option<TargetPath>, Option<TargetPath>)> {
         let outdir = tokio::fs::canonicalize(outdir)
             .await
             .context(error::AbsolutePathSnafu { path: outdir })?;
@@ -762,61 +930,186 @@ trait TargetsWalker {
         // should match, or we alert the caller; if target replacement is intended, it should
         // happen earlier, in RepositoryEditor.
         ensure!(
-            target_from_path.hashes.sha256 == repo_target.hashes.sha256,
+            target_from_path.hashes.sha256 == repo_target.hashes.sha256
+                || target_from_path.hashes.sha512 == repo_target.hashes.sha512,
             error::HashMismatchSnafu {
                 context: "target",
-                calculated: hex::encode(target_from_path.hashes.sha256),
-                expected: hex::encode(&repo_target.hashes.sha256),
+                calculated: format!(
+                    "SHA-256: {}, SHA-512: {}",
+                    hex::encode(
+                        target_from_path
+                            .hashes
+                            .sha256
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    ),
+                    hex::encode(
+                        target_from_path
+                            .hashes
+                            .sha512
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    )
+                ),
+                expected: format!(
+                    "SHA-256: {}, SHA-512: {}",
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha256
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    ),
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha512
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    )
+                ),
             }
         );
 
-        let dest = if self.consistent_snapshot() {
-            outdir.join(format!(
-                "{}.{}",
-                hex::encode(&target_from_path.hashes.sha256),
-                target_name.resolved()
-            ))
-        } else {
-            outdir.join(target_name.resolved())
-        };
+        // Build destination paths for both sha256 and sha512, if present
+        let mut sha256_dest = None;
+        let mut shsha512_dest = None;
 
-        // Return the target path, using the `TargetPath` enum that represents the type of file
-        // that already exists at that path (if any)
-        if !dest.exists() {
-            return Ok(TargetPath::New { path: dest });
+        if self.consistent_snapshot() {
+            if let Some(sha256) = target_from_path.hashes.sha256.as_ref().map(hex::encode) {
+                sha256_dest = Some(outdir.join(format!("{}.{}", sha256, target_name.resolved())));
+            }
+            if let Some(sha512) = target_from_path.hashes.sha512.as_ref().map(hex::encode) {
+                shsha512_dest = Some(outdir.join(format!("{}.{}", sha512, target_name.resolved())));
+            }
+        } else {
+            sha256_dest = Some(outdir.join(target_name.resolved()));
         }
 
-        // If we're using consistent snapshots, filenames include the checksum, so we know they're
-        // unique; if we're not, then there could be a target from another repo with the same name
-        // but different checksum.  We can't assume such conflicts are OK, so we fail.
-        if !self.consistent_snapshot() {
-            let url = Url::from_file_path(&dest)
-                .ok() // dump unhelpful `()` error
-                .context(error::FileUrlSnafu { path: &dest })?;
+        // Check both destination paths and return the appropriate TargetPath
+        let mut sha256_target = None;
+        let mut sha512_target = None;
 
+        if let Some(dest) = sha256_dest {
+            let cloned_dest = dest.clone();
+
+            // Create the sha256 target path, using the `TargetPath` enum that represents the type of file
+            // that already exists at that path (if any)
+            if dest.exists() {
+                // If we're using consistent snapshots, filenames include the checksum, so we know they're
+                // unique; if we're not, then there could be a target from another repo with the same name
+                // but different checksum.  We can't assume such conflicts are OK, so we fail.
+                if !self.consistent_snapshot() {
+                    self.verify_existing_target(cloned_dest, repo_target)
+                        .await?;
+                }
+
+                let metadata = symlink_metadata(&dest)
+                    .await
+                    .context(error::FileMetadataSnafu { path: &dest })?;
+                if metadata.file_type().is_file() {
+                    sha256_target = Some(TargetPath::File { path: dest });
+                } else if metadata.file_type().is_symlink() {
+                    sha256_target = Some(TargetPath::Symlink { path: dest });
+                } else {
+                    return error::InvalidFileTypeSnafu { path: dest }.fail();
+                }
+            } else {
+                sha256_target = Some(TargetPath::New { path: dest });
+            }
+        }
+
+        if let Some(dest) = shsha512_dest {
+            let cloned_dest = dest.clone();
+
+            // Create the sha512 target path, using the `TargetPath` enum that represents the type of file
+            // that already exists at that path (if any)
+            if dest.exists() {
+                // If we're using consistent snapshots, filenames include the checksum, so we know they're
+                // unique; if we're not, then there could be a target from another repo with the same name
+                // but different checksum.  We can't assume such conflicts are OK, so we fail.
+                if !self.consistent_snapshot() {
+                    self.verify_existing_target(cloned_dest, repo_target)
+                        .await?;
+                }
+
+                let metadata = symlink_metadata(&dest)
+                    .await
+                    .context(error::FileMetadataSnafu { path: &dest })?;
+                if metadata.file_type().is_file() {
+                    sha512_target = Some(TargetPath::File { path: dest });
+                } else if metadata.file_type().is_symlink() {
+                    sha512_target = Some(TargetPath::Symlink { path: dest });
+                } else {
+                    return error::InvalidFileTypeSnafu { path: dest }.fail();
+                }
+            } else {
+                sha512_target = Some(TargetPath::New { path: dest });
+            }
+        }
+
+        Ok((sha256_target, sha512_target))
+    }
+
+    // Helper function: used in target_path function
+    async fn verify_existing_target(&self, dest: PathBuf, repo_target: &&Target) -> Result<()> {
+        let url = Url::from_file_path(&dest)
+            .ok()
+            .context(error::FileUrlSnafu { path: &dest })?;
+
+        let stream = FilesystemTransport
+            .fetch(url.clone())
+            .await
+            .with_context(|_| error::TransportSnafu { url: url.clone() })?;
+
+        let sha256_verified = if let Some(sha256) = &repo_target.hashes.sha256 {
+            let sha256_stream = DigestAdapter::sha256(stream, sha256, url.clone());
+            sha256_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
+        } else {
+            false
+        };
+
+        let sha512_verified = if sha256_verified {
+            true
+        } else {
             let stream = FilesystemTransport
                 .fetch(url.clone())
                 .await
                 .with_context(|_| error::TransportSnafu { url: url.clone() })?;
-            let stream = DigestAdapter::sha256(stream, &repo_target.hashes.sha256, url.clone());
 
-            // The act of reading with the DigestAdapter verifies the checksum, assuming the read
-            // succeeds.
-            stream
-                .try_for_each(|_| ready(Ok(())))
-                .await
-                .context(error::TransportSnafu { url })?;
-        }
+            if let Some(sha512) = &repo_target.hashes.sha512 {
+                let sha512_stream = DigestAdapter::sha512(stream, sha512, url.clone());
+                sha512_stream.try_for_each(|_| ready(Ok(()))).await.is_ok()
+            } else {
+                false
+            }
+        };
 
-        let metadata = symlink_metadata(&dest)
-            .await
-            .context(error::FileMetadataSnafu { path: &dest })?;
-        if metadata.file_type().is_file() {
-            Ok(TargetPath::File { path: dest })
-        } else if metadata.file_type().is_symlink() {
-            Ok(TargetPath::Symlink { path: dest })
+        if !sha256_verified && !sha512_verified {
+            error::HashMismatchSnafu {
+                context: "target",
+                calculated: format!(
+                    "SHA-256: {}, SHA-512: {}",
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha256
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    ),
+                    hex::encode(
+                        repo_target
+                            .hashes
+                            .sha512
+                            .as_ref()
+                            .map_or(&[] as &[u8], |d| d.as_ref())
+                    )
+                ),
+                expected: "None".to_string(),
+            }
+            .fail()
         } else {
-            error::InvalidFileTypeSnafu { path: dest }.fail()
+            Ok(())
         }
     }
 }

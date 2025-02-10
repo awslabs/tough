@@ -141,6 +141,9 @@ pub enum Error {
     #[snafu(display("Source path for target must be file or symlink - '{}'", path.display()))]
     InvalidFileType { path: PathBuf, backtrace: Backtrace },
 
+    #[snafu(display("No valid hash was found for target '{:?}'", name))]
+    NoValidHash { name: String, backtrace: Backtrace },
+
     #[snafu(display("Encountered an invalid target name: {}", inner))]
     InvalidTargetName { inner: String, backtrace: Backtrace },
 
