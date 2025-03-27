@@ -4,9 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# [0.12.0] - 2025-03-27
+### Changes
+- Update `tough` to 0.20.0
+- Dependency updates
+
 ## [0.11.0] - 2024-10-10
 ### Changes
-- Add FIPS support [#828] 
+- Add FIPS support [#828]
 - Dependency updates [#825], [#826]
 
 [#825]: https://github.com/awslabs/tough/pull/825
@@ -22,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#763]: https://github.com/awslabs/tough/pull/763
 [#765]: https://github.com/awslabs/tough/pull/765
 [#778]: https://github.com/awslabs/tough/pull/778
-[#780]: https://github.com/awslabs/tough/pull/780 
+[#780]: https://github.com/awslabs/tough/pull/780
 [#781]: https://github.com/awslabs/tough/pull/781
 [#802]: https://github.com/awslabs/tough/pull/802
 
@@ -155,7 +160,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-kms-v0.11.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-kms-v0.12.0...develop
+[0.12.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.11.0...tough-kms-v0.12.0
 [0.11.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.10.0...tough-kms-v0.11.0
 [0.10.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.9.0...tough-kms-v0.10.0
 [0.9.0]: https://github.com/awslabs/tough/compare/tough-kms-v0.8.0...tough-kms-v0.9.0

@@ -45,6 +45,10 @@ pub(crate) struct AddRoleArgs {
     #[arg(short, long, conflicts_with = "path_hash_prefixes")]
     paths: Option<Vec<PathPattern>>,
 
+    /// Make the delegation terminating
+    #[arg(long)]
+    terminating: bool,
+
     /// Path to root.json file for the repository
     #[arg(short, long)]
     root: PathBuf,
@@ -130,6 +134,7 @@ impl AddRoleArgs {
                 &self.delegatee,
                 self.indir.as_str(),
                 paths,
+                self.terminating,
                 self.threshold,
                 None,
             )
@@ -205,6 +210,7 @@ impl AddRoleArgs {
                 &self.delegatee,
                 self.indir.as_str(),
                 paths,
+                self.terminating,
                 self.threshold,
                 None,
             )

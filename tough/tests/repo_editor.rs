@@ -169,6 +169,7 @@ async fn create_sign_write_reload_repo() {
             "role1",
             role1_key,
             PathSet::Paths(vec![PathPattern::new("file?.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -189,6 +190,7 @@ async fn create_sign_write_reload_repo() {
             "role2",
             role2_key,
             PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -199,6 +201,7 @@ async fn create_sign_write_reload_repo() {
             "role3",
             role1_key,
             PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -219,6 +222,7 @@ async fn create_sign_write_reload_repo() {
             "role4",
             role2_key,
             PathSet::Paths(vec![PathPattern::new("file1.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Utc::now().checked_add_signed(days(21)).unwrap(),
             NonZeroU64::new(1).unwrap(),
@@ -312,6 +316,7 @@ async fn create_role_flow() {
             "A",
             metadata_base_url_out.as_str(),
             PathSet::Paths(vec![PathPattern::new("*.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role1_key).await),
         )
@@ -396,6 +401,7 @@ async fn create_role_flow() {
             "B",
             metadata_base_url_out.as_str(),
             PathSet::Paths(vec![PathPattern::new("file?.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role2_key).await),
         )
@@ -536,6 +542,7 @@ async fn update_targets_flow() {
             "A",
             metadata_base_url_out.as_str(),
             PathSet::Paths(vec![PathPattern::new("*.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role1_key).await),
         )
@@ -620,6 +627,7 @@ async fn update_targets_flow() {
             "B",
             metadata_base_url_out.as_str(),
             PathSet::Paths(vec![PathPattern::new("file?.txt").unwrap()]),
+            false,
             NonZeroU64::new(1).unwrap(),
             Some(key_hash_map(role2_key).await),
         )

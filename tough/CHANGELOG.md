@@ -4,9 +4,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2025-03-27
+### Fixes
+- Apply fixes for [GHSA-5vmp-m5v2-hx47], [GHSA-v4wr-j3w6-mxqc], [GHSA-j8x2-777p-23fc], [GHSA-76g3-38jv-wxh4], [GHSA-q6r9-r9pw-4cf7]
+- Detect duplicate `keyids` when verifying roles ([094f0877])
+- Use the update start time when checking for signature expiry, rather than the current time ([0eeb60ae])
+- Always store root.json in the datastore (thanks @AdamKorcz, @jku!) ([7573eb97])
+
+### Changes
+- Add a `permissive` argument to `find_target()`, allowing the caller to cease a search when a
+  terminating delegation is encountered ([c5ee1718])
+- Add `terminating` argument to `RepositoryEditor::delegate_role()` and
+  `RepositoryEditor::add_role()` to enable adding terminating delegations ([598111f8])
+- Dependency updates
+
+[094f0877]: https://github.com/awslabs/tough/commit/094f0877e86f172ab910125b325a8e0dfaea6cc0
+[0eeb60ae]: https://github.com/awslabs/tough/commit/0eeb60aefe27f00b65730634b788a1aafb8bf3c6
+[7573eb97]: https://github.com/awslabs/tough/commit/7573eb97b689887a6a63fe4e4b51b40198380a19
+[c5ee1718]: https://github.com/awslabs/tough/commit/c5ee1718e630fdedc5676bf71b5bef10e4c7f91c
+[598111f8]: https://github.com/awslabs/tough/commit/598111f88105a707ee68b0fa06c52da7176ea96a
+[GHSA-5vmp-m5v2-hx47]: https://github.com/awslabs/tough/security/advisories/GHSA-5vmp-m5v2-hx47
+[GHSA-v4wr-j3w6-mxqc]: https://github.com/awslabs/tough/security/advisories/GHSA-v4wr-j3w6-mxqc
+[GHSA-j8x2-777p-23fc]: https://github.com/awslabs/tough/security/advisories/GHSA-j8x2-777p-23fc
+[GHSA-76g3-38jv-wxh4]: https://github.com/awslabs/tough/security/advisories/GHSA-76g3-38jv-wxh4
+[GHSA-q6r9-r9pw-4cf7]: https://github.com/awslabs/tough/security/advisories/GHSA-q6r9-r9pw-4cf7
+
 ## [0.19.0] - 2024-10-10
 ### Changes
-- Add FIPS support [#828] 
+- Add FIPS support [#828]
 - Dependency updates [#825]
 
 [#825]: https://github.com/awslabs/tough/pull/825
@@ -20,14 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#763]: https://github.com/awslabs/tough/pull/763
 [#765]: https://github.com/awslabs/tough/pull/765
 [#778]: https://github.com/awslabs/tough/pull/778
-[#780]: https://github.com/awslabs/tough/pull/780 
+[#780]: https://github.com/awslabs/tough/pull/780
 [#802]: https://github.com/awslabs/tough/pull/802
 
 ## [0.17.1] - 2024-03-22
 ### Changes
 - Adds support for "ecdsa" key type (thanks @jku) [#754]
 - Dependency updates [#759]
-  
+
 [#754]: https://github.com/awslabs/tough/issues/754
 [#759]: https://github.com/awslabs/tough/pull/759
 
@@ -287,7 +312,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.19.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.20.0...develop
+[0.20.0]: https://github.com/awslabs/tough/compare/tough-v0.19.0...tough-v0.20.0
 [0.19.0]: https://github.com/awslabs/tough/compare/tough-v0.18.0...tough-v0.19.0
 [0.18.0]: https://github.com/awslabs/tough/compare/tough-v0.17.1...tough-v0.18.0
 [0.17.1]: https://github.com/awslabs/tough/compare/tough-v0.17.0...tough-v0.17.1

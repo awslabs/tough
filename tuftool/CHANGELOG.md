@@ -4,9 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2025-03-27
+### Fixes
+- Apply fixes for [GHSA-5vmp-m5v2-hx47], [GHSA-v4wr-j3w6-mxqc], [GHSA-j8x2-777p-23fc], [GHSA-76g3-38jv-wxh4], [GHSA-q6r9-r9pw-4cf7]
+- Detect duplicate `keyids` when verifying roles ([094f0877])
+- Use the update start time when checking for signature expiry, rather than the current time ([0eeb60ae])
+- Always store root.json in the datastore (thanks @AdamKorcz, @jku!) ([7573eb97])
+
+### Changes
+- Dependency updates
+
+[094f0877]: https://github.com/awslabs/tough/commit/094f0877e86f172ab910125b325a8e0dfaea6cc0
+[0eeb60ae]: https://github.com/awslabs/tough/commit/0eeb60aefe27f00b65730634b788a1aafb8bf3c6
+[7573eb97]: https://github.com/awslabs/tough/commit/7573eb97b689887a6a63fe4e4b51b40198380a19
+[GHSA-5vmp-m5v2-hx47]: https://github.com/awslabs/tough/security/advisories/GHSA-5vmp-m5v2-hx47
+[GHSA-v4wr-j3w6-mxqc]: https://github.com/awslabs/tough/security/advisories/GHSA-v4wr-j3w6-mxqc
+[GHSA-j8x2-777p-23fc]: https://github.com/awslabs/tough/security/advisories/GHSA-j8x2-777p-23fc
+[GHSA-76g3-38jv-wxh4]: https://github.com/awslabs/tough/security/advisories/GHSA-76g3-38jv-wxh4
+[GHSA-q6r9-r9pw-4cf7]: https://github.com/awslabs/tough/security/advisories/GHSA-q6r9-r9pw-4cf7
+
 ## [0.12.0] - 2024-10-10
 ### Changes
-- Add FIPS support [#828] 
+- Add FIPS support [#828]
 - Dependency updates [#825], [#826]
 
 [#825]: https://github.com/awslabs/tough/pull/825
@@ -29,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#763]: https://github.com/awslabs/tough/pull/763
 [#765]: https://github.com/awslabs/tough/pull/765
 [#778]: https://github.com/awslabs/tough/pull/778
-[#780]: https://github.com/awslabs/tough/pull/780 
+[#780]: https://github.com/awslabs/tough/pull/780
 [#781]: https://github.com/awslabs/tough/pull/781
 [#802]: https://github.com/awslabs/tough/pull/802
 
@@ -267,7 +286,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.12.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.13.0...develop
+[0.13.0]: https://github.com/awslabs/tough/compare/tuftool-v0.12.0...tuftool-v0.13.0
 [0.12.0]: https://github.com/awslabs/tough/compare/tuftool-v0.11.1...tuftool-v0.12.0
 [0.11.1]: https://github.com/awslabs/tough/compare/tuftool-v0.11.0...tuftool-v0.11.1
 [0.11.0]: https://github.com/awslabs/tough/compare/tuftool-v0.10.3...tuftool-v0.11.0

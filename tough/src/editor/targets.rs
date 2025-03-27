@@ -336,6 +336,7 @@ impl TargetsEditor {
         &mut self,
         targets: Signed<DelegatedTargets>,
         paths: PathSet,
+        terminating: bool,
         key_pairs: HashMap<Decoded<Hex>, Key>,
         keyids: Vec<Decoded<Hex>>,
         threshold: NonZeroU64,
@@ -348,7 +349,7 @@ impl TargetsEditor {
                 paths,
                 keyids,
                 threshold,
-                terminating: false,
+                terminating,
                 targets: Some(Signed {
                     signed: targets.signed.targets,
                     signatures: targets.signatures,
@@ -375,7 +376,7 @@ impl TargetsEditor {
                 delegated_role
                     .targets
                     .as_ref()
-                    .map_or(true, |targets| targets.signed.delegated_role(role).is_err())
+                    .is_none_or(|targets| targets.signed.delegated_role(role).is_err())
             });
         }
         Ok(self)
@@ -388,6 +389,7 @@ impl TargetsEditor {
         name: &str,
         metadata_url: &str,
         paths: PathSet,
+        terminating: bool,
         threshold: NonZeroU64,
         keys: Option<HashMap<Decoded<Hex>, Key>>,
     ) -> Result<&mut Self> {
@@ -446,7 +448,14 @@ impl TargetsEditor {
             (key_pairs.keys().cloned().collect(), key_pairs)
         };
 
-        self.delegate_role(delegated_targets, paths, key_pairs, keyids, threshold)?;
+        self.delegate_role(
+            delegated_targets,
+            paths,
+            terminating,
+            key_pairs,
+            keyids,
+            threshold,
+        )?;
 
         Ok(self)
     }

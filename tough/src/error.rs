@@ -256,6 +256,68 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
+    /// A timestamp metadata file must contain exactly one entry
+    #[snafu(display(
+        "Timestamp version {} meta length {} is not exactly one",
+        version,
+        meta_length
+    ))]
+    TimestampMetaLength { version: u64, meta_length: usize },
+
+    /// A timestamp metadata file must contain a meta entry for snapshot.json
+    #[snafu(display("No snapshot meta in timestamp.json version {}", version))]
+    MissingSnapshotMeta { version: u64 },
+
+    /// The snapshot version in a newer timestamp metadata file must be greater than
+    /// or equal to the version in an older timestamp.
+    #[snafu(display(
+        "Snapshot version {} in timestamp {} is less than {} in timestamp {}",
+        snapshot_new,
+        timestamp_new,
+        snapshot_old,
+        timestamp_old
+    ))]
+    OlderSnapshotInTimestamp {
+        snapshot_new: u64,
+        timestamp_new: u64,
+        snapshot_old: u64,
+        timestamp_old: u64,
+    },
+
+    /// The snapshot meta must contain targets.json
+    #[snafu(display("Snapshot version {} does not contain targets.json", version))]
+    SnapshotTargetsMetaMissing { version: u64 },
+
+    /// Any role in the trusted snapshot meta must also appear in the new snapshot meta
+    #[snafu(display(
+        "Role {} appears in snapshot version {} but not version {}",
+        role,
+        old_version,
+        new_version
+    ))]
+    SnapshotRoleMissing {
+        role: String,
+        old_version: u64,
+        new_version: u64,
+    },
+
+    /// Role version in trusted snapshot must be less than or equal to version in new snapshot
+    #[snafu(display(
+        "Role {} version {} in snapshot {} is greater than version {} in snapshot {}",
+        role,
+        old_role_version,
+        old_snapshot_version,
+        new_role_version,
+        new_snapshot_version
+    ))]
+    SnapshotRoleRollback {
+        role: String,
+        old_role_version: u64,
+        old_snapshot_version: u64,
+        new_role_version: u64,
+        new_snapshot_version: u64,
+    },
+
     /// The library failed to parse a metadata file, either because it was not valid JSON or it did
     /// not conform to the expected schema.
     ///
@@ -575,8 +637,8 @@ pub enum Error {
     #[snafu(display("Invalid file permissions"))]
     InvalidPath { source: crate::schema::Error },
 
-    #[snafu(display("Role missing from snapshot meta: {}", name))]
-    RoleNotInMeta { name: String },
+    #[snafu(display("Role missing from snapshot meta: {} ({})", name, parent))]
+    RoleNotInMeta { name: String, parent: String },
 
     #[snafu(display("The key for {} was not included", role))]
     KeyNotFound {
@@ -611,6 +673,10 @@ pub enum Error {
         paths: Vec<String>,
         source: schema::Error,
     },
+
+    /// Duplicate keyids (4.2.1)
+    #[snafu(display("Duplicate keyid {} in signatures", keyid))]
+    DuplicateKeyid { keyid: String },
 
     /// `SignedDelegatedTargets` has more than 1 signed targets
     #[snafu(display("Exactly 1 role was required, but {} were created", count))]

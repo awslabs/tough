@@ -65,12 +65,13 @@ use async_recursion::async_recursion;
 pub use async_trait::async_trait;
 pub use bytes::Bytes;
 use chrono::{DateTime, Utc};
+use error::SnapshotTargetsMetaMissingSnafu;
 use futures::StreamExt;
 use futures_core::Stream;
 use log::warn;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use snafu::{ensure, OptionExt, ResultExt};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use tokio::fs::{canonicalize, create_dir_all};
@@ -336,6 +337,7 @@ impl Repository {
         let expiration_enforcement = loader.expiration_enforcement.unwrap_or_default();
         let metadata_base_url = parse_url(loader.metadata_base_url)?;
         let targets_base_url = parse_url(loader.targets_base_url)?;
+        let update_start = datastore.system_time().await?;
 
         // 0. Load the trusted root metadata file + 1. Update the root metadata file
         let root = load_root(
@@ -346,6 +348,7 @@ impl Repository {
             limits.max_root_updates,
             &metadata_base_url,
             expiration_enforcement,
+            &update_start,
         )
         .await?;
 
@@ -357,6 +360,7 @@ impl Repository {
             limits.max_timestamp_size,
             &metadata_base_url,
             expiration_enforcement,
+            &update_start,
         )
         .await?;
 
@@ -369,6 +373,7 @@ impl Repository {
             &datastore,
             &metadata_base_url,
             expiration_enforcement,
+            &update_start,
         )
         .await?;
 
@@ -381,6 +386,7 @@ impl Repository {
             limits.max_targets_size,
             &metadata_base_url,
             expiration_enforcement,
+            &update_start,
         )
         .await?;
 
@@ -478,12 +484,14 @@ impl Repository {
         //   HASH is one of the hashes of the targets file listed in the targets metadata file
         //   found earlier in step 4. In either case, the client MUST write the file to
         //   non-volatile storage as FILENAME.EXT.
-        Ok(if let Ok(target) = self.targets.signed.find_target(name) {
-            let (sha256, file) = self.target_digest_and_filename(target, name);
-            Some(self.fetch_target(target, &sha256, file.as_str()).await?)
-        } else {
-            None
-        })
+        Ok(
+            if let Ok(target) = self.targets.signed.find_target(name, false) {
+                let (sha256, file) = self.target_digest_and_filename(target, name);
+                Some(self.fetch_target(target, &sha256, file.as_str()).await?)
+            } else {
+                None
+            },
+        )
     }
 
     /// Fetches a target from the repository and saves it to `outdir`. Attempts to do this as safely
@@ -530,11 +538,13 @@ impl Repository {
 
         let filename = match prepend {
             Prefix::Digest => {
-                let target = self.targets.signed.find_target(name).with_context(|_| {
-                    error::CacheTargetMissingSnafu {
+                let target = self
+                    .targets
+                    .signed
+                    .find_target(name, false)
+                    .with_context(|_| error::CacheTargetMissingSnafu {
                         target_name: name.clone(),
-                    }
-                })?;
+                    })?;
                 let sha256 = target.hashes.sha256.clone().into_vec();
                 format!("{}.{}", hex::encode(sha256), name.resolved())
             }
@@ -633,9 +643,9 @@ pub(crate) fn encode_filename<S: AsRef<str>>(name: S) -> String {
 
 /// TUF v1.0.16, 5.2.9, 5.3.3, 5.4.5, 5.5.4, The expiration timestamp in the `[metadata]` file MUST
 /// be higher than the fixed update start time.
-async fn check_expired<T: Role>(datastore: &Datastore, role: &T) -> Result<()> {
+fn check_expired<T: Role>(update_start: &DateTime<Utc>, role: &T) -> Result<()> {
     ensure!(
-        datastore.system_time().await? <= role.expires(),
+        *update_start <= role.expires(),
         error::ExpiredMetadataSnafu { role: T::TYPE }
     );
     Ok(())
@@ -656,6 +666,7 @@ fn parse_url(url: Url) -> Result<Url> {
 
 /// Steps 0 and 1 of the client application, which load the current root metadata file based on a
 /// trusted root metadata file.
+#[expect(clippy::too_many_arguments)]
 async fn load_root<R: AsRef<[u8]>>(
     transport: &dyn Transport,
     root: R,
@@ -664,8 +675,9 @@ async fn load_root<R: AsRef<[u8]>>(
     max_root_updates: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    update_start: &DateTime<Utc>,
 ) -> Result<Signed<Root>> {
-    // 0. Load the trusted root metadata file. We assume that a good, trusted copy of this file was
+    // 5.2. Load the trusted root metadata file. We assume that a good, trusted copy of this file was
     //    shipped with the package manager or software updater using an out-of-band process. Note
     //    that the expiration of the trusted root metadata file does not matter, because we will
     //    attempt to update it in the next step.
@@ -675,7 +687,7 @@ async fn load_root<R: AsRef<[u8]>>(
         .verify_role(&root)
         .context(error::VerifyTrustedMetadataSnafu)?;
 
-    // Used in step 1.2
+    // Used in step 5.3
     let original_root_version = root.signed.version.get();
 
     // Used in step 1.9
@@ -690,15 +702,15 @@ async fn load_root<R: AsRef<[u8]>>(
         .cloned()
         .collect::<Vec<_>>();
 
-    // 1. Update the root metadata file. Since it may now be signed using entirely different keys,
+    // 5.3. Update the root metadata file. Since it may now be signed using entirely different keys,
     //    the client must somehow be able to establish a trusted line of continuity to the latest
     //    set of keys. To do so, the client MUST download intermediate root metadata files, until
     //    the latest available one is reached. Therefore, it MUST temporarily turn on consistent
     //    snapshots in order to download versioned root metadata files as described next.
     loop {
-        // 1.1. Let N denote the version number of the trusted root metadata file.
+        // 5.3.2. Let N denote the version number of the trusted root metadata file.
         //
-        // 1.2. Try downloading version N+1 of the root metadata file, up to some X number of bytes
+        // 5.3.3. Try downloading version N+1 of the root metadata file, up to some X number of bytes
         //   (because the size is unknown). The value for X is set by the authors of the
         //   application using TUF. For example, X may be tens of kilobytes. The filename used to
         //   download the root metadata file is of the fixed form VERSION_NUMBER.FILENAME.EXT
@@ -725,7 +737,7 @@ async fn load_root<R: AsRef<[u8]>>(
         )
         .await
         {
-            Err(_) => break, // If this file is not available, then go to step 1.8.
+            Err(_) => break, // If this file is not available, then go to step 5.3.10.
             Ok(stream) => {
                 let data = match stream.into_vec().await {
                     Ok(d) => d,
@@ -737,7 +749,7 @@ async fn load_root<R: AsRef<[u8]>>(
                         role: RoleType::Root,
                     })?;
 
-                // 1.3. Check signatures. Version N+1 of the root metadata file MUST have been
+                // 5.3.4. Check signatures. Version N+1 of the root metadata file MUST have been
                 //   signed by: (1) a threshold of keys specified in the trusted root metadata file
                 //   (version N), and (2) a threshold of keys specified in the new root metadata
                 //   file being validated (version N+1). If version N+1 is not signed as required,
@@ -755,16 +767,14 @@ async fn load_root<R: AsRef<[u8]>>(
                         role: RoleType::Root,
                     })?;
 
-                // 1.4. Check for a rollback attack. The version number of the trusted root
-                //   metadata file (version N) must be less than or equal to the version number of
-                //   the new root metadata file (version N+1). Effectively, this means checking
-                //   that the version number signed in the new root metadata file is indeed N+1. If
-                //   the version of the new root metadata file is less than the trusted metadata
-                //   file, discard it, abort the update cycle, and report the rollback attack. On
-                //   the next update cycle, begin at step 0 and version N of the root metadata
-                //   file.
+                // 5.3.5. Check for a rollback attack. The version number of the new root
+                // metadata (version N+1) MUST be exactly the version in the trusted root
+                // metadata (version N) incremented by one, that is precisely N+1.
+                // off-spec: protect the comparison against u64 overflow (if N < new value,
+                // N+1 will not overflow).
                 ensure!(
-                    root.signed.version <= new_root.signed.version,
+                    root.signed.version < new_root.signed.version
+                        && root.signed.version.get() + 1 == new_root.signed.version.get(),
                     error::OlderMetadataSnafu {
                         role: RoleType::Root,
                         current_version: root.signed.version,
@@ -772,36 +782,34 @@ async fn load_root<R: AsRef<[u8]>>(
                     }
                 );
 
-                // Off-spec: 1.4 specifies that the version number of the trusted root metadata
-                // file must be less than or equal to the version number of the new root metadata
-                // file. If they are equal, this will create an infinite loop, so we ignore the new
-                // root metadata file but do not report an error. This could only happen if the
-                // path we built above, referencing N+1, has a filename that doesn't match its
-                // contents, which would have to list version N.
-                if root.signed.version == new_root.signed.version {
-                    break;
-                }
-
-                // 1.5. Note that the expiration of the new (intermediate) root metadata file does
+                // 5.3.6. Note that the expiration of the new (intermediate) root metadata file does
                 //   not matter yet, because we will check for it in step 1.8.
                 //
-                // 1.6. Set the trusted root metadata file to the new root metadata file.
+                // 5.3.7. Set the trusted root metadata file to the new root metadata file.
                 //
                 // (This is where version N+1 becomes version N.)
                 root = new_root;
 
-                // 1.7. Repeat steps 1.1 to 1.7.
+                // 5.3.8. Persist root metadata. The client MUST write the file to non-volatile storage
+                // as FILENAME.EXT (e.g. root.json).
+                datastore.remove("root.json").await?;
+                datastore.create("root.json", &root).await?;
+
+                // 5.3.9. Repeat 5.3.2 through 5.3.9.
                 continue;
             }
         }
     }
+
+    datastore.remove("root.json").await?;
+    datastore.create("root.json", &root).await?;
 
     // TUF v1.0.16, 5.2.9. Check for a freeze attack. The expiration timestamp in the trusted root
     // metadata file MUST be higher than the fixed update start time. If the trusted root metadata
     // file has expired, abort the update cycle, report the potential freeze attack. On the next
     // update cycle, begin at step 5.1 and version N of the root metadata file.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &root.signed).await?;
+        check_expired(update_start, &root.signed)?;
     }
 
     // 1.9. If the timestamp and / or snapshot keys have been rotated, then delete the trusted
@@ -839,6 +847,7 @@ async fn load_timestamp(
     max_timestamp_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    update_start: &DateTime<Utc>,
 ) -> Result<Signed<Timestamp>> {
     // 2. Download the timestamp metadata file, up to Y number of bytes (because the size is
     //    unknown.) The value for Y is set by the authors of the application using TUF. For
@@ -867,7 +876,7 @@ async fn load_timestamp(
             role: RoleType::Timestamp,
         })?;
 
-    // 2.1. Check signatures. The new timestamp metadata file must have been signed by a threshold
+    // 5.4.2. Check signatures. The new timestamp metadata file must have been signed by a threshold
     //   of keys specified in the trusted root metadata file. If the new timestamp metadata file is
     //   not properly signed, discard it, abort the update cycle, and report the signature failure.
     root.signed
@@ -876,7 +885,24 @@ async fn load_timestamp(
             role: RoleType::Timestamp,
         })?;
 
-    // 2.2. Check for a rollback attack. The version number of the trusted timestamp metadata file,
+    // 4.6. The meta component must contain exactly one entry, snapshot.json
+    ensure!(
+        timestamp.signed.meta.len() == 1,
+        error::TimestampMetaLengthSnafu {
+            version: timestamp.signed.version,
+            meta_length: timestamp.signed.meta.len(),
+        }
+    );
+    let snapshot_meta =
+        timestamp
+            .signed
+            .meta
+            .get("snapshot.json")
+            .context(error::MissingSnapshotMetaSnafu {
+                version: timestamp.signed.version,
+            })?;
+
+    // 5.4.3.1. Check for a rollback attack. The version number of the trusted timestamp metadata file,
     //   if any, must be less than or equal to the version number of the new timestamp metadata
     //   file. If the new timestamp metadata file is older than the trusted timestamp metadata
     //   file, discard it, abort the update cycle, and report the potential rollback attack.
@@ -894,6 +920,30 @@ async fn load_timestamp(
                     new_version: timestamp.signed.version
                 }
             );
+            // 4.6 trusted timestamp meta must have one entry, snapshot.json
+            ensure!(
+                old_timestamp.signed.meta.len() == 1,
+                error::TimestampMetaLengthSnafu {
+                    version: old_timestamp.signed.version,
+                    meta_length: old_timestamp.signed.meta.len(),
+                }
+            );
+            let old_snapshot_meta = old_timestamp.signed.meta.get("snapshot.json").context(
+                error::MissingSnapshotMetaSnafu {
+                    version: old_timestamp.signed.version,
+                },
+            )?;
+            // 5.4.3.2 trusted snapshot version less than or equal to new snapshot version
+            // (rollback attack to fetch older snapshot object)
+            ensure!(
+                old_snapshot_meta.version <= snapshot_meta.version,
+                error::OlderSnapshotInTimestampSnafu {
+                    snapshot_new: snapshot_meta.version,
+                    timestamp_new: timestamp.signed.version,
+                    snapshot_old: old_snapshot_meta.version,
+                    timestamp_old: old_timestamp.signed.version,
+                }
+            );
         }
     }
 
@@ -902,7 +952,7 @@ async fn load_timestamp(
     // metadata file becomes the trusted timestamp metadata file. If the new timestamp metadata file
     // has expired, discard it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &timestamp.signed).await?;
+        check_expired(update_start, &timestamp.signed)?;
     }
 
     // Now that everything seems okay, write the timestamp file to the datastore.
@@ -912,7 +962,7 @@ async fn load_timestamp(
 }
 
 /// Step 3 of the client application, which loads the snapshot metadata file.
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn load_snapshot(
     transport: &dyn Transport,
     root: &Signed<Root>,
@@ -921,6 +971,7 @@ async fn load_snapshot(
     datastore: &Datastore,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    update_start: &DateTime<Utc>,
 ) -> Result<Signed<Snapshot>> {
     // 3. Download snapshot metadata file, up to the number of bytes specified in the timestamp
     //    metadata file. If consistent snapshots are not used (see Section 7), then the filename
@@ -1002,6 +1053,13 @@ async fn load_snapshot(
             role: RoleType::Snapshot,
         })?;
 
+    // 4.4 Check that snapshot.meta contains at least targets.json
+    ensure!(
+        snapshot.signed.meta.contains_key("targets.json"),
+        SnapshotTargetsMetaMissingSnafu {
+            version: snapshot.signed.version,
+        }
+    );
     // 3.3. Check for a rollback attack.
     //
     // 3.3.1. Note that the trusted snapshot metadata file may be checked for authenticity, but its
@@ -1032,6 +1090,35 @@ async fn load_snapshot(
             //   metadata file, if any, MUST continue to be listed in the new snapshot metadata
             //   file. If any of these conditions are not met, discard the new snapshot metadata
             //   file, abort the update cycle, and report the failure.
+
+            // Ensure that the trusted snapshot has at least targets.json
+            ensure!(
+                old_snapshot.signed.meta.contains_key("targets.json"),
+                error::SnapshotTargetsMetaMissingSnafu {
+                    version: old_snapshot.signed.version,
+                }
+            );
+            for (name, meta) in &old_snapshot.signed.meta {
+                ensure!(
+                    snapshot.signed.meta.contains_key(name),
+                    error::SnapshotRoleMissingSnafu {
+                        role: name,
+                        old_version: old_snapshot.signed.version,
+                        new_version: snapshot.signed.version,
+                    }
+                );
+                let new_meta = snapshot.signed.meta.get(name).unwrap();
+                ensure!(
+                    meta.version <= new_meta.version,
+                    error::SnapshotRoleRollbackSnafu {
+                        role: name,
+                        old_role_version: meta.version,
+                        old_snapshot_version: old_snapshot.signed.version,
+                        new_role_version: new_meta.version,
+                        new_snapshot_version: snapshot.signed.version,
+                    }
+                );
+            }
             if let Some(old_targets_meta) = old_snapshot.signed.meta.get("targets.json") {
                 let targets_meta =
                     snapshot
@@ -1059,7 +1146,7 @@ async fn load_snapshot(
     // metadata file becomes the trusted snapshot metadata file. If the new snapshot metadata file
     // is expired, discard it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &snapshot.signed).await?;
+        check_expired(update_start, &snapshot.signed)?;
     }
 
     // Now that everything seems okay, write the snapshot file to the datastore.
@@ -1069,6 +1156,7 @@ async fn load_snapshot(
 }
 
 /// Step 4 of the client application, which loads the targets metadata file.
+#[expect(clippy::too_many_arguments)]
 async fn load_targets(
     transport: &dyn Transport,
     root: &Signed<Root>,
@@ -1077,6 +1165,7 @@ async fn load_targets(
     max_targets_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    update_start: &DateTime<Utc>,
 ) -> Result<Signed<crate::schema::Targets>> {
     // 4. Download the top-level targets metadata file, up to either the number of bytes specified
     //    in the snapshot metadata file, or some Z number of bytes. The value for Z is set by the
@@ -1112,6 +1201,8 @@ async fn load_targets(
         None => (max_targets_size, "max_targets_size parameter"),
     };
     let stream = if let Some(hashes) = &targets_meta.hashes {
+        // 5.6.2. The hashes of the new targets metadata file MUST match the hashes, if any,
+        // listed in the trusted snapshot metadata.
         fetch_sha256(
             transport,
             targets_url.clone(),
@@ -1132,22 +1223,7 @@ async fn load_targets(
             role: RoleType::Targets,
         })?;
 
-    // 4.1. Check against snapshot metadata. The hashes (if any), and version number of the new
-    //   targets metadata file MUST match the trusted snapshot metadata. This is done, in part, to
-    //   prevent a mix-and-match attack by man-in-the-middle attackers. If the new targets metadata
-    //   file does not match, discard it, abort the update cycle, and report the failure.
-    //
-    // (We already checked the hash in `fetch_sha256` above.)
-    ensure!(
-        targets.signed.version == targets_meta.version,
-        error::VersionMismatchSnafu {
-            role: RoleType::Targets,
-            fetched: targets.signed.version,
-            expected: targets_meta.version
-        }
-    );
-
-    // 4.2. Check for an arbitrary software attack. The new targets metadata file MUST have been
+    // 5.6.3. Check for an arbitrary software attack. The new targets metadata file MUST have been
     //   signed by a threshold of keys specified in the trusted root metadata file. If the new
     //   targets metadata file is not signed as required, discard it, abort the update cycle, and
     //   report the failure.
@@ -1157,33 +1233,21 @@ async fn load_targets(
             role: RoleType::Targets,
         })?;
 
-    // 4.3. Check for a rollback attack. The version number of the trusted targets metadata file,
-    //   if any, MUST be less than or equal to the version number of the new targets metadata file.
-    //   If the new targets metadata file is older than the trusted targets metadata file, discard
-    //   it, abort the update cycle, and report the potential rollback attack.
-    if let Some(Ok(old_targets)) = datastore
-        .bytes("targets.json")
-        .await?
-        .map(|b| serde_json::from_slice::<Signed<crate::schema::Targets>>(&b))
-    {
-        if root.signed.verify_role(&old_targets).is_ok() {
-            ensure!(
-                old_targets.signed.version <= targets.signed.version,
-                error::OlderMetadataSnafu {
-                    role: RoleType::Targets,
-                    current_version: old_targets.signed.version,
-                    new_version: targets.signed.version
-                }
-            );
+    // 5.6.4. Check against the snapshot role's targets version
+    ensure!(
+        targets.signed.version == targets_meta.version,
+        error::VersionMismatchSnafu {
+            role: RoleType::Targets,
+            fetched: targets.signed.version,
+            expected: targets_meta.version
         }
-    }
-
-    // TUF v1.0.16, 5.5.4. Check for a freeze attack. The expiration timestamp in the new targets
+    );
+    // 5.6.5. Check for a freeze attack. The expiration timestamp in the new targets
     // metadata file MUST be higher than the fixed update start time. If so, the new targets
     // metadata file becomes the trusted targets metadata file. If the new targets metadata file is
     // expired, discard it, abort the update cycle, and report the potential freeze attack.
     if expiration_enforcement == ExpirationEnforcement::Safe {
-        check_expired(datastore, &targets.signed).await?;
+        check_expired(update_start, &targets.signed)?;
     }
 
     // Now that everything seems okay, write the targets file to the datastore.
@@ -1192,6 +1256,7 @@ async fn load_targets(
     // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
     //   with the top-level targets role.
     if let Some(delegations) = &mut targets.signed.delegations {
+        let mut loaded_roles: BTreeSet<String> = BTreeSet::new();
         load_delegations(
             transport,
             snapshot,
@@ -1200,6 +1265,7 @@ async fn load_targets(
             max_targets_size,
             delegations,
             datastore,
+            &mut loaded_roles,
         )
         .await?;
     }
@@ -1211,6 +1277,7 @@ async fn load_targets(
 }
 
 // Follow the paths of delegations starting with the top level targets.json delegation
+#[expect(clippy::too_many_arguments)]
 #[async_recursion]
 async fn load_delegations(
     transport: &dyn Transport,
@@ -1220,19 +1287,27 @@ async fn load_delegations(
     max_targets_size: u64,
     delegation: &mut Delegations,
     datastore: &Datastore,
+    loaded_roles: &mut BTreeSet<String>,
 ) -> Result<()> {
     let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
         HashMap::new();
     for delegated_role in &delegation.roles {
+        if loaded_roles.contains(&delegated_role.name) {
+            // we have already loaded this role, continue
+            continue;
+        }
         // find the role file metadata
         let role_meta = snapshot
             .signed
             .meta
-            .get(&format!("{}.json", &delegated_role.name))
-            .with_context(|| error::RoleNotInMetaSnafu {
-                name: delegated_role.name.clone(),
-            })?;
+            .get(&format!("{}.json", &delegated_role.name));
 
+        if role_meta.is_none() {
+            // 5.6.7: If any metadata requested in steps 5.6.7.1 - 5.6.7.2 cannot be downloaded nor validated, end the search and report that the target cannot be found.
+            loaded_roles.insert(delegated_role.name.clone());
+            return Ok(());
+        }
+        let role_meta = role_meta.unwrap();
         let path = if consistent_snapshot {
             format!(
                 "{}.{}.json",
@@ -1281,6 +1356,10 @@ async fn load_delegations(
     }
     // load all roles delegated by this role
     for delegated_role in &mut delegation.roles {
+        if loaded_roles.contains(&delegated_role.name) {
+            continue;
+        }
+        loaded_roles.insert(delegated_role.name.clone());
         delegated_role.targets =
             delegated_roles
                 .remove(&delegated_role.name)
@@ -1297,6 +1376,7 @@ async fn load_delegations(
                     max_targets_size,
                     delegations,
                     datastore,
+                    loaded_roles,
                 )
                 .await?;
             }
