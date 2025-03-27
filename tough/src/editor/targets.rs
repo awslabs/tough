@@ -376,7 +376,7 @@ impl TargetsEditor {
                 delegated_role
                     .targets
                     .as_ref()
-                    .map_or(true, |targets| targets.signed.delegated_role(role).is_err())
+                    .is_none_or(|targets| targets.signed.delegated_role(role).is_err())
             });
         }
         Ok(self)
