@@ -12,14 +12,14 @@ edition = "2018"
 integ = []
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
-aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-ssm/rustls", "aws-sdk-kms/rustls", ]
+aws-sdk-rust-rustls = []
 fips = ["tough/fips", "rustls/fips"]
 
 [dependencies]
-aws-config = { version = "1", default-features = false, features = ["credentials-process"] }
+aws-config = { version = "1", default-features = false, features = ["credentials-process", "default-https-client", "rt-tokio"] }
 aws-lc-rs = "1"
-aws-sdk-kms = "1"
-aws-sdk-ssm = "1"
+aws-sdk-kms = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
+aws-sdk-ssm = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"

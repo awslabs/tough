@@ -11,22 +11,23 @@ edition = "2018"
 [features]
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
-aws-sdk-rust-rustls = ["aws-config/rustls", "aws-sdk-kms/rustls"]
+aws-sdk-rust-rustls = []
 fips = ["aws-lc-rs/fips", "tough/fips"]
 
 [dependencies]
 tough = { version = "0.20", path = "../tough", features = ["http"] }
+aws-config = { version = "1", default-features = false, features = ["credentials-process", "default-https-client", "rt-tokio"] }
 aws-lc-rs = "1"
-aws-sdk-kms = "1"
-aws-config = { version = "1", default-features = false, features = ["credentials-process"] }
-aws-smithy-experimental = { version = "0.1", features = ["crypto-aws-lc"] }
+aws-sdk-kms = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
+aws-smithy-http-client = { version = "1", features = ["rustls-aws-lc"] }
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
 pem = "3"
 
 [dev-dependencies]
-aws-smithy-runtime = { version = "1", features = ["test-util"] }
+aws-smithy-runtime = "1"
 aws-smithy-http = "0.60"
+aws-smithy-http-client = { version = "1", features = ["test-util"] }
 aws-smithy-types = "1"
 base64 = "0.22"
 bytes = "1"
