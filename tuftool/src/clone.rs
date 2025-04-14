@@ -141,7 +141,7 @@ impl CloneArgs {
                     .await
                     .context(error::CloneRepositorySnafu)?;
             }
-        };
+        }
 
         Ok(())
     }

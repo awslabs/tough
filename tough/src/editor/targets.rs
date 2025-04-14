@@ -290,7 +290,7 @@ impl TargetsEditor {
             {
                 // Key isn't present yet, so we need to add it
                 delegations.keys.insert(keyid.clone(), key);
-            };
+            }
             keyids.push(keyid.clone());
         }
 

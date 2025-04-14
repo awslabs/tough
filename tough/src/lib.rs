@@ -667,6 +667,7 @@ fn parse_url(url: Url) -> Result<Url> {
 /// Steps 0 and 1 of the client application, which load the current root metadata file based on a
 /// trusted root metadata file.
 #[expect(clippy::too_many_arguments)]
+#[allow(clippy::needless_continue)]
 async fn load_root<R: AsRef<[u8]>>(
     transport: &dyn Transport,
     root: R,

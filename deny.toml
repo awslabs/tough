@@ -69,8 +69,6 @@ skip = [
 ]
 
 skip-tree = [
-    # noxious-client is using an older version of reqwest
-    { name = "reqwest", version = "=0.11" },
     # tokio and mio are bringing in older versions of windows libraries while other
     # libraries, are bringing in newer versions
     { name = "windows-sys" },

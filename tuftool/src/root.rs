@@ -407,8 +407,7 @@ impl Command {
             // Print out a warning letting the user know that the target file isn't compliant with
             // the threshold used for the root role.
             warn!(
-                "The root.json file requires at least {} signatures, the target file contains {}",
-                threshold, signature_count
+                "The root.json file requires at least {threshold} signatures, the target file contains {signature_count}"
             );
         }
 
