@@ -11,6 +11,7 @@ edition = "2018"
 [features]
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
+# This feature is for backward compatibility but has no effect.
 aws-sdk-rust-rustls = []
 fips = ["tough/fips"]
 

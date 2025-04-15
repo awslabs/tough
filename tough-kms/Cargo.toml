@@ -11,6 +11,7 @@ edition = "2018"
 [features]
 default = ["aws-sdk-rust"]
 aws-sdk-rust = ["aws-sdk-rust-rustls"]
+# This feature is for backward compatibility but has no effect.
 aws-sdk-rust-rustls = []
 fips = ["aws-lc-rs/fips", "tough/fips"]
 
@@ -26,7 +27,7 @@ pem = "3"
 
 [dev-dependencies]
 aws-smithy-runtime = "1"
-aws-smithy-http = "0.60"
+aws-smithy-http = "0.62"
 aws-smithy-http-client = { version = "1", features = ["test-util"] }
 aws-smithy-types = "1"
 base64 = "0.22"
