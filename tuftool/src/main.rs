@@ -33,6 +33,7 @@ mod update_targets;
 use crate::error::Result;
 use clap::Parser;
 use futures::{StreamExt, TryStreamExt};
+use rustls::crypto::{aws_lc_rs, CryptoProvider};
 use simplelog::{ColorChoice, ConfigBuilder, LevelFilter, TermLogger, TerminalMode};
 use snafu::{ErrorCompat, OptionExt, ResultExt};
 use std::collections::HashMap;
@@ -69,6 +70,13 @@ impl Program {
             ColorChoice::Auto,
         )
         .context(error::LoggerSnafu)?;
+
+        // Set the aws_lc_rs CryptoProvider for rustls. If we don't set a default CryptoProvider,
+        // some operations may panic.
+        if CryptoProvider::get_default().is_none() {
+            let _ = aws_lc_rs::default_provider().install_default();
+        }
+
         self.cmd.run().await
     }
 }

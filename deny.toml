@@ -58,6 +58,8 @@ wildcards = "deny"
 # to our own internal packages without a version number.
 allow-wildcard-paths = true
 
+deny = [{ name = "ring" }]
+
 skip = [
     # some libraries are using an older version of base64
     { name = "base64", version = "=0.21" },
