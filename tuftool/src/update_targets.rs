@@ -103,7 +103,7 @@ impl UpdateTargetsArgs {
                     .add_target(target_name, target)
                     .context(error::InvalidTargetNameSnafu)?;
             }
-        };
+        }
 
         // Sign the role
         let signed_role = editor.sign(&keys).await.context(error::SignRepoSnafu)?;
@@ -118,7 +118,7 @@ impl UpdateTargetsArgs {
                     indir: &targets_indir,
                     outdir: targets_outdir,
                 })?;
-        };
+        }
 
         // Write the metadata to the outdir
         let metadata_dir = &self.outdir.join("metadata");

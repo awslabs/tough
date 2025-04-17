@@ -693,7 +693,7 @@ trait TargetsWalker {
                 if tx.blocking_send(entry).is_err() {
                     // Receiver error'ed out
                     break;
-                };
+                }
             }
         });
 
@@ -705,13 +705,13 @@ trait TargetsWalker {
             // If the entry is not a file, move on
             if !entry.file_type().is_file() {
                 continue;
-            };
+            }
 
             // Call the requested function to manipulate the path we found
             if let Err(e) = f(self, entry.path(), outdir, replace_behavior, None).await {
                 match e {
                     // If we found a path that isn't a known target in the repo, skip it.
-                    error::Error::PathIsNotTarget { .. } => continue,
+                    error::Error::PathIsNotTarget { .. } => {}
                     _ => return Err(e),
                 }
             }

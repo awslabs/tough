@@ -58,41 +58,24 @@ wildcards = "deny"
 # to our own internal packages without a version number.
 allow-wildcard-paths = true
 
+deny = [{ name = "ring" }]
+
 skip = [
     # some libraries are using an older version of base64
     { name = "base64", version = "=0.21" },
     # the aws rust sdk is using an older version of http
     { name = "http", version = "=0.2" },
     { name = "http-body", version = "=0.4" },
-    # noxious and other crates use an old version of syn
-    { name = "syn", version = "=1" },
-    # several dependencies are using an old version of bitflags
-    { name = "bitflags", version = "=1.3" },
-    # several dependencies are using an old version of regex-automata
-    { name = "regex-automata", version = "=0.4" },
-    { name = "regex-syntax", version = "=0.6" },
-    # noxious, used for testing, is using an old version of tokio-util
-    { name = "tokio-util", version = "=0.6.10" },
     # aws-lc-rs uses an older version of untrusted
     { name = "untrusted", version = "=0.7.1" },
-    # tokio and mio are bringing in older versions of windows libraries while other
-    # libraries, are bringing in newer versions
-    { name = "windows-sys", version = "=0.48" },
-    { name = "windows-targets", version = "=0.48" },
-    { name = "windows_aarch64_gnullvm", version = "=0.48" },
-    { name = "windows_aarch64_msvc", version = "=0.48" },
-    { name = "windows_i686_gnu", version = "=0.48" },
-    { name = "windows_i686_msvc", version = "=0.48" },
-    { name = "windows_x86_64_gnu", version = "=0.48" },
-    { name = "windows_x86_64_gnullvm", version = "=0.48" },
-    { name = "windows_x86_64_msvc", version = "=0.48" },
 ]
 
 skip-tree = [
-    # noxious-client is using an older version of reqwest
-    { name = "reqwest", version = "=0.11" },
-    # aws-smithy-runtime-experimental is using several newer dependencies
-    { name = "aws-smithy-experimental", version = "=0.1" },
+    # tokio and mio are bringing in older versions of windows libraries while other
+    # libraries, are bringing in newer versions
+    { name = "windows-sys" },
+    # failure-server is an integ test package that pulls in legacy http libraries
+    { name = "failure-server" },
 ]
 
 [sources]

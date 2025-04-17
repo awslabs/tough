@@ -5,7 +5,10 @@ use aws_config::default_provider::credentials::DefaultCredentialsChain;
 use aws_config::default_provider::region::DefaultRegionChain;
 use aws_config::BehaviorVersion;
 use aws_sdk_ssm::Client as SsmClient;
-use aws_smithy_experimental::hyper_1_0::{CryptoMode, HyperClientBuilder};
+use aws_smithy_http_client::{
+    tls::{self, rustls_provider::CryptoMode},
+    Builder,
+};
 use snafu::ResultExt;
 use std::thread;
 
@@ -27,10 +30,10 @@ pub(crate) fn build_client(profile: Option<&str>) -> Result<SsmClient> {
 }
 
 async fn async_build_client(profile: Option<String>) -> SsmClient {
-    let http_client = HyperClientBuilder::new()
-        .crypto_mode(CryptoMode::AwsLc) // Choose a crypto provider.
+    let http_client = Builder::new()
+        .tls_provider(tls::Provider::Rustls(CryptoMode::AwsLc)) // Choose a crypto provider.
         .build_https();
-    let config = aws_config::defaults(BehaviorVersion::v2024_03_28()).http_client(http_client);
+    let config = aws_config::defaults(BehaviorVersion::v2025_01_17()).http_client(http_client);
     let client_config = if let Some(profile) = profile {
         let region = DefaultRegionChain::builder()
             .profile_name(&profile)

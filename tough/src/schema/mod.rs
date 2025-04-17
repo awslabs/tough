@@ -957,7 +957,7 @@ pub enum PathSet {
 /// * a `PATHPATTERN` of `"targets/*.tgz"` would match file paths `"targets/foo.tgz"` and
 ///   `"targets/bar.tgz"`, but not `"targets/foo.txt"`.
 /// * a `PATHPATTERN` of `"foo-version-?.tgz"` matches `"foo-version-2.tgz"` and
-///     `"foo-version-a.tgz"`, but not `"foo-version-alpha.tgz"`.
+///   `"foo-version-a.tgz"`, but not `"foo-version-alpha.tgz"`.
 /// * a `PATHPATTERN` of `"*.tgz"` would match `"foo.tgz"` and `"bar.tgz"`,
 ///   but not `"targets/foo.tgz"`
 /// * a `PATHPATTERN` of `"foo.tgz"` would match only `"foo.tgz"`

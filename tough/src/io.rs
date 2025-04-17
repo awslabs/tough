@@ -57,7 +57,7 @@ impl Stream for DigestAdapter {
                 }
             }
             Poll::Ready(Some(Err(_))) | Poll::Pending => (),
-        };
+        }
 
         poll
     }

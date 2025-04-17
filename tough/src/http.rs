@@ -398,7 +398,7 @@ impl RetryState {
 
 /// Sends a `GET` request to the `url`. Retries the request as necessary per the `ClientSettings`.
 fn fetch_with_retries(r: RetryState, cs: &HttpTransportBuilder, url: &Url) -> RetryStream {
-    trace!("beginning fetch for '{}'", url);
+    trace!("beginning fetch for '{url}'");
 
     RetryStream {
         retry_state: r,
@@ -449,16 +449,16 @@ impl From<reqwest::Error> for ErrorClass {
     fn from(err: reqwest::Error) -> Self {
         if err.is_timeout() {
             // a connection timeout occurred
-            trace!("timeout error during fetch: {}", err);
+            trace!("timeout error during fetch: {err}");
             ErrorClass::Retryable(err)
         } else if err.is_request() {
             // an error occurred while sending the request
-            trace!("error sending request during fetch: {}", err);
+            trace!("error sending request during fetch: {err}");
             ErrorClass::Retryable(err)
         } else {
             // the error is not from an HTTP status code or a timeout, retries will not succeed.
             // these appear to be internal, reqwest errors and are expected to be unlikely.
-            trace!("internal reqwest error during fetch: {}", err);
+            trace!("internal reqwest error during fetch: {err}");
             ErrorClass::Fatal(err)
         }
     }
@@ -477,19 +477,19 @@ fn parse_response_code(response: reqwest::Response) -> HttpResult {
             None => {
                 // this shouldn't happen, we received this err from the err_for_status function,
                 // so the error should have a status. we cannot consider this a retryable error.
-                trace!("error is fatal (no status): {}", err);
+                trace!("error is fatal (no status): {err}");
                 HttpResult::Err(ErrorClass::Fatal(err))
             }
             Some(status) if status.is_server_error() => {
-                trace!("error is retryable: {}", err);
+                trace!("error is retryable: {err}");
                 HttpResult::Err(ErrorClass::Retryable(err))
             }
             Some(status) if matches!(status.as_u16(), 403 | 404 | 410) => {
-                trace!("error is file not found: {}", err);
+                trace!("error is file not found: {err}");
                 HttpResult::Err(ErrorClass::FileNotFound(err))
             }
             Some(_) => {
-                trace!("error is fatal (status): {}", err);
+                trace!("error is fatal (status): {err}");
                 HttpResult::Err(ErrorClass::Fatal(err))
             }
         },
