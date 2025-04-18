@@ -22,7 +22,7 @@ aws-lc-rs = "1"
 aws-sdk-kms = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
 aws-smithy-http-client = { version = "1", features = ["rustls-aws-lc"] }
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
-tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
+tokio = { version = "1.43", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
 pem = "3"
 
 [dev-dependencies]
