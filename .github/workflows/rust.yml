@@ -5,6 +5,7 @@ on:
       - "**.md"
       - ".github/dependabot.yml"
     branches: [develop]
+  workflow_dispatch:
 
 env:
   # From-scratch builds with incremental compilation enabled adds unneeded performance and disk overhead.
