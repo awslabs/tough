@@ -17,13 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         make_target: ["check-licenses", "build", "integ", "integ-fips"]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-15]
         exclude:
           - os: windows-latest
             make_target: check-licenses
-          - os: macos-latest
+          - os: macos-15
             make_target: check-licenses
-          - os: macos-latest
+          - os: macos-15
             make_target: integ-fips
     runs-on: ${{ matrix.os }}
     steps:
