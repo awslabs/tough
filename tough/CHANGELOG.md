@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2025-04-22
+### Fixes
+- Flush cache files after writing to ensure they are closed at `drop()` time [#874]
+
+### Changes
+- Dependency updates [#868]
+
+[#868]: https://github.com/awslabs/tough/pull/868
+[#874]: https://github.com/awslabs/tough/pull/874
+
 ## [0.20.0] - 2025-03-27
 ### Fixes
 - Apply fixes for [GHSA-5vmp-m5v2-hx47], [GHSA-v4wr-j3w6-mxqc], [GHSA-j8x2-777p-23fc], [GHSA-76g3-38jv-wxh4], [GHSA-q6r9-r9pw-4cf7]
@@ -312,7 +322,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.20.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.21.0...develop
+[0.21.0]: https://github.com/awslabs/tough/compare/tough-v0.20.0...tough-v0.21.0
 [0.20.0]: https://github.com/awslabs/tough/compare/tough-v0.19.0...tough-v0.20.0
 [0.19.0]: https://github.com/awslabs/tough/compare/tough-v0.18.0...tough-v0.19.0
 [0.18.0]: https://github.com/awslabs/tough/compare/tough-v0.17.1...tough-v0.18.0
