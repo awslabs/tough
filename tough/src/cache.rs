@@ -219,6 +219,11 @@ impl Repository {
             .context(error::TransportSnafu { url })?;
         file.write_all(&root_file_data)
             .await
+            .context(error::CacheFileWriteSnafu {
+                path: outpath.clone(),
+            })?;
+        file.flush()
+            .await
             .context(error::CacheFileWriteSnafu { path: outpath })
     }
 
