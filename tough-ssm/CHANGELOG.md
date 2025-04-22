@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2025-04-22
+### Changes
+- Update `tough` to 0.21.0
+- Update aws-sdk crates to use the new HTTPS stack with `hyper 1.x`, `rustls`, and `aws-lc` [#868]
+- Migrate from `aws-smithy-experimental` to `aws-smithy-http-client` [#868]
+- Dependency updates
+
+[#868]: https://github.com/awslabs/tough/pull/868
+
 ## [0.15.0] - 2025-03-27
 ### Changes
 - Update `tough` to 0.20.0
@@ -167,7 +176,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-ssm-v0.15.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-ssm-v0.16.0...develop
+[0.16.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.15.0...tough-ssm-v0.16.0
 [0.15.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.14.0...tough-ssm-v0.15.0
 [0.14.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.13.0...tough-ssm-v0.14.0
 [0.13.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.12.0...tough-ssm-v0.13.0

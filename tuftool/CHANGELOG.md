@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2025-04-22
+### Changes
+- Update aws-sdk crates to use the new HTTPS stack with `hyper 1.x`, `rustls`, and `aws-lc` [#868]
+- Use `aws-lc` for TLS instead of `ring` [#868]
+- Dependency updates
+
+[#868]: https://github.com/awslabs/tough/pull/868
+
 ## [0.13.0] - 2025-03-27
 ### Fixes
 - Apply fixes for [GHSA-5vmp-m5v2-hx47], [GHSA-v4wr-j3w6-mxqc], [GHSA-j8x2-777p-23fc], [GHSA-76g3-38jv-wxh4], [GHSA-q6r9-r9pw-4cf7]
@@ -286,7 +294,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.13.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.14.0...develop
+[0.14.0]: https://github.com/awslabs/tough/compare/tuftool-v0.13.0...tuftool-v0.14.0
 [0.13.0]: https://github.com/awslabs/tough/compare/tuftool-v0.12.0...tuftool-v0.13.0
 [0.12.0]: https://github.com/awslabs/tough/compare/tuftool-v0.11.1...tuftool-v0.12.0
 [0.11.1]: https://github.com/awslabs/tough/compare/tuftool-v0.11.0...tuftool-v0.11.1
