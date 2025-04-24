@@ -1,0 +1,4 @@
+# Ignore artifacts created during test.
+test-fips-tough/
+test-keys/
+test-tuf-repo/
