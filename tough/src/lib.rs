@@ -1197,7 +1197,7 @@ async fn load_targets(
             path,
             url: metadata_base_url.clone(),
         })?;
-    let (max_targets_size, specifier) = match targets_meta.length {
+    let (max_targets_file_size, specifier) = match targets_meta.length {
         Some(length) => (length, "snapshot.json"),
         None => (max_targets_size, "max_targets_size parameter"),
     };
@@ -1207,13 +1207,19 @@ async fn load_targets(
         fetch_sha256(
             transport,
             targets_url.clone(),
-            max_targets_size,
+            max_targets_file_size,
             specifier,
             &hashes.sha256,
         )
         .await?
     } else {
-        fetch_max_size(transport, targets_url.clone(), max_targets_size, specifier).await?
+        fetch_max_size(
+            transport,
+            targets_url.clone(),
+            max_targets_file_size,
+            specifier,
+        )
+        .await?
     };
     let data = stream
         .into_vec()
