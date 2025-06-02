@@ -27,8 +27,10 @@ pub enum Error {
     KmsGetPublicKey {
         profile: Option<String>,
         key_id: String,
-        source:
+        #[snafu(source(from(aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::get_public_key::GetPublicKeyError>, Box::new)))]
+        source: Box<
             aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::get_public_key::GetPublicKeyError>,
+        >,
         backtrace: Backtrace,
     },
 
@@ -49,7 +51,8 @@ pub enum Error {
     KmsSignMessage {
         key_id: String,
         profile: Option<String>,
-        source: aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::sign::SignError>,
+        #[snafu(source(from(aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::sign::SignError>, Box::new)))]
+        source: Box<aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::sign::SignError>>,
         backtrace: Backtrace,
     },
 

@@ -35,8 +35,10 @@ pub enum Error {
     SsmGetParameter {
         profile: Option<String>,
         parameter_name: String,
-        source:
+        #[snafu(source(from(aws_sdk_ssm::error::SdkError<aws_sdk_ssm::operation::get_parameter::GetParameterError>, Box::new)))]
+        source: Box<
             aws_sdk_ssm::error::SdkError<aws_sdk_ssm::operation::get_parameter::GetParameterError>,
+        >,
         backtrace: Backtrace,
     },
 
@@ -60,8 +62,10 @@ pub enum Error {
     SsmPutParameter {
         profile: Option<String>,
         parameter_name: String,
-        source:
+        #[snafu(source(from(aws_sdk_ssm::error::SdkError<aws_sdk_ssm::operation::put_parameter::PutParameterError>, Box::new)))]
+        source: Box<
             aws_sdk_ssm::error::SdkError<aws_sdk_ssm::operation::put_parameter::PutParameterError>,
+        >,
         backtrace: Backtrace,
     },
 }
