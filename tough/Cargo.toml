@@ -50,6 +50,7 @@ tokio-test = "0.4"
 [features]
 fips = ["aws-lc-rs/fips", "rustls/fips"]
 http = ["reqwest"]
+tap-12 = []
 
 # The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.
 integ = []
