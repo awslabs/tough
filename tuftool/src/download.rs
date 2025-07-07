@@ -129,7 +129,7 @@ async fn handle_download(
         target_names
     };
 
-    println!("Downloading targets to {outdir:?}");
+    println!("Downloading targets to {}", outdir.display());
     tokio::fs::create_dir_all(outdir)
         .await
         .context(error::DirCreateSnafu { path: outdir })?;

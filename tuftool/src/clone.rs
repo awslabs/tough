@@ -108,7 +108,10 @@ impl CloneArgs {
 
         // Clone the repository, downloading none, all, or a subset of targets
         if self.metadata_only {
-            println!("Cloning repository metadata to {:?}", self.metadata_dir);
+            println!(
+                "Cloning repository metadata to {}",
+                self.metadata_dir.display()
+            );
             repository
                 .cache_metadata(&self.metadata_dir, true)
                 .await
@@ -122,8 +125,9 @@ impl CloneArgs {
             );
 
             println!(
-                "Cloning repository:\n\tmetadata location: {:?}\n\ttargets location: {targets_dir:?}",
-                self.metadata_dir
+                "Cloning repository:\n\tmetadata location: {}\n\ttargets location: {}",
+                self.metadata_dir.display(),
+                targets_dir.display()
             );
             if self.target_names.is_empty() {
                 repository
