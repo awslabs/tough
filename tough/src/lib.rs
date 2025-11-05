@@ -59,6 +59,7 @@ pub use crate::target_name::TargetName;
 pub use crate::transport::IntoVec;
 pub use crate::transport::{
     DefaultTransport, FilesystemTransport, Transport, TransportError, TransportErrorKind,
+    TransportStream,
 };
 pub use crate::urlpath::SafeUrlPath;
 use async_recursion::async_recursion;

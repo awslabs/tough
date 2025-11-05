@@ -14,6 +14,7 @@ use std::pin::Pin;
 use tokio_util::io::ReaderStream;
 use url::Url;
 
+/// Type alias for the stream returned by transports
 pub type TransportStream = Pin<Box<dyn Stream<Item = Result<Bytes, TransportError>> + Send>>;
 
 /// Fallible byte streams that collect into a `Vec<u8>`.
@@ -157,7 +158,7 @@ impl Display for TransportError {
 
 impl Error for TransportError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.source.as_ref().map(|e| e.as_ref() as &(dyn Error))
+        self.source.as_ref().map(|e| e.as_ref() as &dyn Error)
     }
 }
 
