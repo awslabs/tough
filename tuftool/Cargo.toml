@@ -44,7 +44,7 @@ url = "2"
 walkdir = "2"
 
 [dev-dependencies]
-assert_cmd = "2"
+assert_cmd = "2.1"
 futures = "0.3"
 futures-core = "0.3"
 httptest = "0.16"

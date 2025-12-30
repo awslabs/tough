@@ -4,7 +4,7 @@
 mod test_utils;
 
 use crate::test_utils::days;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use chrono::Utc;
 use std::path::Path;
 use tempfile::TempDir;
@@ -25,8 +25,7 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let root_key = test_utils::test_data().join("snakeoil.pem");
 
     // Create a repo using tuftool and the reference tuf implementation data
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "create",
             "-t",
@@ -81,8 +80,7 @@ async fn create_add_role_command() {
     let meta_out = TempDir::new().unwrap();
 
     // create role A
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -102,8 +100,7 @@ async fn create_add_role_command() {
 
     let new_repo_dir = TempDir::new().unwrap();
     // add role to targets metadata and sign entire repo
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -156,8 +153,7 @@ async fn create_add_role_command() {
 
     let create_out = TempDir::new().unwrap();
     // create role B
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -177,8 +173,7 @@ async fn create_add_role_command() {
 
     let add_b_out = TempDir::new().unwrap();
     // add role B to A metadata and sign A meta
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -211,8 +206,7 @@ async fn create_add_role_command() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -279,8 +273,7 @@ async fn update_target_command() {
     let meta_out = TempDir::new().unwrap();
 
     // create role A
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -300,8 +293,7 @@ async fn update_target_command() {
 
     let new_repo_dir = TempDir::new().unwrap();
     // add role to targets metadata and sign entire repo
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -344,8 +336,7 @@ async fn update_target_command() {
     let targets_out_url = ut_out.path().join("targets");
     let updated_metadata_base_url = &dir_url(new_repo_dir.path().join("metadata"));
     let targets_input_dir = test_utils::test_data().join("targets");
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -380,8 +371,7 @@ async fn update_target_command() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -456,8 +446,7 @@ async fn add_key_command() {
     let meta_out = TempDir::new().unwrap();
 
     // create role A
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -477,8 +466,7 @@ async fn add_key_command() {
 
     let new_repo_dir = TempDir::new().unwrap();
     // add role to targets metadata and sign entire repo
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -518,8 +506,7 @@ async fn add_key_command() {
 
     // add key to A
     let key_out = TempDir::new().unwrap();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -547,8 +534,7 @@ async fn add_key_command() {
 
     //sign A's key addition as repo owner
     let new_repo_dir = TempDir::new().unwrap();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "--role",
@@ -583,8 +569,7 @@ async fn add_key_command() {
 
     let create_out = TempDir::new().unwrap();
     // create role B
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -604,8 +589,7 @@ async fn add_key_command() {
 
     let add_b_out = TempDir::new().unwrap();
     // add role B to A metadata and sign A meta with the added key
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -638,8 +622,7 @@ async fn add_key_command() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -704,8 +687,7 @@ fn remove_key_command() {
     let meta_out = TempDir::new().unwrap();
 
     // create role A
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -727,8 +709,7 @@ fn remove_key_command() {
 
     let new_repo_dir = TempDir::new().unwrap();
     // add role to targets metadata and sign entire repo
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -769,8 +750,7 @@ fn remove_key_command() {
 
     // remove key from A
     let key_out = TempDir::new().unwrap();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -798,8 +778,7 @@ fn remove_key_command() {
 
     //sign A's key removal as repo owner
     let new_repo_dir = TempDir::new().unwrap();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "--role",
@@ -834,8 +813,7 @@ fn remove_key_command() {
 
     let create_out = TempDir::new().unwrap();
     // create role B
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -855,8 +833,7 @@ fn remove_key_command() {
 
     let add_b_out = TempDir::new().unwrap();
     // add role B to A metadata and sign A meta with the removed key
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -907,8 +884,7 @@ async fn remove_role_command() {
     let meta_out = TempDir::new().unwrap();
 
     // create role A
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -928,8 +904,7 @@ async fn remove_role_command() {
 
     let new_repo_dir = TempDir::new().unwrap();
     // add role to targets metadata and sign entire repo
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -982,8 +957,7 @@ async fn remove_role_command() {
 
     let create_out = TempDir::new().unwrap();
     // create role B
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1003,8 +977,7 @@ async fn remove_role_command() {
 
     let add_b_out = TempDir::new().unwrap();
     // add role B to A metadata
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1043,8 +1016,7 @@ async fn remove_role_command() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -1080,8 +1052,7 @@ async fn remove_role_command() {
     let updated_metadata_base_url = &dir_url(update_out.path().join("metadata"));
 
     // remove role B from A metadata and sign A meta
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1116,8 +1087,7 @@ async fn remove_role_command() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -1184,8 +1154,7 @@ async fn remove_role_recursive_command() {
     let meta_out = TempDir::new().unwrap();
 
     // create role A
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1205,8 +1174,7 @@ async fn remove_role_recursive_command() {
 
     let new_repo_dir = TempDir::new().unwrap();
     // add role to targets metadata and sign entire repo
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1258,8 +1226,7 @@ async fn remove_role_recursive_command() {
 
     let create_out = TempDir::new().unwrap();
     // create role B
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1279,8 +1246,7 @@ async fn remove_role_recursive_command() {
 
     let add_b_out = TempDir::new().unwrap();
     // add role B to A metadata
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1319,8 +1285,7 @@ async fn remove_role_recursive_command() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -1356,8 +1321,7 @@ async fn remove_role_recursive_command() {
     let updated_metadata_base_url = &dir_url(update_out.path().join("metadata"));
 
     // remove role B from A metadata and sign A meta
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1393,8 +1357,7 @@ async fn remove_role_recursive_command() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -1472,8 +1435,7 @@ async fn dubious_role_name() {
     let meta_out = TempDir::new().unwrap();
 
     // create role A
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1493,8 +1455,7 @@ async fn dubious_role_name() {
 
     let new_repo_dir = TempDir::new().unwrap();
     // add role to targets metadata and sign entire repo
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1547,8 +1508,7 @@ async fn dubious_role_name() {
 
     let create_out = TempDir::new().unwrap();
     // create role B
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1568,8 +1528,7 @@ async fn dubious_role_name() {
 
     let add_b_out = TempDir::new().unwrap();
     // add role B to A metadata and sign A meta
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "delegation",
             "--signing-role",
@@ -1614,8 +1573,7 @@ async fn dubious_role_name() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
