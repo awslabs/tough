@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use chrono::Utc;
 use std::env;
 use tempfile::TempDir;
@@ -22,41 +22,34 @@ fn get_profile() -> String {
 }
 
 fn initialize_root_json(root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "init", root_json])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "expire", root_json, "3030-09-22T00:00:00Z"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "root", "1"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "snapshot", "1"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "targets", "1"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "timestamp", "1"])
         .assert()
         .success();
 }
 
 fn gen_key(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "gen-rsa-key",
@@ -72,30 +65,26 @@ fn gen_key(key: &str, root_json: &str) {
 }
 
 fn add_root_key(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "add-key", root_json, "--key", key, "--role", "root"])
         .assert()
         .success();
 }
 
 fn add_key_all_role(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root", "add-key", root_json, "--key", key, "--role", "snapshot",
         ])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root", "add-key", root_json, "--key", key, "--role", "targets",
         ])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "add-key",
@@ -110,8 +99,7 @@ fn add_key_all_role(key: &str, root_json: &str) {
 }
 
 fn sign_root_json(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "sign", root_json, "-k", key])
         .assert()
         .success();
@@ -141,8 +129,7 @@ async fn create_repository(root_key: &str, auto_generate: bool) {
         .join("targets");
     let repo_dir = TempDir::new().unwrap();
     // Create a repo using tuftool and the reference tuf implementation targets
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "create",
             "-t",

@@ -4,7 +4,7 @@
 mod test_utils;
 
 use crate::test_utils::days;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use chrono::Utc;
 use tempfile::TempDir;
 use test_utils::dir_url;
@@ -27,8 +27,7 @@ async fn create_command() {
     let repo_dir = TempDir::new().unwrap();
 
     // Create a repo using tuftool and the reference tuf implementation targets
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "create",
             "-t",
@@ -121,8 +120,7 @@ fn create_with_incorrect_key() {
 
     // Call the create command passing a single key that cannot be found in root.json. Assert that
     // the command fails.
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "create",
             "-t",
@@ -154,8 +152,7 @@ fn create_with_incorrect_key() {
 // Ensure we fail if no key is provided
 fn create_with_no_key() {
     // Misuse the tuftool create command by not passing any keys and assert failure
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "create",
             "-t",

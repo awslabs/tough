@@ -1,7 +1,7 @@
 mod test_utils;
 
 use assert_cmd::assert::Assert;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use httptest::{matchers::*, responders::*, Expectation, Server};
 use std::fs::read_to_string;
 use std::path::Path;
@@ -54,8 +54,7 @@ fn download_command(metadata_base_url: Url, targets_base_url: Url) {
         .join("root.json");
 
     // Download a test repo.
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "download",
             "-r",
@@ -74,8 +73,7 @@ fn download_command(metadata_base_url: Url, targets_base_url: Url) {
     assert_file_match(&outdir, "file2.txt");
 
     // Download again into the same outdir, this will fail because the directory exists.
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "download",
             "-r",
@@ -122,7 +120,7 @@ fn download_expired_repo(outdir: &Path, repo_dir: &TempDir, allow_expired_repo: 
     let root_json = test_utils::test_data().join("simple-rsa").join("root.json");
     let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
     let targets_base_url = &test_utils::dir_url(repo_dir.path().join("targets"));
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
     cmd.args([
         "download",
         "-r",
@@ -175,7 +173,7 @@ fn download_safe_target_paths() {
     let targets_base_url = &test_utils::dir_url(repo_dir.join("targets"));
     let tempdir = TempDir::new().unwrap();
     let outdir = tempdir.path().join("outdir");
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
     cmd.args([
         "download",
         "-r",

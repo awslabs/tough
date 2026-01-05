@@ -5,7 +5,7 @@ mod test_utils;
 
 use crate::test_utils::days;
 use assert_cmd::assert::Assert;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use chrono::{DateTime, Utc};
 use std::path::Path;
 use tempfile::TempDir;
@@ -26,8 +26,7 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
     let root_key = test_utils::test_data().join("snakeoil.pem");
 
     // Create a repo using tuftool and the reference tuf implementation data
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "create",
             "-t",
@@ -76,8 +75,7 @@ async fn update_command_without_new_targets() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-o",
@@ -149,8 +147,7 @@ async fn update_command_with_new_targets() {
     let update_out = TempDir::new().unwrap();
 
     // Update the repo we just created
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "-t",
@@ -225,8 +222,7 @@ fn update_with_incorrect_key() {
     let root_json = base.join("metadata").join("1.root.json");
     let bad_key = test_utils::test_data().join("snakeoil.pem");
 
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "--outdir",
@@ -257,8 +253,7 @@ fn update_with_incorrect_key() {
 #[test]
 // Ensure we fail if no key is provided
 fn update_with_no_key() {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "update",
             "--outdir",
@@ -307,7 +302,7 @@ fn updates_expired_repo(
     let targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let targets_version: u64 = 170;
     let metadata_base_url = &test_utils::dir_url(repo_dir.path().join("metadata"));
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
     cmd.args([
         "update",
         "-o",

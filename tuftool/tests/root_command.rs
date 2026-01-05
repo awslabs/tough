@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 mod test_utils;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use std::fs::File;
 use std::num::NonZeroU64;
 use tempfile::TempDir;
@@ -11,40 +11,34 @@ use tough::schema::decoded::{Decoded, Hex};
 use tough::schema::{Root, Signed};
 
 fn initialize_root_json(root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "init", root_json])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "expire", root_json, "2020-09-22T00:00:00Z"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "root", "2"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "snapshot", "1"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "targets", "1"])
         .assert()
         .success();
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-threshold", root_json, "timestamp", "1"])
         .assert()
         .success();
 }
 
 fn add_key_root(keys: &Vec<&str>, root_json: &str) {
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
 
     cmd.args(["root", "add-key", root_json, "--role", "root"]);
 
@@ -56,8 +50,7 @@ fn add_key_root(keys: &Vec<&str>, root_json: &str) {
 }
 
 fn add_key_timestamp(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "add-key",
@@ -72,8 +65,7 @@ fn add_key_timestamp(key: &str, root_json: &str) {
 }
 
 fn add_key_snapshot(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root", "add-key", root_json, "-k", key, "--role", "snapshot",
         ])
@@ -81,8 +73,7 @@ fn add_key_snapshot(key: &str, root_json: &str) {
         .success();
 }
 fn add_key_targets(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "add-key", root_json, "-k", key, "--role", "targets"])
         .assert()
         .success();
@@ -99,8 +90,7 @@ fn add_keys_all_roles(keys: Vec<&str>, root_json: &str) {
 }
 
 fn sign_root_json(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         // We don't have enough signatures to meet the threshold, so we have to pass `-i`
         .args(["root", "sign", root_json, "-i", "-k", key])
         .assert()
@@ -108,8 +98,7 @@ fn sign_root_json(key: &str, root_json: &str) {
 }
 
 fn sign_root_json_failure(key: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         // We don't have enough signatures to meet the threshold, so we should fail
         .args(["root", "sign", root_json, "-k", key])
         .assert()
@@ -117,16 +106,14 @@ fn sign_root_json_failure(key: &str, root_json: &str) {
 }
 
 fn sign_root_json_two_keys(key_1: &str, key_2: &str, root_json: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "sign", root_json, "-k", key_1, "-k", key_2])
         .assert()
         .success();
 }
 
 fn cross_sign(old_root: &str, new_root: &str, key: &str) {
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "sign",
@@ -190,8 +177,7 @@ fn create_root_to_version() {
     let root_json = out_dir.path().join("root.json");
     let version = NonZeroU64::new(99).unwrap();
 
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "init",
@@ -211,8 +197,7 @@ fn create_root_invalid_version() {
     let out_dir = TempDir::new().unwrap();
     let root_json = out_dir.path().join("root.json");
 
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "init",
@@ -234,8 +219,7 @@ fn create_unstable_root() {
     // Create and initialise root.json
     initialize_root_json(root_json.to_str().unwrap());
     // Set the threshold for roles with targets being more than 1
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "set-threshold",
@@ -248,8 +232,7 @@ fn create_unstable_root() {
     // Add keys for all roles
     add_keys_all_roles(vec![key.to_str().unwrap()], root_json.to_str().unwrap());
     // Sign root.json (error because targets can never be validated root has 1 key but targets requires 2 signatures)
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "sign",
@@ -273,8 +256,7 @@ fn create_invalid_root() {
     // Add keys for all roles
     add_keys_all_roles(vec![key.to_str().unwrap()], root_json.to_str().unwrap());
     // Sign root.json (error because key is not valid)
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "sign",
@@ -342,8 +324,7 @@ fn cross_sign_root_invalid_key() {
         new_root_json.to_str().unwrap(),
     );
     // Sign 2.root.json with key not in 1.root.json
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "root",
             "sign",
@@ -428,8 +409,7 @@ fn set_version_root() {
     let version = NonZeroU64::new(5).unwrap();
 
     // set version to 5
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args(["root", "set-version", root_json.to_str().unwrap(), "5"])
         .assert()
         .success();

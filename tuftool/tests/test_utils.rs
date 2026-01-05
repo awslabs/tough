@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use chrono::{TimeDelta, Utc};
 use std::path::{Path, PathBuf};
 use tough::IntoVec;
@@ -52,8 +52,7 @@ pub fn create_expired_repo<P: AsRef<Path>>(repo_dir: P) {
     let root_key = test_data().join("snakeoil.pem");
 
     // Create a repo using tuftool and the reference tuf implementation data
-    Command::cargo_bin("tuftool")
-        .unwrap()
+    cargo_bin_cmd!("tuftool")
         .args([
             "create",
             "-t",

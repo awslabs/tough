@@ -1,6 +1,6 @@
 mod test_utils;
 
-use assert_cmd::Command;
+use assert_cmd::{cargo_bin_cmd, Command};
 use std::fs::read_to_string;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -93,7 +93,7 @@ fn clone_base_command<'a>(cmd: &'a mut Command, repo_paths: &RepoPaths) -> &'a m
 // Ensure that we successfully clone all metadata
 fn clone_metadata() {
     let repo_paths = RepoPaths::new();
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
     clone_base_command(&mut cmd, &repo_paths)
         .args(["--metadata-only"])
         .assert()
@@ -106,7 +106,7 @@ fn clone_metadata() {
 // Ensure that target arguments collide with the `--megadata-only` argument
 fn clone_metadata_target_args_failure() {
     let repo_paths = RepoPaths::new();
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
     // --target-names
     clone_base_command(&mut cmd, &repo_paths)
         .args(["--metadata-only", "--target-names", "foo"])
@@ -153,7 +153,7 @@ fn clone_metadata_target_args_failure() {
 fn clone_subset_targets() {
     let target_name = "file1.txt";
     let repo_paths = RepoPaths::new();
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
     clone_base_command(&mut cmd, &repo_paths)
         .args([
             "--targets-url",
@@ -179,7 +179,7 @@ fn clone_subset_targets() {
 // Ensure we can clone an entire repo
 fn clone_full_repo() {
     let repo_paths = RepoPaths::new();
-    let mut cmd = Command::cargo_bin("tuftool").unwrap();
+    let mut cmd = cargo_bin_cmd!("tuftool");
     clone_base_command(&mut cmd, &repo_paths)
         .args([
             "--targets-url",
