@@ -16,8 +16,8 @@
 pub mod error;
 
 use async_trait::async_trait;
-use aws_sdk_s3::Client as S3Client;
 use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::Client as S3Client;
 use bytes::Bytes;
 use futures::stream::Stream;
 use std::pin::Pin;
@@ -25,32 +25,36 @@ use std::task::{Context, Poll};
 use tough::{Transport, TransportError, TransportErrorKind, TransportStream};
 use url::Url;
 
-/// Implements the `Transport` trait for AWS S3
+/// Implements the [`Transport`] trait for AWS S3 via [`S3Transport`]
 #[derive(Clone, Debug)]
 pub struct S3Transport {
     client: S3Client,
 }
 
 impl S3Transport {
-    /// Create a new S3Transport with the default AWS configuration
+    /// Create a new [`S3Transport`] with the default AWS configuration
     pub async fn new() -> Self {
-        let config = aws_config::defaults(aws_config::BehaviorVersion::latest()).load().await;
+        let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .load()
+            .await;
         let client = S3Client::new(&config);
         Self { client }
     }
 
-    /// Create a new S3Transport with a custom S3 client
+    /// Create a new [`S3Transport`] with a custom S3 client
     pub fn new_with_client(client: S3Client) -> Self {
         Self { client }
     }
 
-    /// Create a new S3Transport with a specific AWS region
+    /// Create a new [`S3Transport`] with a specific AWS region
     pub async fn new_with_region(region: &str) -> Self {
         let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .region(aws_config::Region::new(region.to_string()))
             .load()
             .await;
-        Self { client: S3Client::new(&config) }
+        Self {
+            client: S3Client::new(&config),
+        }
     }
 
     /// Parse an s3:// URL into bucket and key components
@@ -110,7 +114,7 @@ impl Transport for S3Transport {
                 } else {
                     TransportErrorKind::Other
                 };
-                return Err(TransportError::new_with_cause(kind, url, e));
+                return Err(TransportError::new_with_cause(kind, url, Box::new(e)));
             }
         };
 
@@ -135,7 +139,7 @@ fn is_not_found(
     )
 }
 
-/// Adapter to convert AWS SDK ByteStream to tough TransportStream
+/// Adapter to convert AWS SDK [`ByteStream`] to tough [`TransportStream`]
 struct ByteStreamAdapter {
     inner: ByteStream,
     url: Url,
@@ -158,7 +162,6 @@ impl Stream for ByteStreamAdapter {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

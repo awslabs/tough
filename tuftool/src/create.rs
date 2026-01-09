@@ -37,7 +37,12 @@ pub(crate) struct CreateArgs {
 
     /// Path to root.json file for the repository
     #[arg(short, long)]
-    root: PathBuf,
+    root: String,
+
+    #[cfg(feature = "s3")]
+    /// AWS region for S3 transport (required for s3:// URLs)
+    #[arg(long)]
+    s3_region: Option<String>,
 
     /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
@@ -94,9 +99,14 @@ impl CreateArgs {
                 .context(error::InitializeThreadPoolSnafu)?;
         }
 
+        #[cfg(feature = "s3")]
+        let root_bytes =
+            crate::common::read_root_bytes(&self.root, self.s3_region.as_deref()).await?;
+        #[cfg(not(feature = "s3"))]
+        let root_bytes = crate::common::read_root_bytes(&self.root, None).await?;
+
         let targets = build_targets(&self.targets_indir, self.follow).await?;
-        let mut editor = RepositoryEditor::new(&self.root)
-            .await
+        let mut editor = RepositoryEditor::new_from_bytes(&root_bytes)
             .context(error::EditorCreateSnafu { path: &self.root })?;
 
         editor

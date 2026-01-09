@@ -10,6 +10,9 @@ use std::path::{Path, PathBuf};
 use tough::{ExpirationEnforcement, Prefix, Repository, RepositoryLoader, TargetName};
 use url::Url;
 
+#[cfg(feature = "s3")]
+use tough_s3::S3Transport;
+
 #[derive(Debug, Parser)]
 pub(crate) struct DownloadArgs {
     /// Allow repo download for expired metadata
@@ -30,7 +33,7 @@ pub(crate) struct DownloadArgs {
 
     /// Path to root.json file for the repository
     #[arg(short, long)]
-    root: Option<PathBuf>,
+    root: Option<String>,
 
     /// TUF repository targets base URL
     #[arg(short, long = "targets-url")]
@@ -42,6 +45,11 @@ pub(crate) struct DownloadArgs {
     /// Remote root.json version number
     #[arg(short = 'v', long, default_value = "1")]
     root_version: NonZeroU64,
+
+    #[cfg(feature = "s3")]
+    /// AWS region for S3 transport (required for s3:// URLs)
+    #[arg(long)]
+    s3_region: Option<String>,
 }
 
 fn expired_repo_warning<P: AsRef<Path>>(path: P) {
@@ -64,10 +72,13 @@ impl DownloadArgs {
 
         // use local root.json or download from repository
         let root_path = if let Some(path) = &self.root {
-            PathBuf::from(path)
+            path.clone()
         } else if self.allow_root_download {
             let outdir = std::env::current_dir().context(error::CurrentDirSnafu)?;
-            download_root(&self.metadata_base_url, self.root_version, outdir).await?
+            download_root(&self.metadata_base_url, self.root_version, outdir)
+                .await?
+                .to_string_lossy()
+                .to_string()
         } else {
             eprintln!("No root.json available");
             std::process::exit(1);
@@ -80,17 +91,27 @@ impl DownloadArgs {
         } else {
             ExpirationEnforcement::Safe
         };
-        let repository = RepositoryLoader::new(
-            &tokio::fs::read(&root_path)
-                .await
-                .context(error::OpenRootSnafu { path: &root_path })?,
+        #[cfg(feature = "s3")]
+        let root_bytes =
+            crate::common::read_root_bytes(&root_path, self.s3_region.as_deref()).await?;
+        #[cfg(not(feature = "s3"))]
+        let root_bytes = crate::common::read_root_bytes(&root_path, None).await?;
+        #[cfg_attr(not(feature = "s3"), allow(unused_mut))]
+        let mut loader = RepositoryLoader::new(
+            &root_bytes,
             self.metadata_base_url.clone(),
             self.targets_base_url.clone(),
         )
-        .expiration_enforcement(expiration_enforcement)
-        .load()
-        .await
-        .context(error::RepoLoadSnafu)?;
+        .expiration_enforcement(expiration_enforcement);
+
+        #[cfg(feature = "s3")]
+        if self.metadata_base_url.scheme() == "s3" || self.targets_base_url.scheme() == "s3" {
+            if let Some(region) = &self.s3_region {
+                loader = loader.transport(S3Transport::new_with_region(region).await);
+            }
+        }
+
+        let repository = loader.load().await.context(error::RepoLoadSnafu)?;
 
         // download targets
         handle_download(&repository, &self.outdir, &self.target_names).await

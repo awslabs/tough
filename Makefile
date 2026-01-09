@@ -20,12 +20,13 @@ check-licenses: cargo-deny
 build:
 	set +e
 	cargo fmt -- --check
-	cargo clippy --locked -- -D warnings
+	cargo clippy --locked --all-features -- -D warnings
 	cargo build --locked -p olpc-cjson
 	cargo build --locked -p tough
 	cargo build --locked -p tough-ssm
 	cargo build --locked -p tough-kms
-	cargo build --locked -p tuftool
+	cargo build --locked -p tough-s3
+	cargo build --locked -p tuftool --features s3
 	cargo test --locked
 
 

@@ -15,7 +15,7 @@ pub enum Error {
     #[snafu(display("Invalid S3 URL: {}", url))]
     InvalidS3Url {
         /// The invalid URL
-        url: String
+        url: String,
     },
 
     /// Failed to get object from S3
@@ -26,7 +26,7 @@ pub enum Error {
         /// S3 object key
         key: String,
         /// Underlying SDK error
-        source: aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::get_object::GetObjectError>,
+        source: Box<aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::get_object::GetObjectError>>,
     },
 
     /// Failed to read from S3 byte stream

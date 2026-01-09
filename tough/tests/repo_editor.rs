@@ -152,13 +152,13 @@ async fn create_sign_write_reload_repo() {
         .await
         .unwrap();
 
-    let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let targets_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource { path: key_path() })];
-    let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let role1_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path(),
         })];
-    let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let role2_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path1(),
         })];
@@ -260,13 +260,13 @@ async fn create_sign_write_reload_repo() {
 async fn create_role_flow() {
     let editor = test_repo_editor().await;
 
-    let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let targets_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource { path: key_path() })];
-    let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let role1_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path(),
         })];
-    let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let role2_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path1(),
         })];
@@ -486,13 +486,13 @@ async fn update_targets_flow() {
     // The beginning of this creates a repo with Target -> A ('*.txt') -> B ('file?.txt')
     let editor = test_repo_editor().await;
 
-    let targets_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let targets_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource { path: key_path() })];
-    let role1_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let role1_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path(),
         })];
-    let role2_key: &[std::boxed::Box<(dyn tough::key_source::KeySource + 'static)>] =
+    let role2_key: &[std::boxed::Box<dyn tough::key_source::KeySource + 'static>] =
         &[Box::new(LocalKeySource {
             path: targets_key_path1(),
         })];

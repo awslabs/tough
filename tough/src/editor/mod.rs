@@ -140,6 +140,50 @@ impl RepositoryEditor {
         })
     }
 
+    /// Create a new, bare `RepositoryEditor` from root.json bytes
+    pub fn new_from_bytes(root_buf: &[u8]) -> Result<Self> {
+        let root_buf_len = root_buf.len() as u64;
+        let root = serde_json::from_slice::<Signed<Root>>(root_buf)
+            .context(error::ParseTrustedMetadataSnafu)?;
+
+        for (roletype, rolekeys) in &root.signed.roles {
+            if rolekeys.threshold.get() > rolekeys.keyids.len() as u64 {
+                return Err(error::Error::UnstableRoot {
+                    role: *roletype,
+                    threshold: rolekeys.threshold.get(),
+                    actual: rolekeys.keyids.len(),
+                });
+            }
+        }
+
+        let mut digest = [0; SHA256_OUTPUT_LEN];
+        digest.copy_from_slice(aws_lc_rs::digest::digest(&SHA256, root_buf).as_ref());
+
+        let signed_root = SignedRole {
+            signed: root,
+            buffer: root_buf.to_vec(),
+            sha256: digest,
+            length: root_buf_len,
+        };
+
+        let mut editor = TargetsEditor::new("targets");
+        editor.key_holder = Some(KeyHolder::Root(signed_root.signed.signed.clone()));
+
+        Ok(RepositoryEditor {
+            signed_root,
+            targets_editor: Some(editor),
+            snapshot_version: None,
+            snapshot_expires: None,
+            snapshot_extra: None,
+            timestamp_version: None,
+            timestamp_expires: None,
+            timestamp_extra: None,
+            signed_targets: None,
+            transport: None,
+            limits: None,
+        })
+    }
+
     /// Given a `tough::Repository` and the path to a valid root.json, create a
     /// `RepositoryEditor`. This `RepositoryEditor` will include all of the targets
     /// and bits of _extra metadata from the roles included. It will not, however,
@@ -149,6 +193,21 @@ impl RepositoryEditor {
         P: AsRef<Path>,
     {
         let mut editor = RepositoryEditor::new(root_path).await?;
+        editor.targets(repo.targets)?;
+        editor.snapshot(repo.snapshot.signed)?;
+        editor.timestamp(repo.timestamp.signed)?;
+        editor.transport = Some(repo.transport.clone());
+        editor.limits = Some(repo.limits);
+        Ok(editor)
+    }
+
+    /// Given a `tough::Repository` and pre-loaded root.json bytes, create a
+    /// `RepositoryEditor`. Use this when root.json was loaded from a remote source (e.g. S3).
+    pub fn from_repo_with_root_bytes(
+        root_bytes: &[u8],
+        repo: Repository,
+    ) -> Result<RepositoryEditor> {
+        let mut editor = RepositoryEditor::new_from_bytes(root_bytes)?;
         editor.targets(repo.targets)?;
         editor.snapshot(repo.snapshot.signed)?;
         editor.timestamp(repo.timestamp.signed)?;

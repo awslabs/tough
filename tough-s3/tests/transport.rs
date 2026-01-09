@@ -19,7 +19,7 @@ fn mock_s3_client(status: u16, body: &str) -> Client {
     )];
     let conn = StaticReplayClient::new(events);
     let conf = aws_sdk_s3::Config::builder()
-        .behavior_version(BehaviorVersion::v2025_01_17())
+        .behavior_version(BehaviorVersion::v2025_08_07())
         .credentials_provider(creds)
         .region(Region::new("us-east-1"))
         .http_client(conn)
@@ -50,5 +50,8 @@ async fn fetch_invalid_scheme() {
     let result = transport.fetch(url).await;
     assert!(result.is_err());
     let err = result.err().unwrap();
-    assert!(matches!(err.kind(), TransportErrorKind::UnsupportedUrlScheme));
+    assert!(matches!(
+        err.kind(),
+        TransportErrorKind::UnsupportedUrlScheme
+    ));
 }

@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use clap::Parser;
 use snafu::{OptionExt, ResultExt};
 use std::num::NonZeroU64;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tough::editor::{targets::TargetsEditor, RepositoryEditor};
 use tough::schema::{PathHashPrefix, PathPattern, PathSet};
 use url::Url;
@@ -51,7 +51,11 @@ pub(crate) struct AddRoleArgs {
 
     /// Path to root.json file for the repository
     #[arg(short, long)]
-    root: PathBuf,
+    root: String,
+
+    /// AWS region for S3 operations (required when root is an S3 URI)
+    #[arg(long)]
+    s3_region: Option<String>,
 
     /// Determines if entire repo should be signed
     #[arg(long)]
@@ -88,24 +92,31 @@ pub(crate) struct AddRoleArgs {
 
 impl AddRoleArgs {
     pub(crate) async fn run(&self, role: &str) -> Result<()> {
-        // load the repo
-        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone()).await?;
+        let repository = load_metadata_repo(
+            &self.root,
+            self.metadata_base_url.clone(),
+            self.s3_region.as_deref(),
+        )
+        .await?;
         // if sign_all use Repository Editor to sign the entire repo if not use targets editor
         if self.sign_all {
             // Add a role using a `RepositoryEditor`
             self.with_repo_editor(
                 role,
-                RepositoryEditor::from_repo(&self.root, repository)
+                RepositoryEditor::from_repo(Path::new(&self.root), repository)
                     .await
-                    .context(error::EditorFromRepoSnafu { path: &self.root })?,
+                    .context(error::EditorFromRepoSnafu {
+                        path: Path::new(&self.root),
+                    })?,
             )
             .await
         } else {
             // Add a role using a `TargetsEditor`
             self.add_role(
                 role,
-                TargetsEditor::from_repo(repository, role)
-                    .context(error::EditorFromRepoSnafu { path: &self.root })?,
+                TargetsEditor::from_repo(repository, role).context(error::EditorFromRepoSnafu {
+                    path: Path::new(&self.root),
+                })?,
             )
             .await
         }
