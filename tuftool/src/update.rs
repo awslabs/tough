@@ -16,6 +16,9 @@ use tough::editor::RepositoryEditor;
 use tough::{ExpirationEnforcement, RepositoryLoader};
 use url::Url;
 
+#[cfg(feature = "s3")]
+use tough_s3::S3Transport;
+
 #[derive(Debug, Parser)]
 pub(crate) struct UpdateArgs {
     /// Allow repo download for expired metadata
@@ -94,6 +97,11 @@ pub(crate) struct UpdateArgs {
     /// Version of timestamp.json file
     #[arg(long)]
     timestamp_version: NonZeroU64,
+
+    #[cfg(feature = "s3")]
+    /// AWS region for S3 transport (required for s3:// URLs)
+    #[arg(long)]
+    s3_region: Option<String>,
 }
 
 fn expired_repo_warning<P: AsRef<Path>>(path: P) {
@@ -114,17 +122,25 @@ impl UpdateArgs {
         } else {
             ExpirationEnforcement::Safe
         };
-        let repository = RepositoryLoader::new(
-            &tokio::fs::read(&self.root)
-                .await
-                .context(error::OpenRootSnafu { path: &self.root })?,
+        let targets_url = Url::parse(UNUSED_URL).context(error::UrlParseSnafu { url: UNUSED_URL })?;
+        let root_bytes = tokio::fs::read(&self.root)
+            .await
+            .context(error::OpenRootSnafu { path: &self.root })?;
+        let mut loader = RepositoryLoader::new(
+            &root_bytes,
             self.metadata_base_url.clone(),
-            Url::parse(UNUSED_URL).context(error::UrlParseSnafu { url: UNUSED_URL })?,
+            targets_url.clone(),
         )
-        .expiration_enforcement(expiration_enforcement)
-        .load()
-        .await
-        .context(error::RepoLoadSnafu)?;
+        .expiration_enforcement(expiration_enforcement);
+
+        #[cfg(feature = "s3")]
+        if self.metadata_base_url.scheme() == "s3" || targets_url.scheme() == "s3" {
+            if let Some(region) = &self.s3_region {
+                loader = loader.transport(S3Transport::new_with_region(region).await);
+            }
+        }
+
+        let repository = loader.load().await.context(error::RepoLoadSnafu)?;
         self.update_metadata(
             RepositoryEditor::from_repo(&self.root, repository)
                 .await

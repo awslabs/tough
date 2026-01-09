@@ -11,6 +11,9 @@ use std::path::PathBuf;
 use tough::{ExpirationEnforcement, RepositoryLoader};
 use url::Url;
 
+#[cfg(feature = "s3")]
+use tough_s3::S3Transport;
+
 #[derive(Debug, Parser)]
 pub(crate) struct CloneArgs {
     /// Allow repo download for expired metadata (unsafe)
@@ -52,6 +55,11 @@ pub(crate) struct CloneArgs {
     /// Remote root.json version number
     #[arg(short = 'v', long, default_value = "1")]
     root_version: NonZeroU64,
+
+    #[cfg(feature = "s3")]
+    /// AWS region for S3 transport (required for s3:// URLs)
+    #[arg(long)]
+    s3_region: Option<String>,
 }
 
 #[rustfmt::skip]
@@ -94,17 +102,24 @@ impl CloneArgs {
         } else {
             ExpirationEnforcement::Safe
         };
-        let repository = RepositoryLoader::new(
-            &tokio::fs::read(&root_path)
-                .await
-                .context(error::OpenRootSnafu { path: &root_path })?,
+        let root_bytes = tokio::fs::read(&root_path)
+            .await
+            .context(error::OpenRootSnafu { path: &root_path })?;
+        let mut loader = RepositoryLoader::new(
+            &root_bytes,
             self.metadata_base_url.clone(),
-            targets_base_url,
+            targets_base_url.clone(),
         )
-        .expiration_enforcement(expiration_enforcement)
-        .load()
-        .await
-        .context(error::RepoLoadSnafu)?;
+        .expiration_enforcement(expiration_enforcement);
+
+        #[cfg(feature = "s3")]
+        if self.metadata_base_url.scheme() == "s3" || targets_base_url.scheme() == "s3" {
+            if let Some(region) = &self.s3_region {
+                loader = loader.transport(S3Transport::new_with_region(region).await);
+            }
+        }
+
+        let repository = loader.load().await.context(error::RepoLoadSnafu)?;
 
         // Clone the repository, downloading none, all, or a subset of targets
         if self.metadata_only {
