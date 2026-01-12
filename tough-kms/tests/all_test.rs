@@ -22,6 +22,7 @@ where
     Ok(b.into())
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 struct PublicKeyResp {
     #[serde(rename = "PublicKey")]
@@ -38,6 +39,7 @@ struct SignResp {
     signature: bytes::Bytes,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 struct CreateKeyResp {
     #[serde(rename = "KeyId")]

@@ -356,6 +356,19 @@ pub(crate) enum Error {
         source: tokio::task::JoinError,
         backtrace: Backtrace,
     },
+
+    #[cfg(feature = "s3")]
+    #[snafu(display("Transport error: {}", source))]
+    Transport {
+        source: Box<dyn std::error::Error + Send + Sync + 'static>,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Feature '{}' is not enabled", feature))]
+    FeatureNotEnabled {
+        feature: String,
+        backtrace: Backtrace,
+    },
 }
 
 // Extracts the status code from a reqwest::Error and converts it to a string to be displayed

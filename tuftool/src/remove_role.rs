@@ -38,7 +38,11 @@ pub(crate) struct RemoveRoleArgs {
 
     /// Path to root.json file for the repository
     #[arg(short, long)]
-    root: PathBuf,
+    root: String,
+
+    /// AWS region for S3 operations (required when root is an S3 URI)
+    #[arg(long)]
+    s3_region: Option<String>,
 
     /// Determine if the role should be removed even if it's not a direct delegatee
     #[arg(long)]
@@ -51,7 +55,12 @@ pub(crate) struct RemoveRoleArgs {
 
 impl RemoveRoleArgs {
     pub(crate) async fn run(&self, role: &str) -> Result<()> {
-        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone()).await?;
+        let repository = load_metadata_repo(
+            &self.root,
+            self.metadata_base_url.clone(),
+            self.s3_region.as_deref(),
+        )
+        .await?;
         self.remove_delegated_role(
             role,
             TargetsEditor::from_repo(repository, role)

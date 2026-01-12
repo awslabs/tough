@@ -43,7 +43,11 @@ pub(crate) struct AddKeyArgs {
 
     /// Path to root.json file for the repository
     #[arg(short, long)]
-    root: PathBuf,
+    root: String,
+
+    /// AWS region for S3 operations (required when root is an S3 URI)
+    #[arg(long)]
+    s3_region: Option<String>,
 
     /// Version of role file
     #[arg(short, long)]
@@ -52,8 +56,12 @@ pub(crate) struct AddKeyArgs {
 
 impl AddKeyArgs {
     pub(crate) async fn run(&self, role: &str) -> Result<()> {
-        // load the repo
-        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone()).await?;
+        let repository = load_metadata_repo(
+            &self.root,
+            self.metadata_base_url.clone(),
+            self.s3_region.as_deref(),
+        )
+        .await?;
         self.add_key(
             role,
             TargetsEditor::from_repo(repository, role)

@@ -5,5 +5,6 @@ members = [
     "tough",
     "tough-ssm",
     "tough-kms",
+    "tough-s3",
     "tuftool",
 ]

@@ -49,7 +49,11 @@ pub(crate) struct UpdateTargetsArgs {
 
     /// Path to root.json file for the repository
     #[arg(short, long)]
-    root: PathBuf,
+    root: String,
+
+    /// AWS region for S3 operations (required when root is an S3 URI)
+    #[arg(long)]
+    s3_region: Option<String>,
 
     /// Directory of targets
     #[arg(short, long = "add-targets")]
@@ -68,7 +72,12 @@ pub(crate) struct UpdateTargetsArgs {
 
 impl UpdateTargetsArgs {
     pub(crate) async fn run(&self, role: &str) -> Result<()> {
-        let repository = load_metadata_repo(&self.root, self.metadata_base_url.clone()).await?;
+        let repository = load_metadata_repo(
+            &self.root,
+            self.metadata_base_url.clone(),
+            self.s3_region.as_deref(),
+        )
+        .await?;
         self.update_targets(
             TargetsEditor::from_repo(repository, role)
                 .context(error::EditorFromRepoSnafu { path: &self.root })?,
