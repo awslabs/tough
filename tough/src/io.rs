@@ -18,13 +18,12 @@ pub(crate) struct DigestAdapter {
 
 impl DigestAdapter {
     pub(crate) fn sha256(stream: TransportStream, hash: &[u8], url: Url) -> TransportStream {
-        Self {
+        Box::pin(Self {
             url,
             stream,
             hash: hash.to_owned(),
             digest: Context::new(&SHA256),
-        }
-        .boxed()
+        })
     }
 }
 
@@ -94,7 +93,7 @@ pub(crate) fn max_size_adapter(
         chunk
     });
 
-    stream.boxed()
+    Box::pin(stream)
 }
 
 /// Async analogue of `std::path::Path::is_file`
@@ -120,7 +119,7 @@ mod tests {
         transport::IntoVec,
     };
     use bytes::Bytes;
-    use futures::{stream, StreamExt};
+    use futures::stream;
     use hex_literal::hex;
     use url::Url;
 
@@ -128,30 +127,30 @@ mod tests {
     async fn test_max_size_adapter() {
         let url = Url::parse("file:///").unwrap();
 
-        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
-        let stream = max_size_adapter(stream, url.clone(), 5, "test");
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok));
+        let stream = max_size_adapter(Box::pin(stream), url.clone(), 5, "test");
         let buf = stream.into_vec().await.expect("consuming entire stream");
         assert_eq!(buf, b"hello");
 
-        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
-        let stream = max_size_adapter(stream, url, 4, "test");
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok));
+        let stream = max_size_adapter(Box::pin(stream), url, 4, "test");
         assert!(stream.into_vec().await.is_err());
     }
 
     #[tokio::test]
     async fn test_digest_adapter() {
-        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok));
         let stream = DigestAdapter::sha256(
-            stream,
+            Box::pin(stream),
             &hex!("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"),
             Url::parse("file:///").unwrap(),
         );
         let buf = stream.into_vec().await.expect("consuming entire stream");
         assert_eq!(buf, b"hello");
 
-        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok)).boxed();
+        let stream = stream::iter("hello".as_bytes().chunks(2).map(Bytes::from).map(Ok));
         let stream = DigestAdapter::sha256(
-            stream,
+            Box::pin(stream),
             &hex!("0ebdc3317b75839f643387d783535adc360ca01f33c75f7c1e7373adcd675c0b"),
             Url::parse("file:///").unwrap(),
         );

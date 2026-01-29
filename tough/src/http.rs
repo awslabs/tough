@@ -3,9 +3,6 @@
 use crate::transport::TransportStream;
 use crate::{Transport, TransportError, TransportErrorKind};
 use async_trait::async_trait;
-use futures::{FutureExt, StreamExt};
-use futures_core::future::BoxFuture;
-use futures_core::stream::BoxStream;
 use futures_core::Stream;
 use log::trace;
 use reqwest::header::{self, HeaderValue, ACCEPT_RANGES};
@@ -15,6 +12,7 @@ use rustls::crypto::{aws_lc_rs, CryptoProvider};
 use snafu::ResultExt;
 use snafu::Snafu;
 use std::cmp::Ordering;
+use std::future::Future;
 use std::pin::Pin;
 use std::task::Poll;
 use std::time::Duration;
@@ -147,15 +145,15 @@ impl Transport for HttpTransport {
     /// the `ClientSettings`.
     async fn fetch(&self, url: Url) -> Result<TransportStream, TransportError> {
         let r = RetryState::new(self.settings.initial_backoff);
-        Ok(fetch_with_retries(r, &self.settings, &url).boxed())
+        Ok(Box::pin(fetch_with_retries(r, &self.settings, &url)))
     }
 }
 
 enum RequestState {
     /// A response is streaming.
-    Streaming(BoxStream<'static, reqwest::Result<bytes::Bytes>>),
+    Streaming(Pin<Box<dyn Stream<Item = reqwest::Result<bytes::Bytes>> + Send + Sync>>),
     /// A request is pending.
-    Pending(BoxFuture<'static, reqwest::Result<reqwest::Response>>),
+    Pending(Pin<Box<dyn Future<Output = reqwest::Result<reqwest::Response>> + Send + Sync>>),
     /// No ongoing request.
     None,
 }
@@ -272,7 +270,7 @@ impl RetryStream {
                                 }
                             }
                         }
-                        self.request = RequestState::Streaming(response.bytes_stream().boxed());
+                        self.request = RequestState::Streaming(Box::pin(response.bytes_stream()));
                         cx.waker().wake_by_ref();
                         Poll::Pending
                     }
@@ -342,11 +340,10 @@ impl RetryStream {
 
         let backoff = self.retry_state.wait;
 
-        let delayed_request = async move {
+        let delayed_request = Box::pin(async move {
             tokio::time::sleep(backoff).await;
             client.execute(request).await
-        }
-        .boxed();
+        });
 
         self.request = RequestState::Pending(delayed_request);
 

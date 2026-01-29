@@ -456,8 +456,9 @@ impl Repository {
     pub async fn read_target(
         &self,
         name: &TargetName,
-    ) -> Result<Option<impl Stream<Item = error::Result<Bytes>> + IntoVec<error::Error> + Send>>
-    {
+    ) -> Result<
+        Option<impl Stream<Item = error::Result<Bytes>> + IntoVec<error::Error> + Send + Sync>,
+    > {
         // Check for repository metadata expiration.
         if self.expiration_enforcement == ExpirationEnforcement::Safe {
             ensure!(

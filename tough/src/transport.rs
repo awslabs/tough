@@ -4,7 +4,7 @@ use crate::{HttpTransport, HttpTransportBuilder};
 use async_trait::async_trait;
 use bytes::Bytes;
 use dyn_clone::DynClone;
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use futures_core::Stream;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
@@ -15,7 +15,7 @@ use tokio_util::io::ReaderStream;
 use url::Url;
 
 /// Type alias for the stream returned by transports
-pub type TransportStream = Pin<Box<dyn Stream<Item = Result<Bytes, TransportError>> + Send>>;
+pub type TransportStream = Pin<Box<dyn Stream<Item = Result<Bytes, TransportError>> + Send + Sync>>;
 
 /// Fallible byte streams that collect into a `Vec<u8>`.
 #[async_trait]
@@ -207,10 +207,9 @@ impl Transport for FilesystemTransport {
             };
             TransportError::new_with_cause(kind, url.clone(), e)
         };
-        Ok(stream
-            .map_err(map_io_err.clone())?
-            .map_err(map_io_err)
-            .boxed())
+        Ok(Box::pin(
+            stream.map_err(map_io_err.clone())?.map_err(map_io_err),
+        ))
     }
 }
 
