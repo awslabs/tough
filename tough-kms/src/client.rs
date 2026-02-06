@@ -15,7 +15,7 @@ pub(crate) async fn build_client_kms(profile: Option<&str>) -> KmsClient {
     let http_client = Builder::new()
         .tls_provider(tls::Provider::Rustls(CryptoMode::AwsLc)) // Choose a crypto provider
         .build_https();
-    let config = aws_config::defaults(BehaviorVersion::v2025_01_17()).http_client(http_client);
+    let config = aws_config::defaults(BehaviorVersion::v2026_01_12()).http_client(http_client);
     let client_config = if let Some(profile) = profile {
         let region = DefaultRegionChain::builder()
             .profile_name(profile)
