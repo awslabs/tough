@@ -8,7 +8,7 @@ use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use tough::editor::signed::PathExists;
@@ -171,26 +171,14 @@ impl UpdateArgs {
         }
 
         // If a `Targets` metadata needs to be updated
-        if self.role.is_some() && self.indir.is_some() {
+        if let (Some(role), Some(indir)) = (&self.role, &self.indir) {
             editor
                 .sign_targets_editor(&keys)
                 .await
                 .context(error::DelegationStructureSnafu)?
-                .update_delegated_targets(
-                    self.role.as_ref().context(error::MissingSnafu {
-                        what: "delegated role",
-                    })?,
-                    self.indir
-                        .as_ref()
-                        .context(error::MissingSnafu {
-                            what: "delegated role metadata url",
-                        })?
-                        .as_str(),
-                )
+                .update_delegated_targets(role, indir.as_str())
                 .await
-                .context(error::DelegateeNotFoundSnafu {
-                    role: self.role.as_ref().unwrap().clone(),
-                })?;
+                .context(error::DelegateeNotFoundSnafu { role: role.clone() })?;
         }
 
         // Sign the repo
