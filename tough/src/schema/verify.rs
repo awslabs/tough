@@ -1,6 +1,7 @@
 use super::error::{self, Result};
 use super::{Delegations, Role, Root, Signed, Targets};
 use crate::schema::key::{Key, KeyId};
+use crate::KeyIdFormat;
 use olpc_cjson::CanonicalFormatter;
 use serde::Serialize;
 use snafu::{ensure, OptionExt, ResultExt};
@@ -9,7 +10,11 @@ use std::num::NonZeroU64;
 
 impl Root {
     /// Checks that the given metadata role is valid based on a threshold of key signatures.
-    pub fn verify_role<T: Role + Serialize>(&self, role: &Signed<T>) -> Result<()> {
+    pub fn verify_role<T: Role + Serialize>(
+        &self,
+        role: &Signed<T>,
+        key_id_format: KeyIdFormat,
+    ) -> Result<()> {
         let role_keys = self
             .roles
             .get(&T::TYPE)
@@ -17,6 +22,7 @@ impl Root {
 
         verify_common(
             &self.keys,
+            key_id_format,
             role,
             &T::TYPE.to_string(),
             &role_keys.keyids,
@@ -27,7 +33,12 @@ impl Root {
 
 impl Delegations {
     /// Verifies that roles matches contain valid keys
-    pub fn verify_role(&self, role: &Signed<Targets>, name: &str) -> Result<()> {
+    pub fn verify_role(
+        &self,
+        role: &Signed<Targets>,
+        name: &str,
+        key_id_format: KeyIdFormat,
+    ) -> Result<()> {
         let role_keys =
             self.roles
                 .iter()
@@ -38,6 +49,7 @@ impl Delegations {
 
         verify_common(
             &self.keys,
+            key_id_format,
             role,
             name,
             &role_keys.keyids,
@@ -48,6 +60,7 @@ impl Delegations {
 
 fn verify_common<T: Role + Serialize>(
     keys: &HashMap<KeyId, Key>,
+    key_id_format: KeyIdFormat,
     role: &Signed<T>,
     role_name: &str,
     role_keys: &[KeyId],
@@ -65,6 +78,7 @@ fn verify_common<T: Role + Serialize>(
 
     let mut valid_keyids = HashSet::new();
     let mut contained_keyids = HashSet::new();
+    let mut contained_canonical_keyids = HashMap::new();
 
     for signature in &role.signatures {
         let keyid = &signature.keyid;
@@ -79,6 +93,34 @@ fn verify_common<T: Role + Serialize>(
 
         if role_keys.contains(keyid) {
             if let Some(key) = keys.get(keyid) {
+                let canonical_key_id = key.key_id()?;
+                match key_id_format {
+                    KeyIdFormat::HashedKey => {
+                        ensure!(
+                            *keyid == canonical_key_id,
+                            error::InvalidKeyIdSnafu {
+                                keyid: keyid.clone(),
+                                calculated: canonical_key_id,
+                            }
+                        );
+                    }
+                    KeyIdFormat::Any => {
+                        // TAP 12 proposes the wording "Clients MUST use each key only once during a
+                        // given signature verification". As the canonical key ID returned by the
+                        // key_id() method is a hash of the underlying key, we can check that no
+                        // other role has the same canonical key ID.
+                        if let Some(rhs) = contained_canonical_keyids
+                            .insert(canonical_key_id.clone(), keyid.clone())
+                        {
+                            return error::MultipleKeyIdsForOneKeySnafu {
+                                lhs: keyid.clone(),
+                                rhs,
+                            }
+                            .fail();
+                        }
+                    }
+                }
+
                 if key.verify(&data, &signature.sig) {
                     // we have ensured that this keyid is not already
                     // present in valid_keyids with the test on
@@ -105,12 +147,15 @@ fn verify_common<T: Role + Serialize>(
 #[cfg(test)]
 mod tests {
     use super::{Root, Signed};
+    use crate::KeyIdFormat;
 
     #[test]
     fn simple_rsa() {
         let root: Signed<Root> =
             serde_json::from_str(include_str!("../../tests/data/simple-rsa/root.json")).unwrap();
-        root.signed.verify_role(&root).unwrap();
+        root.signed
+            .verify_role(&root, KeyIdFormat::HashedKey)
+            .unwrap();
     }
 
     #[test]
@@ -120,7 +165,7 @@ mod tests {
         ))
         .expect("should be parsable root.json");
         root.signed
-            .verify_role(&root)
+            .verify_role(&root, KeyIdFormat::HashedKey)
             .expect_err("missing signature should not verify");
     }
 
@@ -131,7 +176,7 @@ mod tests {
         ))
         .expect("should be parsable root.json");
         root.signed
-            .verify_role(&root)
+            .verify_role(&root, KeyIdFormat::HashedKey)
             .expect_err("invalid (unauthentic) root signature should not verify");
     }
 
@@ -145,7 +190,7 @@ mod tests {
         ))
         .expect("should be parsable root.json");
         root.signed
-            .verify_role(&root)
+            .verify_role(&root, KeyIdFormat::HashedKey)
             .expect_err("expired root signature should not verify");
     }
 
@@ -156,7 +201,7 @@ mod tests {
         ))
         .expect("should be parsable root.json");
         root.signed
-            .verify_role(&root)
+            .verify_role(&root, KeyIdFormat::HashedKey)
             .expect_err("mismatched root role keyids (provided and signed) should not verify");
     }
 
@@ -166,7 +211,7 @@ mod tests {
             serde_json::from_str(include_str!("../../tests/data/duplicate-sigs/root.json"))
                 .expect("should be parsable root.json");
         root.signed
-            .verify_role(&root)
+            .verify_role(&root, KeyIdFormat::HashedKey)
             .expect_err("expired root signature should not verify");
     }
 
@@ -179,7 +224,41 @@ mod tests {
         ))
         .expect("should be parsable root.json");
         root.signed
-            .verify_role(&root)
+            .verify_role(&root, KeyIdFormat::HashedKey)
             .expect_err("expired root signature should not verify");
+    }
+
+    #[test]
+    fn test_tap12_correct() {
+        let root: Signed<Root> =
+            serde_json::from_str(include_str!("../../tests/data/tap-12-good/root.json"))
+                .expect("should be parseable root.json");
+
+        let err = root
+            .signed
+            .verify_role(&root, KeyIdFormat::HashedKey)
+            .expect_err("TAP 12 key names with KeyIdFormat::HashedKey should not verify");
+        assert!(matches!(err, super::error::Error::InvalidKeyId { .. }));
+
+        root.signed
+            .verify_role(&root, KeyIdFormat::Any)
+            .expect("TAP 12 key names with KeyIdFormat::Any should verify");
+    }
+
+    #[test]
+    fn test_tap12_multiple_ids_for_a_key() {
+        let root: Signed<Root> = serde_json::from_str(include_str!(
+            "../../tests/data/tap-12-multiple-ids/root.json"
+        ))
+        .expect("should be parseable root.json");
+
+        let err = root
+            .signed
+            .verify_role(&root, KeyIdFormat::Any)
+            .expect_err("multiple key IDs pointing to the same key should not verify");
+        assert!(matches!(
+            err,
+            super::error::Error::MultipleKeyIdsForOneKey { .. }
+        ));
     }
 }

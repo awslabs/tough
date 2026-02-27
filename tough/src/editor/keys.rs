@@ -6,6 +6,7 @@ use crate::key_source::KeySource;
 use crate::schema::key::KeyId;
 use crate::schema::{Delegations, KeyHolder, RoleId, RoleKeys, Root, Signed, Targets};
 use crate::sign::Sign;
+use crate::KeyIdFormat;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 
@@ -53,20 +54,24 @@ impl KeyHolder {
     }
 
     /// Verifies the role using `KeyHolder`'s keys
-    pub(crate) fn verify_role(&self, targets: &Signed<Targets>, name: &str) -> Result<()> {
+    pub(crate) fn verify_role(
+        &self,
+        targets: &Signed<Targets>,
+        name: &str,
+        key_id_format: KeyIdFormat,
+    ) -> Result<()> {
         match self {
-            Self::Delegations(delegations) => {
-                delegations
-                    .verify_role(targets, name)
+            Self::Delegations(delegations) => delegations
+                .verify_role(targets, name, key_id_format)
+                .context(error::VerifyRoleMetadataSnafu {
+                    role: name.to_string(),
+                }),
+            Self::Root(root) => {
+                root.verify_role(targets, key_id_format)
                     .context(error::VerifyRoleMetadataSnafu {
                         role: name.to_string(),
                     })
             }
-            Self::Root(root) => root
-                .verify_role(targets)
-                .context(error::VerifyRoleMetadataSnafu {
-                    role: name.to_string(),
-                }),
         }
     }
 }

@@ -1,0 +1,65 @@
+{
+  "signed": {
+    "_type": "root",
+    "spec_version": "1.0",
+    "consistent_snapshot": true,
+    "version": 1,
+    "expires": "3000-03-30T03:30:30Z",
+    "keys": {
+      "taptwelve": {
+        "keytype": "rsa",
+        "keyval": {
+          "public": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6+IVAKdJYUESkN4mlx+4\nnoGsitbTBlHWZTUbtv6B8vYTU9wiZqmfn6zWnU3uWXDsTkBNqp1TaL+mUUnKVcfx\nL28N+ZcgevRg7RGwpPoIsZVCMxo8NzLk4fGzpn2cT5BbB78vV2VSCX3ijpmoMQeM\nD0g5HNVE8XM39S8w3Zw+tnZ44oB1W5MRot+ad2aV7ZKRbFn0akE5Gv3wVqnO5Atk\nZIZSHViTOaHsN9oYEBK8/Fu0r1hX4/1HK5aW4JMIWdBwYJYa21gHW8ziDFWgqWD3\ndoNKy9OvPO3OaV91cXe9janTdTfHTg9aBI3Mh8VIUy7//A7iBOGk1PvIPFy/Gtgj\nMwIDAQAB\n-----END PUBLIC KEY-----"
+        },
+        "scheme": "rsassa-pss-sha256"
+      },
+      "tap12": {
+        "keytype": "rsa",
+        "keyval": {
+          "public": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6+IVAKdJYUESkN4mlx+4\nnoGsitbTBlHWZTUbtv6B8vYTU9wiZqmfn6zWnU3uWXDsTkBNqp1TaL+mUUnKVcfx\nL28N+ZcgevRg7RGwpPoIsZVCMxo8NzLk4fGzpn2cT5BbB78vV2VSCX3ijpmoMQeM\nD0g5HNVE8XM39S8w3Zw+tnZ44oB1W5MRot+ad2aV7ZKRbFn0akE5Gv3wVqnO5Atk\nZIZSHViTOaHsN9oYEBK8/Fu0r1hX4/1HK5aW4JMIWdBwYJYa21gHW8ziDFWgqWD3\ndoNKy9OvPO3OaV91cXe9janTdTfHTg9aBI3Mh8VIUy7//A7iBOGk1PvIPFy/Gtgj\nMwIDAQAB\n-----END PUBLIC KEY-----"
+        },
+        "scheme": "rsassa-pss-sha256"
+      }
+    },
+    "roles": {
+      "targets": {
+        "keyids": [
+          "tap12",
+          "taptwelve"
+        ],
+        "threshold": 2
+      },
+      "snapshot": {
+        "keyids": [
+          "tap12",
+          "taptwelve"
+        ],
+        "threshold": 2
+      },
+      "timestamp": {
+        "keyids": [
+          "tap12",
+          "taptwelve"
+        ],
+        "threshold": 2
+      },
+      "root": {
+        "keyids": [
+          "tap12",
+          "taptwelve"
+        ],
+        "threshold": 2
+      }
+    }
+  },
+  "signatures": [
+    {
+      "keyid": "taptwelve",
+      "sig": "a82bd49d8bd4de47f0cc6bbc52956c635a52b6bcb355ac140548e0309a317c4c29f3b0fc00c75776567e1c37bd8d2e3a220ed625d1393cbf28957f2e0173a634864e9eade2e405667e8d04c8d54efcc9cb77b8bbe377a32a529f7a35289f35e2fef09d34907dbc6b39429ed97ce7752503f2d4811ef4fe3d64186ef5aa70a0241fbb2492ad49560d81c5f9a56877519b76b5f08015ff1b01be533e84f9392e2715cad07ab18a6fe32fe0fa5da0aca4e2d3998e2888ef1e1abc51d0e97db2145ec55832b34dbb5cb68944e1cbbbbb5c2aa3d5cbfbbac0009897f23864dbfc9e9462812c095bd4cf5d950cbd350ff692203b2b84b2eebf6a68e63ed26089f93206"
+    },
+    {
+      "keyid": "tap12",
+      "sig": "a82bd49d8bd4de47f0cc6bbc52956c635a52b6bcb355ac140548e0309a317c4c29f3b0fc00c75776567e1c37bd8d2e3a220ed625d1393cbf28957f2e0173a634864e9eade2e405667e8d04c8d54efcc9cb77b8bbe377a32a529f7a35289f35e2fef09d34907dbc6b39429ed97ce7752503f2d4811ef4fe3d64186ef5aa70a0241fbb2492ad49560d81c5f9a56877519b76b5f08015ff1b01be533e84f9392e2715cad07ab18a6fe32fe0fa5da0aca4e2d3998e2888ef1e1abc51d0e97db2145ec55832b34dbb5cb68944e1cbbbbb5c2aa3d5cbfbbac0009897f23864dbfc9e9462812c095bd4cf5d950cbd350ff692203b2b84b2eebf6a68e63ed26089f93206"
+    }
+  ]
+}

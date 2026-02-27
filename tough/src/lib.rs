@@ -115,6 +115,21 @@ impl From<ExpirationEnforcement> for bool {
     }
 }
 
+/// Define the validation performed on Key IDs when verifying roles.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyIdFormat {
+    /// Key IDs must be the hexdigest of the SHA-256 hash of the canonical JSON form of the key.
+    /// Attempting to load a key with an unexpected ID will result in an error.
+    ///
+    /// This is the behavior defined in TUF version 1.0.0.
+    #[default]
+    HashedKey,
+    /// Key IDs can be any arbitrary string, and no validation is performed on them.
+    ///
+    /// This is the behavior defined in TAP 12.
+    Any,
+}
+
 /// A builder for settings with which to load a [`Repository`]. Required settings are provided in
 /// the [`RepositoryLoader::new`] function. Optional parameters can be added after calling new.
 /// Finally, call [`RepositoryLoader::load`] to load the [`Repository`].
@@ -179,6 +194,7 @@ pub struct RepositoryLoader<'a> {
     limits: Option<Limits>,
     datastore: Option<PathBuf>,
     expiration_enforcement: Option<ExpirationEnforcement>,
+    key_id_format: Option<KeyIdFormat>,
 }
 
 impl<'a> RepositoryLoader<'a> {
@@ -200,6 +216,7 @@ impl<'a> RepositoryLoader<'a> {
             limits: None,
             datastore: None,
             expiration_enforcement: None,
+            key_id_format: None,
         }
     }
 
@@ -243,6 +260,13 @@ impl<'a> RepositoryLoader<'a> {
     #[must_use]
     pub fn expiration_enforcement(mut self, exp: ExpirationEnforcement) -> Self {
         self.expiration_enforcement = Some(exp);
+        self
+    }
+
+    /// Set the [`KeyIdFormat`] to configure how Key IDs are validated.
+    #[must_use]
+    pub fn key_id_format(mut self, format: KeyIdFormat) -> Self {
+        self.key_id_format = Some(format);
         self
     }
 }
@@ -338,6 +362,7 @@ impl Repository {
             .unwrap_or_else(|| Box::new(DefaultTransport::new()));
         let limits = loader.limits.unwrap_or_default();
         let expiration_enforcement = loader.expiration_enforcement.unwrap_or_default();
+        let key_id_format = loader.key_id_format.unwrap_or_default();
         let metadata_base_url = parse_url(loader.metadata_base_url)?;
         let targets_base_url = parse_url(loader.targets_base_url)?;
         let update_start = datastore.system_time().await?;
@@ -351,6 +376,7 @@ impl Repository {
             limits.max_root_updates,
             &metadata_base_url,
             expiration_enforcement,
+            key_id_format,
             &update_start,
         )
         .await?;
@@ -363,6 +389,7 @@ impl Repository {
             limits.max_timestamp_size,
             &metadata_base_url,
             expiration_enforcement,
+            key_id_format,
             &update_start,
         )
         .await?;
@@ -376,6 +403,7 @@ impl Repository {
             &datastore,
             &metadata_base_url,
             expiration_enforcement,
+            key_id_format,
             &update_start,
         )
         .await?;
@@ -389,6 +417,7 @@ impl Repository {
             limits.max_targets_size,
             &metadata_base_url,
             expiration_enforcement,
+            key_id_format,
             &update_start,
         )
         .await?;
@@ -695,6 +724,7 @@ async fn load_root<R: AsRef<[u8]>>(
     max_root_updates: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    key_id_format: KeyIdFormat,
     update_start: &JiffTimestamp,
 ) -> Result<Signed<Root>> {
     // 5.2. Load the trusted root metadata file. We assume that a good, trusted copy of this file was
@@ -704,7 +734,7 @@ async fn load_root<R: AsRef<[u8]>>(
     let mut root: Signed<Root> =
         serde_json::from_slice(root.as_ref()).context(error::ParseTrustedMetadataSnafu)?;
     root.signed
-        .verify_role(&root)
+        .verify_role(&root, key_id_format)
         .context(error::VerifyTrustedMetadataSnafu)?;
 
     // Used in step 5.3
@@ -775,14 +805,14 @@ async fn load_root<R: AsRef<[u8]>>(
                 //   file being validated (version N+1). If version N+1 is not signed as required,
                 //   discard it, abort the update cycle, and report the signature failure. On the
                 //   next update cycle, begin at step 0 and version N of the root metadata file.
-                root.signed
-                    .verify_role(&new_root)
-                    .context(error::VerifyMetadataSnafu {
+                root.signed.verify_role(&new_root, key_id_format).context(
+                    error::VerifyMetadataSnafu {
                         role: RoleType::Root,
-                    })?;
+                    },
+                )?;
                 new_root
                     .signed
-                    .verify_role(&new_root)
+                    .verify_role(&new_root, key_id_format)
                     .context(error::VerifyMetadataSnafu {
                         role: RoleType::Root,
                     })?;
@@ -860,6 +890,7 @@ async fn load_root<R: AsRef<[u8]>>(
 }
 
 /// Step 2 of the client application, which loads the timestamp metadata file.
+#[expect(clippy::too_many_arguments)]
 async fn load_timestamp(
     transport: &dyn Transport,
     root: &Signed<Root>,
@@ -867,6 +898,7 @@ async fn load_timestamp(
     max_timestamp_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    key_id_format: KeyIdFormat,
     update_start: &JiffTimestamp,
 ) -> Result<Signed<Timestamp>> {
     // 2. Download the timestamp metadata file, up to Y number of bytes (because the size is
@@ -900,7 +932,7 @@ async fn load_timestamp(
     //   of keys specified in the trusted root metadata file. If the new timestamp metadata file is
     //   not properly signed, discard it, abort the update cycle, and report the signature failure.
     root.signed
-        .verify_role(&timestamp)
+        .verify_role(&timestamp, key_id_format)
         .context(error::VerifyMetadataSnafu {
             role: RoleType::Timestamp,
         })?;
@@ -931,7 +963,11 @@ async fn load_timestamp(
         .await?
         .map(|b| serde_json::from_slice::<Signed<Timestamp>>(&b))
     {
-        if root.signed.verify_role(&old_timestamp).is_ok() {
+        if root
+            .signed
+            .verify_role(&old_timestamp, key_id_format)
+            .is_ok()
+        {
             ensure!(
                 old_timestamp.signed.version <= timestamp.signed.version,
                 error::OlderMetadataSnafu {
@@ -991,6 +1027,7 @@ async fn load_snapshot(
     datastore: &Datastore,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    key_id_format: KeyIdFormat,
     update_start: &JiffTimestamp,
 ) -> Result<Signed<Snapshot>> {
     // 3. Download snapshot metadata file, up to the number of bytes specified in the timestamp
@@ -1068,7 +1105,7 @@ async fn load_snapshot(
     //   not signed as required, discard it, abort the update cycle, and report the signature
     //   failure.
     root.signed
-        .verify_role(&snapshot)
+        .verify_role(&snapshot, key_id_format)
         .context(error::VerifyMetadataSnafu {
             role: RoleType::Snapshot,
         })?;
@@ -1093,7 +1130,11 @@ async fn load_snapshot(
         //   than or equal to the version number of the new snapshot metadata file. If the new
         //   snapshot metadata file is older than the trusted metadata file, discard it, abort the
         //   update cycle, and report the potential rollback attack.
-        if root.signed.verify_role(&old_snapshot).is_ok() {
+        if root
+            .signed
+            .verify_role(&old_snapshot, key_id_format)
+            .is_ok()
+        {
             ensure!(
                 old_snapshot.signed.version <= snapshot.signed.version,
                 error::OlderMetadataSnafu {
@@ -1185,6 +1226,7 @@ async fn load_targets(
     max_targets_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
+    key_id_format: KeyIdFormat,
     update_start: &JiffTimestamp,
 ) -> Result<(
     Signed<crate::schema::Targets>,
@@ -1257,7 +1299,7 @@ async fn load_targets(
     //   targets metadata file is not signed as required, discard it, abort the update cycle, and
     //   report the failure.
     root.signed
-        .verify_role(&targets)
+        .verify_role(&targets, key_id_format)
         .context(error::VerifyMetadataSnafu {
             role: RoleType::Targets,
         })?;
@@ -1299,6 +1341,7 @@ async fn load_targets(
             &mut loaded_roles,
             update_start,
             expiration_enforcement,
+            key_id_format,
             &mut delegated_metadata_bytes,
         )
         .await?;
@@ -1325,6 +1368,7 @@ async fn load_delegations(
     loaded_roles: &mut BTreeSet<String>,
     update_start: &JiffTimestamp,
     expiration_enforcement: ExpirationEnforcement,
+    key_id_format: KeyIdFormat,
     delegated_metadata_bytes: &mut std::collections::HashMap<String, Vec<u8>>,
 ) -> Result<()> {
     let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
@@ -1397,7 +1441,7 @@ async fn load_delegations(
             })?;
         // verify each role with the delegation
         delegation
-            .verify_role(&role, &delegated_role.name)
+            .verify_role(&role, &delegated_role.name, key_id_format)
             .context(error::VerifyMetadataSnafu {
                 role: RoleType::Targets,
             })?;
@@ -1442,6 +1486,7 @@ async fn load_delegations(
                     loaded_roles,
                     update_start,
                     expiration_enforcement,
+                    key_id_format,
                     delegated_metadata_bytes,
                 )
                 .await?;

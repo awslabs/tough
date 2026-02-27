@@ -20,7 +20,7 @@ use crate::schema::{
     Timestamp,
 };
 use crate::transport::{IntoVec, Transport};
-use crate::{encode_filename, Limits};
+use crate::{encode_filename, KeyIdFormat, Limits};
 use crate::{Repository, TargetName};
 use aws_lc_rs::digest::{SHA256, SHA256_OUTPUT_LEN};
 use aws_lc_rs::rand::SystemRandom;
@@ -561,7 +561,7 @@ impl RepositoryEditor {
                     })?;
             (KeyHolder::Delegations(parent), &mut targets.signed)
         };
-        parent.verify_role(&role, name)?;
+        parent.verify_role(&role, name, KeyIdFormat::Any)?;
         // Make sure the version isn't downgraded
         ensure!(
             role.signed.version >= current_targets.version,
@@ -646,7 +646,7 @@ impl RepositoryEditor {
                     role: RoleType::Targets,
                 })?;
             // verify the role
-            key_holder.verify_role(&new_role, &name)?;
+            key_holder.verify_role(&new_role, &name, KeyIdFormat::Any)?;
             // add the new role
             delegations
                 .roles

@@ -19,14 +19,6 @@ where
         key: Key,
         map: &mut HashMap<KeyId, Key>,
     ) -> Result<(), error::Error> {
-        let calculated = key.key_id()?;
-        ensure!(
-            keyid == calculated,
-            error::InvalidKeyIdSnafu {
-                keyid: keyid,
-                calculated: calculated,
-            }
-        );
         ensure!(
             map.insert(keyid.clone(), key).is_none(),
             error::DuplicateKeyIdSnafu { keyid }
