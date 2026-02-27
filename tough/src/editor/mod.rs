@@ -14,8 +14,7 @@ use crate::editor::targets::TargetsEditor;
 use crate::error::{self, Result};
 use crate::fetch::fetch_max_size;
 use crate::key_source::KeySource;
-use crate::schema::decoded::{Decoded, Hex};
-use crate::schema::key::Key;
+use crate::schema::key::{Key, KeyId};
 use crate::schema::{
     Hashes, KeyHolder, Metafile, PathSet, Role, RoleType, Root, Signed, Snapshot, Target, Targets,
     Timestamp,
@@ -669,7 +668,7 @@ impl RepositoryEditor {
         paths: PathSet,
         terminating: bool,
         threshold: NonZeroU64,
-        keys: Option<HashMap<Decoded<Hex>, Key>>,
+        keys: Option<HashMap<KeyId, Key>>,
     ) -> Result<&mut Self> {
         let limits = self.limits.context(error::MissingLimitsSnafu)?;
         let transport = self

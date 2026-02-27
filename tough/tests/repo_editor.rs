@@ -13,9 +13,7 @@ use tough::editor::signed::PathExists;
 use tough::editor::{targets::TargetsEditor, RepositoryEditor};
 use tough::key_source::KeySource;
 use tough::key_source::LocalKeySource;
-use tough::schema::decoded::Decoded;
-use tough::schema::decoded::Hex;
-use tough::schema::key::Key;
+use tough::schema::key::{Key, KeyId};
 use tough::schema::{PathPattern, PathSet};
 use tough::{Repository, RepositoryLoader, TargetName};
 use url::Url;
@@ -103,7 +101,7 @@ async fn test_repo_editor() -> RepositoryEditor {
     editor
 }
 
-async fn key_hash_map(keys: &[Box<dyn KeySource>]) -> HashMap<Decoded<Hex>, Key> {
+async fn key_hash_map(keys: &[Box<dyn KeySource>]) -> HashMap<KeyId, Key> {
     let mut key_pairs = HashMap::new();
     for source in keys {
         let key_pair = source.as_sign().await.unwrap().tuf_key();

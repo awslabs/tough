@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use tough::editor::signed::SignedRole;
 use tough::key_source::KeySource;
-use tough::schema::decoded::{Decoded, Hex};
+use tough::schema::key::KeyId;
 use tough::schema::{key::Key, KeyHolder, RoleKeys, RoleType, Root, Signed};
 use tough::sign::{parse_keypair, Sign};
 
@@ -82,7 +82,7 @@ pub(crate) enum Command {
         /// Path to root.json
         path: PathBuf,
         /// The key ID to remove
-        key_id: Decoded<Hex>,
+        key_id: KeyId,
         /// Role to remove the key ID from (if provided, the public key will still be listed in the
         /// file)
         role: Option<RoleType>,
@@ -257,14 +257,14 @@ impl Command {
                 .await
                 .context(error::KeyPairFromKeySourceSnafu)?
                 .tuf_key();
-            let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair)?);
+            let key_id = add_key(&mut root.signed, roles, key_pair)?;
             println!("Added key: {key_id}");
         }
 
         write_file(path, root).await
     }
 
-    async fn remove_key(path: &Path, key_id: &Decoded<Hex>, role: Option<RoleType>) -> Result<()> {
+    async fn remove_key(path: &Path, key_id: &KeyId, role: Option<RoleType>) -> Result<()> {
         let mut root: Signed<Root> = load_file(path).await?;
         if let Some(role) = role {
             if let Some(role_keys) = root.signed.roles.get_mut(&role) {
@@ -322,9 +322,9 @@ impl Command {
                 .join("\n")
         );
         let key_pair = parse_keypair(pem.as_bytes()).context(error::KeyPairParseSnafu)?;
-        let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
+        let key_id = add_key(&mut root.signed, roles, key_pair.tuf_key())?;
         let key = parse_key_source(key_source)?;
-        key.write(&pem, &key_id)
+        key.write(&pem, &key_id.to_string())
             .await
             .context(error::WriteKeySourceSnafu)?;
         clear_sigs(&mut root);
@@ -440,7 +440,7 @@ fn clear_sigs<T>(role: &mut Signed<T>) {
 }
 
 /// Adds a key to the root role if not already present, and adds its key ID to the specified role.
-fn add_key(root: &mut Root, role: &[RoleType], key: Key) -> Result<Decoded<Hex>> {
+fn add_key(root: &mut Root, role: &[RoleType], key: Key) -> Result<KeyId> {
     let key_id = if let Some((key_id, _)) = root
         .keys
         .iter()
@@ -452,9 +452,7 @@ fn add_key(root: &mut Root, role: &[RoleType], key: Key) -> Result<Decoded<Hex>>
         let key_id = key.key_id().context(error::KeyIdSnafu)?;
         ensure!(
             !root.keys.contains_key(&key_id),
-            error::KeyDuplicateSnafu {
-                key_id: hex::encode(&key_id)
-            }
+            error::KeyDuplicateSnafu { key_id }
         );
         root.keys.insert(key_id.clone(), key);
         key_id

@@ -8,8 +8,7 @@ use crate::editor::signed::{SignedDelegatedTargets, SignedRole};
 use crate::error::{self, Result};
 use crate::fetch::fetch_max_size;
 use crate::key_source::KeySource;
-use crate::schema::decoded::{Decoded, Hex};
-use crate::schema::key::Key;
+use crate::schema::key::{Key, KeyId};
 use crate::schema::{
     DelegatedRole, DelegatedTargets, Delegations, KeyHolder, PathSet, RoleType, Signed, Target,
     Targets,
@@ -271,11 +270,7 @@ impl TargetsEditor {
     }
 
     /// Adds a key to delegations keyids, adds the key to `role` if it is provided
-    pub fn add_key(
-        &mut self,
-        keys: HashMap<Decoded<Hex>, Key>,
-        role: Option<&str>,
-    ) -> Result<&mut Self> {
+    pub fn add_key(&mut self, keys: HashMap<KeyId, Key>, role: Option<&str>) -> Result<&mut Self> {
         let delegations = self
             .delegations
             .as_mut()
@@ -311,7 +306,7 @@ impl TargetsEditor {
     }
 
     /// Removes a key from delegations keyids, if a role is specified the key is only removed from the role
-    pub fn remove_key(&mut self, keyid: &Decoded<Hex>, role: Option<&str>) -> Result<&mut Self> {
+    pub fn remove_key(&mut self, keyid: &KeyId, role: Option<&str>) -> Result<&mut Self> {
         let delegations = self
             .delegations
             .as_mut()
@@ -337,8 +332,8 @@ impl TargetsEditor {
         targets: Signed<DelegatedTargets>,
         paths: PathSet,
         terminating: bool,
-        key_pairs: HashMap<Decoded<Hex>, Key>,
-        keyids: Vec<Decoded<Hex>>,
+        key_pairs: HashMap<KeyId, Key>,
+        keyids: Vec<KeyId>,
         threshold: NonZeroU64,
     ) -> Result<&mut Self> {
         self.add_key(key_pairs, None)?;
@@ -391,7 +386,7 @@ impl TargetsEditor {
         paths: PathSet,
         terminating: bool,
         threshold: NonZeroU64,
-        keys: Option<HashMap<Decoded<Hex>, Key>>,
+        keys: Option<HashMap<KeyId, Key>>,
     ) -> Result<&mut Self> {
         let limits = self.limits.context(error::MissingLimitsSnafu)?;
         let transport: &dyn Transport = self

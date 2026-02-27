@@ -140,14 +140,14 @@ pub struct EcdsaKey {
 
 impl Key {
     /// Calculate the key ID for this key.
-    pub fn key_id(&self) -> Result<Decoded<Hex>> {
+    pub fn key_id(&self) -> Result<KeyId> {
         let mut buf = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut buf, CanonicalFormatter::new());
         self.serialize(&mut ser)
             .context(error::JsonSerializationSnafu {
                 what: "key".to_owned(),
             })?;
-        Ok(digest(&SHA256, &buf).as_ref().to_vec().into())
+        Ok(KeyId(hex::encode(digest(&SHA256, &buf))))
     }
 
     /// Verify a signature of an object made with this key.
@@ -227,6 +227,29 @@ impl FromStr for Key {
         } else {
             Err(KeyParseError(()))
         }
+    }
+}
+
+/// Unique identifier representing a key.
+///
+/// TUF version 1.0.0 (section 4.2) mandates that KEYID must be hexdigest of the SHA-256 hash of
+/// the canonical JSON form of the key. TAP 12 changes the definition to allow arbitrary strings to
+/// be key IDs.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct KeyId(String);
+
+impl std::fmt::Display for KeyId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <String as std::fmt::Display>::fmt(&self.0, f)
+    }
+}
+
+impl std::str::FromStr for KeyId {
+    type Err = KeyParseError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(KeyId(s.into()))
     }
 }
 

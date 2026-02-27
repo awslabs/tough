@@ -3,14 +3,14 @@
 
 use crate::error::{self, Result};
 use crate::key_source::KeySource;
-use crate::schema::decoded::{Decoded, Hex};
+use crate::schema::key::KeyId;
 use crate::schema::{Delegations, KeyHolder, RoleId, RoleKeys, Root, Signed, Targets};
 use crate::sign::Sign;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 
 /// A map of key ID (from root.json or the Delegations field of any Targets) to its corresponding signing key
-pub(crate) type KeyList = HashMap<Decoded<Hex>, Box<dyn Sign>>;
+pub(crate) type KeyList = HashMap<KeyId, Box<dyn Sign>>;
 
 impl KeyHolder {
     /// Creates a key list for the provided keys

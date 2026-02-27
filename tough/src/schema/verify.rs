@@ -29,7 +29,7 @@ impl Root {
             ensure!(
                 !contained_keyids.contains(&signature.keyid),
                 error::DuplicateKeyIdSnafu {
-                    keyid: format!("{:?}", signature.keyid),
+                    keyid: signature.keyid.clone(),
                 }
             );
             contained_keyids.insert(&signature.keyid);
@@ -85,7 +85,7 @@ impl Delegations {
             ensure!(
                 !contained_keyids.contains(&signature.keyid),
                 error::DuplicateKeyIdSnafu {
-                    keyid: format!("{:?}", signature.keyid),
+                    keyid: signature.keyid.clone(),
                 }
             );
             contained_keyids.insert(&signature.keyid);

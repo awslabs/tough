@@ -7,6 +7,7 @@
 
 use snafu::{Backtrace, Snafu};
 use std::path::PathBuf;
+use tough::schema::key::KeyId;
 
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
@@ -136,10 +137,7 @@ pub(crate) enum Error {
     },
 
     #[snafu(display("Duplicate key ID: {}", key_id))]
-    KeyDuplicate {
-        key_id: String,
-        backtrace: Backtrace,
-    },
+    KeyDuplicate { key_id: KeyId, backtrace: Backtrace },
 
     #[snafu(display("Failed to calculate key ID: {}", source))]
     KeyId {

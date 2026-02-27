@@ -7,7 +7,7 @@ use std::fs::File;
 use std::num::NonZeroU64;
 use tempfile::TempDir;
 use tough::key_source::{KeySource, LocalKeySource};
-use tough::schema::decoded::{Decoded, Hex};
+use tough::schema::key::KeyId;
 use tough::schema::{Root, Signed};
 
 fn initialize_root_json(root_json: &str) {
@@ -138,7 +138,7 @@ fn get_sign_len(root_json: &str) -> usize {
     root.signatures.len()
 }
 
-fn check_signature_exists(root_json: &str, key_id: Decoded<Hex>) -> bool {
+fn check_signature_exists(root_json: &str, key_id: KeyId) -> bool {
     let root = get_signed_root(root_json);
     root.signatures.iter().any(|sig| sig.keyid == key_id)
 }

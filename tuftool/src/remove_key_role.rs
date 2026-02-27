@@ -11,7 +11,7 @@ use snafu::ResultExt;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tough::editor::targets::TargetsEditor;
-use tough::schema::decoded::{Decoded, Hex};
+use tough::schema::key::KeyId;
 use url::Url;
 
 #[derive(Debug, Parser)]
@@ -31,7 +31,7 @@ pub(crate) struct RemoveKeyArgs {
 
     /// Key to be removed will look similar to `8ec3a843a0f9328c863cac4046ab1cacbbc67888476ac7acf73d9bcd9a223ada`
     #[arg(long = "keyid", required = true)]
-    remove: Decoded<Hex>,
+    remove: KeyId,
 
     /// TUF repository metadata base URL
     #[arg(short, long = "metadata-url")]
