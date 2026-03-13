@@ -6,6 +6,9 @@ use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use crate::{load_file, write_file};
 use aws_lc_rs::rand::SystemRandom;
+use aws_lc_rs::encoding::{AsDer, Pkcs8V1Der};
+use aws_lc_rs::rsa::{KeySize, PrivateDecryptingKey};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use chrono::{DateTime, Timelike, Utc};
 use clap::Parser;
 use log::warn;
@@ -295,32 +298,32 @@ impl Command {
     ) -> Result<()> {
         let mut root: Signed<Root> = load_file(path).await?;
 
-        // ring doesn't support RSA key generation yet
-        // https://github.com/briansmith/ring/issues/219
-        let mut command = std::process::Command::new("openssl");
-        command.args(["genpkey", "-algorithm", "RSA", "-pkeyopt"]);
-        command.arg(format!("rsa_keygen_bits:{bits}"));
-        command.arg("-pkeyopt");
-        command.arg(format!("rsa_keygen_pubexp:{exponent}"));
-
-        let command_str = format!("{command:?}");
-        let output = command.output().context(error::CommandExecSnafu {
-            command_str: &command_str,
-        })?;
-        ensure!(
-            output.status.success(),
-            error::CommandStatusSnafu {
-                command_str: &command_str,
-                status: output.status
-            }
+        if exponent != 65537 {
+            warn!("--exp {exponent} ignored; aws-lc-rs uses the standard public exponent 65537");
+        }
+        let key_size = match bits {
+            2048 => KeySize::Rsa2048,
+            3072 => KeySize::Rsa3072,
+            4096 => KeySize::Rsa4096,
+            _ => return Err(error::Error::UnsupportedRsaKeySize { bits }),
+        };
+        let private_key =
+            PrivateDecryptingKey::generate(key_size).context(error::RsaKeyGenerateSnafu)?;
+        let der =
+            AsDer::<Pkcs8V1Der<'_>>::as_der(&private_key).context(error::RsaKeyGenerateSnafu)?;
+        let pem = format!(
+            "-----BEGIN PRIVATE KEY-----\n{}\n-----END PRIVATE KEY-----\n",
+            BASE64.encode(der.as_ref())
+                .as_bytes()
+                .chunks(64)
+                .map(|c| std::str::from_utf8(c).unwrap())
+                .collect::<Vec<_>>()
+                .join("\n")
         );
-        let stdout =
-            String::from_utf8(output.stdout).context(error::CommandUtf8Snafu { command_str })?;
-
-        let key_pair = parse_keypair(stdout.as_bytes()).context(error::KeyPairParseSnafu)?;
+        let key_pair = parse_keypair(pem.as_bytes()).context(error::KeyPairParseSnafu)?;
         let key_id = hex::encode(add_key(&mut root.signed, roles, key_pair.tuf_key())?);
         let key = parse_key_source(key_source)?;
-        key.write(&stdout, &key_id)
+        key.write(&pem, &key_id)
             .await
             .context(error::WriteKeySourceSnafu)?;
         clear_sigs(&mut root);

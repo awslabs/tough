@@ -417,3 +417,73 @@ fn set_version_root() {
     // validate version number
     assert_eq!(get_version(root_json.to_str().unwrap()), version);
 }
+
+#[test]
+fn gen_rsa_key_and_sign_root() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_path = out_dir.path().join("generated.pem");
+
+    initialize_root_json(root_json.to_str().unwrap());
+
+    cargo_bin_cmd!("tuftool")
+        .args([
+            "root",
+            "set-threshold",
+            root_json.to_str().unwrap(),
+            "root",
+            "1",
+        ])
+        .assert()
+        .success();
+
+    cargo_bin_cmd!("tuftool")
+        .args([
+            "root",
+            "gen-rsa-key",
+            root_json.to_str().unwrap(),
+            key_path.to_str().unwrap(),
+            "--role", "root",
+            "--role", "snapshot",
+            "--role", "targets",
+            "--role", "timestamp",
+        ])
+        .assert()
+        .success();
+
+    cargo_bin_cmd!("tuftool")
+        .args([
+            "root",
+            "sign",
+            root_json.to_str().unwrap(),
+            "-k",
+            key_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    assert_eq!(get_sign_len(root_json.to_str().unwrap()), 1);
+}
+
+#[test]
+fn gen_rsa_key_unsupported_size_fails() {
+    let out_dir = TempDir::new().unwrap();
+    let root_json = out_dir.path().join("root.json");
+    let key_path = out_dir.path().join("generated.pem");
+
+    initialize_root_json(root_json.to_str().unwrap());
+
+    cargo_bin_cmd!("tuftool")
+        .args([
+            "root",
+            "gen-rsa-key",
+            root_json.to_str().unwrap(),
+            key_path.to_str().unwrap(),
+            "--role",
+            "root",
+            "--bits",
+            "1024",
+        ])
+        .assert()
+        .failure();
+}
