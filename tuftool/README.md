@@ -1,9 +1,5 @@
 **tuftool** is a Rust command-line utility for generating and signing TUF repositories.
 
-## Dependencies
-
-Make sure you have the following dependencies present on your system before installing `tuftool`:
-
 ## Installing
 
 To install the latest version of `tuftool`:
