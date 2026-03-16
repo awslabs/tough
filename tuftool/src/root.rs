@@ -5,8 +5,8 @@ use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
 use crate::{load_file, write_file};
-use aws_lc_rs::rand::SystemRandom;
 use aws_lc_rs::encoding::{AsDer, Pkcs8V1Der};
+use aws_lc_rs::rand::SystemRandom;
 use aws_lc_rs::rsa::{KeySize, PrivateDecryptingKey};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use chrono::{DateTime, Timelike, Utc};
@@ -313,7 +313,8 @@ impl Command {
             AsDer::<Pkcs8V1Der<'_>>::as_der(&private_key).context(error::RsaKeyGenerateSnafu)?;
         let pem = format!(
             "-----BEGIN PRIVATE KEY-----\n{}\n-----END PRIVATE KEY-----\n",
-            BASE64.encode(der.as_ref())
+            BASE64
+                .encode(der.as_ref())
                 .as_bytes()
                 .chunks(64)
                 .map(|c| std::str::from_utf8(c).unwrap())

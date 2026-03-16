@@ -443,10 +443,14 @@ fn gen_rsa_key_and_sign_root() {
             "gen-rsa-key",
             root_json.to_str().unwrap(),
             key_path.to_str().unwrap(),
-            "--role", "root",
-            "--role", "snapshot",
-            "--role", "targets",
-            "--role", "timestamp",
+            "--role",
+            "root",
+            "--role",
+            "snapshot",
+            "--role",
+            "targets",
+            "--role",
+            "timestamp",
         ])
         .assert()
         .success();
