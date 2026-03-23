@@ -21,6 +21,7 @@ aws-config = { version = "1", default-features = false, features = ["credentials
 aws-lc-rs = "1"
 aws-sdk-kms = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
 aws-sdk-ssm = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
+base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"

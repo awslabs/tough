@@ -19,27 +19,6 @@ pub(crate) enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Failed to run {}: {}", command_str, source))]
-    CommandExec {
-        command_str: String,
-        source: std::io::Error,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Command {} failed with {}", command_str, status))]
-    CommandStatus {
-        command_str: String,
-        status: std::process::ExitStatus,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display("Command {} output is not valid UTF-8: {}", command_str, source))]
-    CommandUtf8 {
-        command_str: String,
-        source: std::string::FromUtf8Error,
-        backtrace: Backtrace,
-    },
-
     #[snafu(display("Cannot determine current directory: {}", source))]
     CurrentDir {
         source: std::io::Error,
@@ -328,6 +307,15 @@ pub(crate) enum Error {
     WalkDir {
         directory: PathBuf,
         source: walkdir::Error,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("Unsupported RSA key size: {bits} bits. Supported: 2048, 3072, 4096"))]
+    UnsupportedRsaKeySize { bits: u16 },
+
+    #[snafu(display("Failed to generate RSA key: {}", source))]
+    RsaKeyGenerate {
+        source: aws_lc_rs::error::Unspecified,
         backtrace: Backtrace,
     },
 

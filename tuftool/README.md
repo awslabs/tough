@@ -1,11 +1,5 @@
 **tuftool** is a Rust command-line utility for generating and signing TUF repositories.
 
-## Dependencies
-
-Make sure you have the following dependencies present on your system before installing `tuftool`:
-
-- OpenSSL: install `libssl-dev` on Ubuntu or `openssl-devel` on Fedora.
-
 ## Installing
 
 To install the latest version of `tuftool`:
@@ -52,7 +46,6 @@ tuftool root set-threshold "${ROOT}" snapshot 1
 tuftool root set-threshold "${ROOT}" targets 1
 tuftool root set-threshold "${ROOT}" timestamp 1
 
-# create an RSA key and store it as a file. this requires openssl on your system
 # this command both creates the key and adds it to root.json for the root role
 tuftool root gen-rsa-key "${ROOT}" "${WRK}/keys/root.pem" --role root
 
