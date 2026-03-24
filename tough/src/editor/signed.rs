@@ -32,7 +32,7 @@ use tokio::fs::symlink_file as symlink;
 
 use crate::{FilesystemTransport, TargetName, Transport};
 use std::borrow::Cow;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use url::Url;
 use walkdir::WalkDir;
 
@@ -167,12 +167,24 @@ where
             .await
             .context(error::DirCreateSnafu { path: outdir })?;
 
-        let filename = self.signed.signed.filename(consistent_snapshot);
-
-        let path = outdir.join(filename);
-        tokio::fs::write(&path, &self.buffer)
+        let outdir = tokio::fs::canonicalize(outdir)
             .await
-            .context(error::FileWriteSnafu { path })
+            .context(error::AbsolutePathSnafu { path: outdir })?;
+        let filename = self.signed.signed.filename(consistent_snapshot);
+        let path = outdir.join(filename);
+        let buf = self.buffer.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let mut tmp = tempfile::NamedTempFile::new_in(&outdir)
+                .context(error::NamedTempFileCreateSnafu { path: &outdir })?;
+            std::io::Write::write_all(&mut tmp, &buf)
+                .context(error::FileWriteSnafu { path: &path })?;
+            tmp.persist(&path)
+                .context(error::NamedTempFilePersistSnafu { path })?;
+            Ok(())
+        })
+        .await
+        .context(error::JoinSpawnBlockingTaskSnafu)?
     }
 
     /// Append the old signatures for root role
@@ -649,6 +661,7 @@ where
 /// the trait's `targets()` and `consistent_snapshot()` methods to get a map of targets and
 /// also determine if a file prefix needs to be used.
 #[async_trait]
+#[allow(clippy::too_many_lines)]
 trait TargetsWalker {
     /// Returns a map of all targets this manager is responsible for
     fn targets(&self) -> HashMap<TargetName, &Target>;
@@ -779,6 +792,45 @@ trait TargetsWalker {
         } else {
             outdir.join(target_name.resolved())
         };
+
+        ensure!(
+            !dest.components().any(|c| matches!(c, Component::ParentDir)),
+            error::SaveTargetUnsafePathSnafu {
+                name: target_name.clone().into_owned(),
+                outdir: outdir.clone(),
+                filepath: &dest,
+            }
+        );
+
+        let dest_parent = dest
+            .parent()
+            .map_or_else(|| dest.clone(), Path::to_path_buf);
+        ensure!(
+            dest_parent.starts_with(&outdir),
+            error::SaveTargetUnsafePathSnafu {
+                name: target_name.clone().into_owned(),
+                outdir: outdir.clone(),
+                filepath: &dest,
+            }
+        );
+
+        create_dir_all(&dest_parent)
+            .await
+            .context(error::DirCreateSnafu { path: &dest_parent })?;
+        let real_parent = canonicalize(&dest_parent)
+            .await
+            .context(error::AbsolutePathSnafu { path: &dest_parent })?;
+        let real_outdir = canonicalize(&outdir)
+            .await
+            .context(error::AbsolutePathSnafu { path: &outdir })?;
+        ensure!(
+            real_parent.starts_with(&real_outdir),
+            error::SaveTargetUnsafePathSnafu {
+                name: target_name.into_owned(),
+                outdir,
+                filepath: &dest,
+            }
+        );
 
         // Return the target path, using the `TargetPath` enum that represents the type of file
         // that already exists at that path (if any)

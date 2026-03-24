@@ -585,12 +585,26 @@ impl Repository {
                 path: &filepath_dir,
             })?;
 
+        let real_filepath_dir = canonicalize(filepath_dir)
+            .await
+            .context(error::AbsolutePathSnafu { path: filepath_dir })?;
+        let real_outdir = canonicalize(&outdir)
+            .await
+            .context(error::AbsolutePathSnafu { path: &outdir })?;
+        ensure!(
+            real_filepath_dir.starts_with(&real_outdir),
+            error::SaveTargetUnsafePathSnafu {
+                name: name.clone(),
+                outdir,
+                filepath: &resolved_filepath,
+            }
+        );
+
         // Create a new temporary file.
-        let tmp_path = filepath_dir.to_owned();
+        let tmp_path = real_filepath_dir;
         let tmp = tokio::task::spawn_blocking(move || NamedTempFile::new_in(tmp_path))
             .await
-            // We do not cancel the task nor do we expect it to panic
-            .unwrap_or_else(|_| unreachable!())
+            .context(error::JoinSpawnBlockingTaskSnafu)?
             .context(error::NamedTempFileCreateSnafu { path: filepath_dir })?;
 
         // Convert to `tokio::fs::File`.

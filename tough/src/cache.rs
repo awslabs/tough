@@ -5,10 +5,9 @@ use crate::transport::IntoVec;
 use crate::{encode_filename, Prefix, Repository, TargetName};
 use bytes::Bytes;
 use futures::Stream;
-use snafu::{futures::TryStreamExt, OptionExt, ResultExt};
+use snafu::{ensure, futures::TryStreamExt, OptionExt, ResultExt};
 use std::path::Path;
 use std::pin::Pin;
-use tokio::io::AsyncWriteExt;
 
 impl Repository {
     /// Cache an entire or partial repository to disk, including all required metadata.
@@ -207,24 +206,38 @@ impl Repository {
             max_size_specifier,
         )
         .await?;
-        let outpath = outdir.as_ref().join(filename);
-        let mut file = tokio::fs::File::create(&outpath).await.with_context(|_| {
-            error::CacheFileWriteSnafu {
-                path: outpath.clone(),
+        let outdir_canonical =
+            tokio::fs::canonicalize(outdir.as_ref())
+                .await
+                .context(error::AbsolutePathSnafu {
+                    path: outdir.as_ref(),
+                })?;
+        let outpath = outdir_canonical.join(filename);
+        ensure!(
+            outpath.starts_with(&outdir_canonical),
+            error::InvalidTargetNameSnafu {
+                inner: format!("root filename '{filename}' escapes output directory"),
             }
-        })?;
+        );
         let root_file_data = stream
             .into_vec()
             .await
             .context(error::TransportSnafu { url })?;
-        file.write_all(&root_file_data)
-            .await
-            .context(error::CacheFileWriteSnafu {
-                path: outpath.clone(),
-            })?;
-        file.flush()
-            .await
-            .context(error::CacheFileWriteSnafu { path: outpath })
+        tokio::task::spawn_blocking(move || {
+            let mut tmp = tempfile::NamedTempFile::new_in(&outdir_canonical).context(
+                error::CacheFileWriteSnafu {
+                    path: &outdir_canonical,
+                },
+            )?;
+            std::io::Write::write_all(&mut tmp, &root_file_data)
+                .context(error::CacheFileWriteSnafu { path: &outpath })?;
+            tmp.persist(&outpath)
+                .map_err(|e| e.error)
+                .context(error::CacheFileWriteSnafu { path: outpath })?;
+            Ok(())
+        })
+        .await
+        .context(error::JoinSpawnBlockingTaskSnafu)?
     }
 
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
@@ -289,6 +302,21 @@ impl Repository {
                 path: filename,
                 url: self.targets_base_url.clone(),
             })?;
+
+        let base = if self.targets_base_url.as_str().ends_with('/') {
+            self.targets_base_url.as_str().to_string()
+        } else {
+            format!("{}/", self.targets_base_url.as_str())
+        };
+        ensure!(
+            url.as_str().starts_with(&base),
+            error::InvalidTargetNameSnafu {
+                inner: format!(
+                    "target filename '{}' escapes targets base URL '{}'",
+                    filename, self.targets_base_url
+                ),
+            }
+        );
         Ok(Box::pin(
             fetch_sha256(
                 self.transport.as_ref(),
@@ -300,5 +328,8 @@ impl Repository {
             .await?
             .context(error::TransportSnafu { url }),
         ))
+
+
+
     }
 }
