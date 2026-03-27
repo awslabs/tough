@@ -47,7 +47,7 @@ mod urlpath;
 
 use crate::datastore::Datastore;
 use crate::error::Result;
-use crate::fetch::{fetch_max_size, fetch_sha256};
+use crate::fetch::{fetch_max_size, fetch_sha256, fetch_sha512};
 /// An HTTP transport that includes retries.
 #[cfg(feature = "http")]
 pub use crate::http::{HttpTransport, HttpTransportBuilder};
@@ -487,7 +487,7 @@ impl Repository {
         //   non-volatile storage as FILENAME.EXT.
         Ok(
             if let Ok(target) = self.targets.signed.find_target(name, false) {
-                let (sha256, file) = self.target_digest_and_filename(target, name);
+                let (sha256, file) = self.target_digest_and_filename(target, name)?;
                 Some(self.fetch_target(target, &sha256, file.as_str()).await?)
             } else {
                 None
@@ -546,8 +546,17 @@ impl Repository {
                     .with_context(|_| error::CacheTargetMissingSnafu {
                         target_name: name.clone(),
                     })?;
-                let sha256 = target.hashes.sha256.clone().into_vec();
-                format!("{}.{}", hex::encode(sha256), name.resolved())
+                let digest = if let Some(sha256) = &target.hashes.sha256 {
+                    sha256.clone().into_vec()
+                } else if let Some(sha512) = &target.hashes.sha512 {
+                    sha512.clone().into_vec()
+                } else {
+                    return error::NoValidHashSnafu {
+                        name: format!("{name:?}"),
+                    }
+                    .fail();
+                };
+                format!("{}.{}", hex::encode(digest), name.resolved())
             }
             Prefix::None => name.resolved().to_owned(),
         };
@@ -1003,14 +1012,33 @@ async fn load_snapshot(
             url: metadata_base_url.clone(),
         })?;
     let stream = if let Some(hashes) = &snapshot_meta.hashes {
-        fetch_sha256(
-            transport,
-            url.clone(),
-            snapshot_meta.length.unwrap_or(max_snapshot_size),
-            "timestamp.json",
-            &hashes.sha256,
-        )
-        .await?
+        if let Some(sha256_hash) = &hashes.sha256 {
+            fetch_sha256(
+                transport,
+                url.clone(),
+                snapshot_meta.length.unwrap_or(max_snapshot_size),
+                "timestamp.json",
+                sha256_hash.as_ref(),
+            )
+            .await?
+        } else if let Some(sha512_hash) = &hashes.sha512 {
+            fetch_sha512(
+                transport,
+                url.clone(),
+                snapshot_meta.length.unwrap_or(max_snapshot_size),
+                "timestamp.json",
+                sha512_hash.as_ref(),
+            )
+            .await?
+        } else {
+            fetch_max_size(
+                transport,
+                url.clone(),
+                snapshot_meta.length.unwrap_or(max_snapshot_size),
+                "timestamp.json",
+            )
+            .await?
+        }
     } else {
         fetch_max_size(
             transport,
@@ -1202,26 +1230,14 @@ async fn load_targets(
         Some(length) => (length, "snapshot.json"),
         None => (max_targets_size, "max_targets_size parameter"),
     };
-    let stream = if let Some(hashes) = &targets_meta.hashes {
-        // 5.6.2. The hashes of the new targets metadata file MUST match the hashes, if any,
-        // listed in the trusted snapshot metadata.
-        fetch_sha256(
-            transport,
-            targets_url.clone(),
-            max_targets_file_size,
-            specifier,
-            &hashes.sha256,
-        )
-        .await?
-    } else {
-        fetch_max_size(
-            transport,
-            targets_url.clone(),
-            max_targets_file_size,
-            specifier,
-        )
-        .await?
-    };
+    let stream = fetch_target_metadata(
+        transport,
+        targets_url.clone(),
+        max_targets_file_size,
+        specifier,
+        targets_meta.hashes.as_ref(),
+    )
+    .await?;
     let data = stream
         .into_vec()
         .await
@@ -1391,6 +1407,46 @@ async fn load_delegations(
         }
     }
     Ok(())
+}
+
+// Helper function: used in load_targets function
+async fn fetch_target_metadata(
+    transport: &dyn Transport,
+    targets_url: Url,
+    max_targets_size: u64,
+    specifier: &'static str,
+    hashes: Option<&crate::schema::Hashes>,
+) -> Result<TransportStream> {
+    let stream = if let Some(hashes) = hashes {
+        if let Some(sha256_hash) = &hashes.sha256 {
+            fetch_sha256(
+                transport,
+                targets_url.clone(),
+                max_targets_size,
+                specifier,
+                sha256_hash.as_ref(),
+            )
+            .await?
+        } else if let Some(sha512_hash) = &hashes.sha512 {
+            fetch_sha512(
+                transport,
+                targets_url.clone(),
+                max_targets_size,
+                specifier,
+                sha512_hash.as_ref(),
+            )
+            .await?
+        } else {
+            error::NoValidHashSnafu {
+                name: targets_url.path().to_string(),
+            }
+            .fail()?
+        }
+    } else {
+        fetch_max_size(transport, targets_url.clone(), max_targets_size, specifier).await?
+    };
+
+    Ok(stream)
 }
 
 #[cfg(test)]

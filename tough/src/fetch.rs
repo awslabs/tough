@@ -32,3 +32,14 @@ pub(crate) async fn fetch_sha256(
     let stream = fetch_max_size(transport, url.clone(), size, specifier).await?;
     Ok(DigestAdapter::sha256(stream, sha256, url))
 }
+
+pub(crate) async fn fetch_sha512(
+    transport: &dyn Transport,
+    url: Url,
+    size: u64,
+    specifier: &'static str,
+    sha512: &[u8],
+) -> Result<TransportStream> {
+    let stream = fetch_max_size(transport, url.clone(), size, specifier).await?;
+    Ok(DigestAdapter::sha512(stream, sha512, url))
+}
