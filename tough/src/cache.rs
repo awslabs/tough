@@ -8,6 +8,7 @@ use futures::Stream;
 use snafu::{ensure, futures::TryStreamExt, OptionExt, ResultExt};
 use std::path::Path;
 use std::pin::Pin;
+use tokio::io::AsyncWriteExt;
 
 impl Repository {
     /// Cache an entire or partial repository to disk, including all required metadata.
@@ -223,21 +224,17 @@ impl Repository {
             .into_vec()
             .await
             .context(error::TransportSnafu { url })?;
-        tokio::task::spawn_blocking(move || {
-            let mut tmp = tempfile::NamedTempFile::new_in(&outdir_canonical).context(
-                error::CacheFileWriteSnafu {
-                    path: &outdir_canonical,
-                },
-            )?;
-            std::io::Write::write_all(&mut tmp, &root_file_data)
-                .context(error::CacheFileWriteSnafu { path: &outpath })?;
-            tmp.persist(&outpath)
-                .map_err(|e| e.error)
-                .context(error::CacheFileWriteSnafu { path: outpath })?;
-            Ok(())
-        })
-        .await
-        .context(error::JoinSpawnBlockingTaskSnafu)?
+        let mut file = tokio::fs::File::create(&outpath)
+            .await
+            .context(error::CacheFileWriteSnafu { path: &outpath })?;
+        file.write_all(&root_file_data)
+            .await
+            .context(error::CacheFileWriteSnafu {
+                path: outpath.clone(),
+            })?;
+        file.flush()
+            .await
+            .context(error::CacheFileWriteSnafu { path: outpath })
     }
 
     /// Saves a signed target to the specified `outdir`. Retains the digest-prepended filename if
@@ -328,8 +325,5 @@ impl Repository {
             .await?
             .context(error::TransportSnafu { url }),
         ))
-
-
-
     }
 }

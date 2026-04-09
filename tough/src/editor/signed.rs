@@ -24,6 +24,7 @@ use snafu::{ensure, OptionExt, ResultExt};
 use std::collections::HashMap;
 use std::future::{ready, Future};
 use tokio::fs::{canonicalize, copy, create_dir_all, remove_file, symlink_metadata};
+use tokio::io::AsyncWriteExt;
 
 #[cfg(not(target_os = "windows"))]
 use tokio::fs::symlink;
@@ -172,19 +173,13 @@ where
             .context(error::AbsolutePathSnafu { path: outdir })?;
         let filename = self.signed.signed.filename(consistent_snapshot);
         let path = outdir.join(filename);
-        let buf = self.buffer.clone();
-
-        tokio::task::spawn_blocking(move || {
-            let mut tmp = tempfile::NamedTempFile::new_in(&outdir)
-                .context(error::NamedTempFileCreateSnafu { path: &outdir })?;
-            std::io::Write::write_all(&mut tmp, &buf)
-                .context(error::FileWriteSnafu { path: &path })?;
-            tmp.persist(&path)
-                .context(error::NamedTempFilePersistSnafu { path })?;
-            Ok(())
-        })
-        .await
-        .context(error::JoinSpawnBlockingTaskSnafu)?
+        let mut file = tokio::fs::File::create(&path)
+            .await
+            .context(error::FileWriteSnafu { path: &path })?;
+        file.write_all(&self.buffer)
+            .await
+            .context(error::FileWriteSnafu { path: &path })?;
+        file.flush().await.context(error::FileWriteSnafu { path })
     }
 
     /// Append the old signatures for root role

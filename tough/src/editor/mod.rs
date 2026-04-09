@@ -493,7 +493,6 @@ impl RepositoryEditor {
         Ok(self)
     }
 
-    #[allow(clippy::too_many_lines)]
     /// Updates the metadata for the `Targets` role named `name`
     /// This method is used to load in a `Targets` metadata file located at
     /// `metadata_url` and update the repository's metadata for the role
@@ -584,8 +583,43 @@ impl RepositoryEditor {
         // the new targets will be the keyholder for any of its newly delegated roles, so create a keyholder
         let key_holder = KeyHolder::Delegations(delegations.clone());
         // load the new roles
+        Self::fetch_and_verify_new_roles(
+            new_roles,
+            &metadata_base_url,
+            transport.as_ref(),
+            limits,
+            &key_holder,
+            delegations,
+        )
+        .await?;
+        // Add our new role in place of the old one
+        if name == "targets" {
+            self.signed_targets = Some(role);
+        } else {
+            self.signed_targets
+                .as_mut()
+                .context(error::NoTargetsSnafu)?
+                .signed
+                .delegated_role_mut(name)
+                .context(error::DelegateMissingSnafu {
+                    name: name.to_string(),
+                })?
+                .targets = Some(role);
+        }
+        self.targets_editor = None;
+        Ok(self)
+    }
+
+    /// Fetches, deserializes, verifies, and attaches newly delegated role metadata.
+    async fn fetch_and_verify_new_roles(
+        new_roles: Vec<String>,
+        metadata_base_url: &Url,
+        transport: &dyn Transport,
+        limits: Limits,
+        key_holder: &KeyHolder,
+        delegations: &mut crate::schema::Delegations,
+    ) -> Result<()> {
         for name in new_roles {
-            // path to new metadata
             let encoded_name = encode_filename(&name);
             let encoded_filename = format!("{encoded_name}.json");
             let role_url = metadata_base_url
@@ -597,7 +631,7 @@ impl RepositoryEditor {
                     url: metadata_base_url.clone(),
                 })?;
             let stream = fetch_max_size(
-                transport.as_ref(),
+                transport,
                 role_url.clone(),
                 limits.max_targets_size,
                 "max targets limit",
@@ -622,22 +656,7 @@ impl RepositoryEditor {
                 .context(error::DelegateNotFoundSnafu { name: name.clone() })?
                 .targets = Some(new_role.clone());
         }
-        // Add our new role in place of the old one
-        if name == "targets" {
-            self.signed_targets = Some(role);
-        } else {
-            self.signed_targets
-                .as_mut()
-                .context(error::NoTargetsSnafu)?
-                .signed
-                .delegated_role_mut(name)
-                .context(error::DelegateMissingSnafu {
-                    name: name.to_string(),
-                })?
-                .targets = Some(role);
-        }
-        self.targets_editor = None;
-        Ok(self)
+        Ok(())
     }
 
     /// Adds a role to the targets currently in `targets_editor`

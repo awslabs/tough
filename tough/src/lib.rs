@@ -1302,6 +1302,7 @@ async fn load_targets(
 // Follow the paths of delegations starting with the top level targets.json delegation
 #[expect(clippy::too_many_arguments)]
 #[async_recursion]
+#[allow(clippy::too_many_lines)]
 async fn load_delegations(
     transport: &dyn Transport,
     snapshot: &Signed<Snapshot>,
