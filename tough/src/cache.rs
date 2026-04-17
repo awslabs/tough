@@ -4,10 +4,10 @@ use crate::schema::{RoleType, Target};
 use crate::transport::IntoVec;
 use crate::{encode_filename, Prefix, Repository, TargetName};
 use bytes::Bytes;
-use futures::StreamExt;
-use futures_core::stream::BoxStream;
+use futures::Stream;
 use snafu::{futures::TryStreamExt, OptionExt, ResultExt};
 use std::path::Path;
+use std::pin::Pin;
 use tokio::io::AsyncWriteExt;
 
 impl Repository {
@@ -281,7 +281,7 @@ impl Repository {
         target: &Target,
         digest: &[u8],
         filename: &str,
-    ) -> Result<BoxStream<'static, Result<Bytes>>> {
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Bytes>> + Send + Sync + 'static>>> {
         let url = self
             .targets_base_url
             .join(filename)
@@ -289,15 +289,16 @@ impl Repository {
                 path: filename,
                 url: self.targets_base_url.clone(),
             })?;
-        Ok(fetch_sha256(
-            self.transport.as_ref(),
-            url.clone(),
-            target.length,
-            "targets.json",
-            digest,
-        )
-        .await?
-        .context(error::TransportSnafu { url })
-        .boxed())
+        Ok(Box::pin(
+            fetch_sha256(
+                self.transport.as_ref(),
+                url.clone(),
+                target.length,
+                "targets.json",
+                digest,
+            )
+            .await?
+            .context(error::TransportSnafu { url }),
+        ))
     }
 }
