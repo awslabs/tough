@@ -325,6 +325,7 @@ pub struct Repository {
     metadata_base_url: Url,
     targets_base_url: Url,
     expiration_enforcement: ExpirationEnforcement,
+    delegated_metadata_bytes: std::collections::HashMap<String, Vec<u8>>,
 }
 
 impl Repository {
@@ -379,7 +380,7 @@ impl Repository {
         .await?;
 
         // 4. Download the targets metadata file
-        let targets = load_targets(
+        let (targets, delegated_metadata_bytes) = load_targets(
             transport.as_ref(),
             &root,
             &snapshot,
@@ -414,6 +415,7 @@ impl Repository {
             metadata_base_url,
             targets_base_url,
             expiration_enforcement,
+            delegated_metadata_bytes,
         })
     }
 
@@ -1183,7 +1185,10 @@ async fn load_targets(
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
     update_start: &DateTime<Utc>,
-) -> Result<Signed<crate::schema::Targets>> {
+) -> Result<(
+    Signed<crate::schema::Targets>,
+    std::collections::HashMap<String, Vec<u8>>,
+)> {
     // 4. Download the top-level targets metadata file, up to either the number of bytes specified
     //    in the snapshot metadata file, or some Z number of bytes. The value for Z is set by the
     //    authors of the application using TUF. For example, Z may be tens of kilobytes. If
@@ -1278,6 +1283,8 @@ async fn load_targets(
 
     // 4.5. Perform a preorder depth-first search for metadata about the desired target, beginning
     //   with the top-level targets role.
+    let mut delegated_metadata_bytes: std::collections::HashMap<String, Vec<u8>> =
+        std::collections::HashMap::new();
     if let Some(delegations) = &mut targets.signed.delegations {
         let mut loaded_roles: BTreeSet<String> = BTreeSet::new();
         load_delegations(
@@ -1289,6 +1296,9 @@ async fn load_targets(
             delegations,
             datastore,
             &mut loaded_roles,
+            update_start,
+            expiration_enforcement,
+            &mut delegated_metadata_bytes,
         )
         .await?;
     }
@@ -1296,7 +1306,7 @@ async fn load_targets(
     // This validation can only be done from the top level targets.json role. This check verifies
     // that each target's delegate hierarchy is a match (i.e. it's delegate ownership is valid).
     targets.signed.validate().context(error::InvalidPathSnafu)?;
-    Ok(targets)
+    Ok((targets, delegated_metadata_bytes))
 }
 
 // Follow the paths of delegations starting with the top level targets.json delegation
@@ -1312,6 +1322,9 @@ async fn load_delegations(
     delegation: &mut Delegations,
     datastore: &Datastore,
     loaded_roles: &mut BTreeSet<String>,
+    update_start: &DateTime<Utc>,
+    expiration_enforcement: ExpirationEnforcement,
+    delegated_metadata_bytes: &mut std::collections::HashMap<String, Vec<u8>>,
 ) -> Result<()> {
     let mut delegated_roles: HashMap<String, Option<Signed<crate::schema::Targets>>> =
         HashMap::new();
@@ -1347,14 +1360,35 @@ async fn load_delegations(
                 path: path.clone(),
                 url: metadata_base_url.clone(),
             })?;
-        let specifier = "max_targets_size parameter";
-        // load the role json file
-        let stream =
-            fetch_max_size(transport, role_url.clone(), max_targets_size, specifier).await?;
+        // enforce snapshot-pinned length when available, mirroring top-level path
+        let (max_delegated_file_size, specifier) = match role_meta.length {
+            Some(length) => (length, "snapshot.json"),
+            None => (max_targets_size, "max_targets_size parameter"),
+        };
+        // load the role json file, enforcing snapshot hash when available
+        let stream = if let Some(hashes) = &role_meta.hashes {
+            fetch_sha256(
+                transport,
+                role_url.clone(),
+                max_delegated_file_size,
+                specifier,
+                &hashes.sha256,
+            )
+            .await?
+        } else {
+            fetch_max_size(
+                transport,
+                role_url.clone(),
+                max_delegated_file_size,
+                specifier,
+            )
+            .await?
+        };
         let data = stream
             .into_vec()
             .await
             .context(error::TransportSnafu { url: role_url })?;
+        delegated_metadata_bytes.insert(delegated_role.name.clone(), data.clone());
         // since each role is a targets, we load them as such
         let role: Signed<crate::schema::Targets> =
             serde_json::from_slice(&data).context(error::ParseMetadataSnafu {
@@ -1374,6 +1408,10 @@ async fn load_delegations(
                 expected: role_meta.version
             }
         );
+
+        if expiration_enforcement == ExpirationEnforcement::Safe {
+            check_expired(update_start, &role.signed)?;
+        }
 
         datastore.create(&path, &role).await?;
         delegated_roles.insert(delegated_role.name.clone(), Some(role));
@@ -1401,6 +1439,9 @@ async fn load_delegations(
                     delegations,
                     datastore,
                     loaded_roles,
+                    update_start,
+                    expiration_enforcement,
+                    delegated_metadata_bytes,
                 )
                 .await?;
             }
