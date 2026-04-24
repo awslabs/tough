@@ -711,4 +711,10 @@ pub enum Error {
 
     #[snafu(display("The targets editor was not cleared"))]
     TargetsEditorSome,
+
+    #[snafu(display("Failed to join spawn_blocking task: {source}"))]
+    JoinSpawnBlockingTask {
+        source: tokio::task::JoinError,
+        backtrace: Backtrace,
+    },
 }

@@ -98,18 +98,12 @@ pub(crate) fn max_size_adapter(
 
 /// Async analogue of `std::path::Path::is_file`
 pub async fn is_file(path: impl AsRef<Path>) -> bool {
-    fs::metadata(path)
-        .await
-        .map(|m| m.is_file())
-        .unwrap_or(false)
+    fs::metadata(path).await.is_ok_and(|m| m.is_file())
 }
 
 /// Async analogue of `std::path::Path::is_dir`
 pub async fn is_dir(path: impl AsRef<Path>) -> bool {
-    fs::metadata(path)
-        .await
-        .map(|m| m.is_dir())
-        .unwrap_or(false)
+    fs::metadata(path).await.is_ok_and(|m| m.is_dir())
 }
 
 #[cfg(test)]
