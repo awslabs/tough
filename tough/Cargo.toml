@@ -28,7 +28,7 @@ rustls = "0.23"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_plain = "1"
-snafu = { version = "0.8", features = ["futures"] }
+snafu = { version = "0.9", features = ["futures"] }
 tempfile = "3"
 tokio = { version = "1", default-features = false, features = ["io-util", "sync", "fs", "rt", "time"] }
 tokio-util = { version = "0.7", features = ["io"] }
