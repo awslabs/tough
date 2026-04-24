@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-04-24
+### Fixes
+- Update delegations code [#933]
+- Fix rust clippy [#932]
+- Update file writing [#932]
+- Re-export `TransportStream` type alias [#909]
+- Fix `max_targets_size` in `load_targets` [#884]
+
+### Changes
+- Require `TransportStream` is `Sync` (thanks @iliana) [#917]
+
+[#884]: https://github.com/awslabs/tough/pull/884
+[#909]: https://github.com/awslabs/tough/pull/909
+[#917]: https://github.com/awslabs/tough/pull/917
+[#932]: https://github.com/awslabs/tough/pull/932
+[#933]: https://github.com/awslabs/tough/pull/933
+
+
 ## [0.21.0] - 2025-04-22
 ### Fixes
 - Flush cache files after writing to ensure they are closed at `drop()` time [#874]

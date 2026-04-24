@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-04-24
+### Changes
+- Replace `openssl` shell-out in `gen-rsa-key` with `aws-lc-rs` (thanks @jeremydosborn!) [#923]
+- Dependency updates
+
+[#923]: https://github.com/awslabs/tough/pull/923
+
+
 ## [0.14.0] - 2025-04-22
 ### Changes
 - Update aws-sdk crates to use the new HTTPS stack with `hyper 1.x`, `rustls`, and `aws-lc` [#868]
