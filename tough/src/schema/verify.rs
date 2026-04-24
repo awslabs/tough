@@ -78,10 +78,24 @@ impl Delegations {
             .context(error::JsonSerializationSnafu {
                 what: format!("{name} role"),
             })?;
+        let mut valid_keyids = HashSet::new();
+        let mut contained_keyids = HashSet::new();
+
         for signature in &role.signatures {
+            ensure!(
+                !contained_keyids.contains(&signature.keyid),
+                error::DuplicateKeyIdSnafu {
+                    keyid: format!("{:?}", signature.keyid),
+                }
+            );
+            contained_keyids.insert(&signature.keyid);
             if role_keys.keyids.contains(&signature.keyid) {
                 if let Some(key) = self.keys.get(&signature.keyid) {
                     if key.verify(&data, &signature.sig) {
+                        // we have ensured that this keyid is not already
+                        // present in valid_keyids with the test on
+                        // contained_keyids.
+                        valid_keyids.insert(&signature.keyid);
                         valid += 1;
                     }
                 }

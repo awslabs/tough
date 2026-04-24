@@ -119,13 +119,12 @@ impl Repository {
 
         for name in self.targets.signed.role_names() {
             if let Some(filename) = self.delegated_filename(name) {
-                self.cache_file_from_transport(
-                    filename.as_str(),
-                    self.limits.max_targets_size,
-                    "max_targets_size argument",
-                    &metadata_outdir,
-                )
-                .await?;
+                if let Some(bytes) = self.delegated_metadata_bytes.get(name) {
+                    let outpath = metadata_outdir.as_ref().join(&filename);
+                    tokio::fs::write(&outpath, bytes)
+                        .await
+                        .context(error::CacheFileWriteSnafu { path: outpath })?;
+                }
             }
         }
 
