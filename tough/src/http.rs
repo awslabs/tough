@@ -14,7 +14,6 @@ use snafu::Snafu;
 use std::cmp::Ordering;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::OnceLock;
 use std::task::Poll;
 use std::time::Duration;
 use url::Url;
