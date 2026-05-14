@@ -217,7 +217,10 @@ impl Transport for FilesystemTransport {
 
 /// A Transport that provides support for both local files and, if the `http` feature is enabled,
 /// HTTP-transported files.
-#[derive(Debug, Clone, Copy)]
+// `Copy` cannot be implemented when the `http` feature is enabled because `HttpTransport`
+// contains an `Arc<CryptoProvider>` which is not `Copy`.
+#[derive(Debug, Clone)]
+#[allow(missing_copy_implementations)]
 pub struct DefaultTransport {
     file: FilesystemTransport,
     #[cfg(feature = "http")]
