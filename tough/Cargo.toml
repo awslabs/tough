@@ -24,7 +24,6 @@ olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
 reqwest = { version = "0.13", optional = true, default-features = false, features = ["stream"] }
-rustls = "0.23"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_plain = "1"
@@ -48,8 +47,19 @@ tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-test = "0.4"
 
 [features]
-fips = ["aws-lc-rs/fips", "rustls/fips"]
-http = ["reqwest"]
+fips = ["aws-lc-rs/fips"]
+# Enables `HttpTransport` (and pulls in `reqwest`). Does NOT pick a TLS
+# backend on its own — enable `http-rustls-tls` or `http-native-tls` to
+# get TLS, or let another crate in the dep graph configure `reqwest`.
+http = ["dep:reqwest"]
+# Use `rustls` (with `aws-lc-rs` as the crypto provider) for HTTPS via
+# `reqwest`. Note: in reqwest 0.13 the feature was renamed from
+# `rustls-tls` to `rustls`; reqwest installs the `aws-lc-rs` provider
+# on its own when this feature is enabled.
+http-rustls-tls = ["http", "reqwest/rustls"]
+# Use the platform's native TLS stack (OpenSSL / Secure Transport /
+# SChannel) for HTTPS via `reqwest`. Avoids pulling in `rustls`.
+http-native-tls = ["http", "reqwest/native-tls"]
 
 # The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.
 integ = []
