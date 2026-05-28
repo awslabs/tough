@@ -32,7 +32,7 @@ use url::Url;
 ///
 /// See [`HttpTransport`] for proxy support and other behavior details.
 ///
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct HttpTransportBuilder {
     timeout: Duration,
     connect_timeout: Duration,
@@ -40,6 +40,7 @@ pub struct HttpTransportBuilder {
     initial_backoff: Duration,
     max_backoff: Duration,
     backoff_factor: f32,
+    client: Option<Client>,
 }
 
 impl Default for HttpTransportBuilder {
@@ -60,6 +61,7 @@ impl Default for HttpTransportBuilder {
             initial_backoff: std::time::Duration::from_millis(100),
             max_backoff: std::time::Duration::from_secs(1),
             backoff_factor: 1.5,
+            client: None,
         }
     }
 }
@@ -111,6 +113,13 @@ impl HttpTransportBuilder {
     #[must_use]
     pub fn backoff_factor(mut self, value: f32) -> Self {
         self.backoff_factor = value;
+        self
+    }
+
+    /// Set the reqwest client used for http requests
+    #[must_use]
+    pub fn client(mut self, client: Client) -> Self {
+        self.client = Some(client);
         self
     }
 
@@ -329,11 +338,15 @@ impl RetryStream {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> Result<Poll<Option<Result<bytes::Bytes, TransportError>>>, HttpError> {
-        let client = ClientBuilder::new()
-            .timeout(self.settings.timeout)
-            .connect_timeout(self.settings.connect_timeout)
-            .build()
-            .context(HttpClientSnafu)?;
+        let client = if let Some(client) = self.settings.client.clone() {
+            client      
+        } else {
+            ClientBuilder::new()
+                .timeout(self.settings.timeout)
+                .connect_timeout(self.settings.connect_timeout)
+                .build()
+                .context(HttpClientSnafu)?
+        };
 
         // build the request
         let request = build_request(&client, self.retry_state.next_byte, &self.url)?;
@@ -399,7 +412,7 @@ fn fetch_with_retries(r: RetryState, cs: &HttpTransportBuilder, url: &Url) -> Re
 
     RetryStream {
         retry_state: r,
-        settings: *cs,
+        settings: cs.clone(),
         url: url.clone(),
         request: RequestState::None,
         done: false,
