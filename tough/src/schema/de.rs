@@ -22,15 +22,18 @@ where
         key: Key,
         map: &mut HashMap<Decoded<Hex>, Key>,
     ) -> Result<(), error::Error> {
-        let calculated = key.key_id()?;
         let keyid_hex = hex::encode(&keyid);
-        ensure!(
-            keyid == calculated,
-            error::InvalidKeyIdSnafu {
-                keyid: &keyid_hex,
-                calculated: hex::encode(&calculated),
-            }
-        );
+        #[cfg(not(feature = "tap-12"))]
+        {
+            let calculated = key.key_id()?;
+            ensure!(
+                keyid == calculated,
+                error::InvalidKeyIdSnafu {
+                    keyid: &keyid_hex,
+                    calculated: hex::encode(&calculated),
+                }
+            );
+        }
         ensure!(
             map.insert(keyid, key).is_none(),
             error::DuplicateKeyIdSnafu { keyid: keyid_hex }
