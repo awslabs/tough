@@ -122,11 +122,18 @@ mod tests {
     /// `{keytype, scheme, keyval}`, excluding those fields. tough previously recomputed the
     /// key ID over the whole key and rejected the root with "Invalid key ID". This is
     /// GitHub's public TUF root (`https://tuf-repo.github.com`).
+    ///
+    /// We not only deserialize the root but verify its self-signatures against the
+    /// producer-declared key IDs (exactly what `RepositoryLoader` does on bootstrap), to
+    /// confirm that accepting declared key IDs does not weaken signature verification.
     #[test]
     fn tuf_on_ci_extra_key_fields() {
-        assert!(serde_json::from_str::<Signed<Root>>(include_str!(
+        let root: Signed<Root> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-on-ci-extra-fields/root.json"
         ))
-        .is_ok());
+        .expect("tuf-on-ci root with custom key fields must deserialize");
+        root.signed
+            .verify_role(&root)
+            .expect("root self-signatures must verify against declared key IDs");
     }
 }
