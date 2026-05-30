@@ -6,31 +6,29 @@ use snafu::ensure;
 use std::collections::HashMap;
 use std::fmt;
 
-/// Validates the key ID for each key during deserialization and fails if any don't match.
+/// Deserializes the keys map, rejecting duplicate key IDs.
 pub(super) fn deserialize_keys<'de, D>(
     deserializer: D,
 ) -> Result<HashMap<Decoded<Hex>, Key>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    // An inner function that does actual key ID validation:
-    // * fails if a key ID doesn't match its contents
-    // * fails if there is a duplicate key ID
-    // If this passes we insert the entry.
+    // An inner function that inserts each entry, failing if there is a duplicate key ID.
+    //
+    // Note: we intentionally do NOT recompute each key ID and reject mismatches. In modern
+    // TUF a key ID is an opaque identifier chosen by the metadata producer; the spec does
+    // not require `keyid == hash(key)`. Recomputing is also not interoperable in practice:
+    // securesystemslib (tuf-on-ci) hashes only the canonical `{keytype, scheme, keyval}` and
+    // excludes custom fields such as `x-tuf-on-ci-keyowner`, while older roots included them,
+    // so no single canonicalization matches every real-world root. python-tuf and go-tuf both
+    // treat the declared key ID as authoritative; tough now does the same. Signatures are still
+    // fully verified against the key the producer associated with each ID.
     fn validate_and_insert_entry(
         keyid: Decoded<Hex>,
         key: Key,
         map: &mut HashMap<Decoded<Hex>, Key>,
     ) -> Result<(), error::Error> {
-        let calculated = key.key_id()?;
         let keyid_hex = hex::encode(&keyid);
-        ensure!(
-            keyid == calculated,
-            error::InvalidKeyIdSnafu {
-                keyid: &keyid_hex,
-                calculated: hex::encode(&calculated),
-            }
-        );
         ensure!(
             map.insert(keyid, key).is_none(),
             error::DuplicateKeyIdSnafu { keyid: keyid_hex }
@@ -115,6 +113,19 @@ mod tests {
     fn ecdsa_new_type_keys() {
         assert!(serde_json::from_str::<Signed<Root>>(include_str!(
             "../../tests/data/ecdsa-new-type-sig-keys/root.json"
+        ))
+        .is_ok());
+    }
+
+    /// Regression: roots produced by tuf-on-ci / modern securesystemslib carry custom key
+    /// fields (e.g. `x-tuf-on-ci-keyowner`) and compute the declared key ID over only
+    /// `{keytype, scheme, keyval}`, excluding those fields. tough previously recomputed the
+    /// key ID over the whole key and rejected the root with "Invalid key ID". This is
+    /// GitHub's public TUF root (`https://tuf-repo.github.com`).
+    #[test]
+    fn tuf_on_ci_extra_key_fields() {
+        assert!(serde_json::from_str::<Signed<Root>>(include_str!(
+            "../../tests/data/tuf-on-ci-extra-fields/root.json"
         ))
         .is_ok());
     }
