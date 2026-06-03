@@ -25,7 +25,7 @@ use crate::{encode_filename, Limits};
 use crate::{Repository, TargetName};
 use aws_lc_rs::digest::{SHA256, SHA256_OUTPUT_LEN};
 use aws_lc_rs::rand::SystemRandom;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp as JiffTimestamp;
 use serde_json::Value;
 use snafu::{ensure, OptionExt, ResultExt};
 use std::borrow::Cow;
@@ -69,11 +69,11 @@ pub struct RepositoryEditor {
     signed_root: SignedRole<Root>,
 
     snapshot_version: Option<NonZeroU64>,
-    snapshot_expires: Option<DateTime<Utc>>,
+    snapshot_expires: Option<JiffTimestamp>,
     snapshot_extra: Option<HashMap<String, Value>>,
 
     timestamp_version: Option<NonZeroU64>,
-    timestamp_expires: Option<DateTime<Utc>>,
+    timestamp_expires: Option<JiffTimestamp>,
     timestamp_extra: Option<HashMap<String, Value>>,
 
     targets_editor: Option<TargetsEditor>,
@@ -354,7 +354,7 @@ impl RepositoryEditor {
         paths: PathSet,
         terminating: bool,
         threshold: NonZeroU64,
-        expiration: DateTime<Utc>,
+        expiration: JiffTimestamp,
         version: NonZeroU64,
     ) -> Result<&mut Self> {
         // Create the new targets using targets editor
@@ -404,7 +404,7 @@ impl RepositoryEditor {
     }
 
     /// Set the `Snapshot` expiration
-    pub fn snapshot_expires(&mut self, snapshot_expires: DateTime<Utc>) -> &mut Self {
+    pub fn snapshot_expires(&mut self, snapshot_expires: JiffTimestamp) -> &mut Self {
         self.snapshot_expires = Some(snapshot_expires);
         self
     }
@@ -416,7 +416,7 @@ impl RepositoryEditor {
     }
 
     /// Set the `Targets` expiration
-    pub fn targets_expires(&mut self, targets_expires: DateTime<Utc>) -> Result<&mut Self> {
+    pub fn targets_expires(&mut self, targets_expires: JiffTimestamp) -> Result<&mut Self> {
         self.targets_editor_mut()?.expires(targets_expires);
         Ok(self)
     }
@@ -428,7 +428,7 @@ impl RepositoryEditor {
     }
 
     /// Set the `Timestamp` expiration
-    pub fn timestamp_expires(&mut self, timestamp_expires: DateTime<Utc>) -> &mut Self {
+    pub fn timestamp_expires(&mut self, timestamp_expires: JiffTimestamp) -> &mut Self {
         self.timestamp_expires = Some(timestamp_expires);
         self
     }

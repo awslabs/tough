@@ -65,10 +65,10 @@ pub use crate::urlpath::SafeUrlPath;
 use async_recursion::async_recursion;
 pub use async_trait::async_trait;
 pub use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use error::SnapshotTargetsMetaMissingSnafu;
 use futures::StreamExt;
 use futures_core::Stream;
+use jiff::Timestamp as JiffTimestamp;
 use log::warn;
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use snafu::{ensure, OptionExt, ResultExt};
@@ -315,7 +315,7 @@ pub struct Repository {
     transport: Box<dyn Transport + Send + Sync>,
     consistent_snapshot: bool,
     datastore: Datastore,
-    earliest_expiration: DateTime<Utc>,
+    earliest_expiration: JiffTimestamp,
     earliest_expiration_role: RoleType,
     root: Signed<Root>,
     snapshot: Signed<Snapshot>,
@@ -661,7 +661,7 @@ pub(crate) fn encode_filename<S: AsRef<str>>(name: S) -> String {
 
 /// TUF v1.0.16, 5.2.9, 5.3.3, 5.4.5, 5.5.4, The expiration timestamp in the `[metadata]` file MUST
 /// be higher than the fixed update start time.
-fn check_expired<T: Role>(update_start: &DateTime<Utc>, role: &T) -> Result<()> {
+fn check_expired<T: Role>(update_start: &JiffTimestamp, role: &T) -> Result<()> {
     ensure!(
         *update_start <= role.expires(),
         error::ExpiredMetadataSnafu { role: T::TYPE }
@@ -694,7 +694,7 @@ async fn load_root<R: AsRef<[u8]>>(
     max_root_updates: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-    update_start: &DateTime<Utc>,
+    update_start: &JiffTimestamp,
 ) -> Result<Signed<Root>> {
     // 5.2. Load the trusted root metadata file. We assume that a good, trusted copy of this file was
     //    shipped with the package manager or software updater using an out-of-band process. Note
@@ -866,7 +866,7 @@ async fn load_timestamp(
     max_timestamp_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-    update_start: &DateTime<Utc>,
+    update_start: &JiffTimestamp,
 ) -> Result<Signed<Timestamp>> {
     // 2. Download the timestamp metadata file, up to Y number of bytes (because the size is
     //    unknown.) The value for Y is set by the authors of the application using TUF. For
@@ -990,7 +990,7 @@ async fn load_snapshot(
     datastore: &Datastore,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-    update_start: &DateTime<Utc>,
+    update_start: &JiffTimestamp,
 ) -> Result<Signed<Snapshot>> {
     // 3. Download snapshot metadata file, up to the number of bytes specified in the timestamp
     //    metadata file. If consistent snapshots are not used (see Section 7), then the filename
@@ -1184,7 +1184,7 @@ async fn load_targets(
     max_targets_size: u64,
     metadata_base_url: &Url,
     expiration_enforcement: ExpirationEnforcement,
-    update_start: &DateTime<Utc>,
+    update_start: &JiffTimestamp,
 ) -> Result<(
     Signed<crate::schema::Targets>,
     std::collections::HashMap<String, Vec<u8>>,
@@ -1322,7 +1322,7 @@ async fn load_delegations(
     delegation: &mut Delegations,
     datastore: &Datastore,
     loaded_roles: &mut BTreeSet<String>,
-    update_start: &DateTime<Utc>,
+    update_start: &JiffTimestamp,
     expiration_enforcement: ExpirationEnforcement,
     delegated_metadata_bytes: &mut std::collections::HashMap<String, Vec<u8>>,
 ) -> Result<()> {
