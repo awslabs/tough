@@ -81,7 +81,7 @@ pub enum Key {
 }
 
 /// Used to identify the RSA signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum RsaScheme {
     /// `rsassa-pss-sha256`: RSA Probabilistic signature scheme with appendix.
@@ -100,7 +100,7 @@ pub struct RsaKey {
 }
 
 /// Used to identify the `EdDSA` signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum Ed25519Scheme {
     /// 'ed25519': Elliptic curve digital signature algorithm based on Twisted Edwards curves.
@@ -119,7 +119,7 @@ pub struct Ed25519Key {
 }
 
 /// Used to identify the ECDSA signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum EcdsaScheme {
     /// `ecdsa-sha2-nistp256`: Elliptic Curve Digital Signature Algorithm with NIST P-256 curve
@@ -187,6 +187,39 @@ impl Key {
         alg.verify_sig(public_key.as_slice_less_safe(), msg, signature)
             .is_ok()
     }
+
+    /// Return the underlying key material, without any attached metadata. This is meant to be used
+    /// to check whether two keys point to the same underlying key material: it doesn't contain any
+    /// arbitrary metadata.
+    pub(super) fn material(&self) -> KeyMaterial {
+        // It's intentional that we explicitly match over every field of the struct (and nested
+        // structs too). Whenever a new field is added we want a compiler error to be triggered
+        // here, to evaluate whether the new field needs to be added to the key material.
+        match self.clone() {
+            Key::Rsa {
+                keyval: RsaKey { public, _extra: _ },
+                scheme,
+                _extra: _,
+            } => KeyMaterial::Rsa { scheme, public },
+
+            Key::Ed25519 {
+                keyval: Ed25519Key { public, _extra: _ },
+                scheme,
+                _extra: _,
+            } => KeyMaterial::Ed25519 { scheme, public },
+
+            Key::Ecdsa {
+                keyval: EcdsaKey { public, _extra: _ },
+                scheme,
+                _extra: _,
+            }
+            | Key::EcdsaOld {
+                keyval: EcdsaKey { public, _extra: _ },
+                scheme,
+                _extra: _,
+            } => KeyMaterial::Ecdsa { scheme, public },
+        }
+    }
 }
 
 impl FromStr for Key {
@@ -228,6 +261,22 @@ impl FromStr for Key {
             Err(KeyParseError(()))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(super) enum KeyMaterial {
+    Rsa {
+        scheme: RsaScheme,
+        public: Decoded<RsaPem>,
+    },
+    Ed25519 {
+        scheme: Ed25519Scheme,
+        public: Decoded<Hex>,
+    },
+    Ecdsa {
+        scheme: EcdsaScheme,
+        public: Decoded<EcdsaFlex>,
+    },
 }
 
 /// Unique identifier representing a key.

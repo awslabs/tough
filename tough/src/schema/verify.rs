@@ -78,7 +78,7 @@ fn verify_common<T: Role + Serialize>(
 
     let mut valid_keyids = HashSet::new();
     let mut contained_keyids = HashSet::new();
-    let mut contained_canonical_keyids = HashMap::new();
+    let mut contained_materials = HashMap::new();
 
     for signature in &role.signatures {
         let keyid = &signature.keyid;
@@ -93,32 +93,33 @@ fn verify_common<T: Role + Serialize>(
 
         if role_keys.contains(keyid) {
             if let Some(key) = keys.get(keyid) {
-                let canonical_key_id = key.key_id()?;
+                // TAP 12 proposes the wording "Clients MUST use each key only once during a
+                // given signature verification". We thus check whether the underlying key material
+                // was already used to verify a signature.
+                //
+                // Note that we cannot use the canonical key ID for this, as it contains arbitrary
+                // user-defined fields. That'd allow a malformed root manifest to define multiple
+                // keys (with unique canonical key IDs) pointing to the same key material.
+                if let Some(rhs) = contained_materials.insert(key.material(), keyid.clone()) {
+                    return error::MultipleKeyIdsForOneKeySnafu {
+                        lhs: keyid.clone(),
+                        rhs,
+                    }
+                    .fail();
+                }
+
                 match key_id_format {
                     KeyIdFormat::HashedKey => {
+                        let canonical_keyid = key.key_id()?;
                         ensure!(
-                            *keyid == canonical_key_id,
+                            *keyid == canonical_keyid,
                             error::InvalidKeyIdSnafu {
                                 keyid: keyid.clone(),
-                                calculated: canonical_key_id,
+                                calculated: canonical_keyid,
                             }
                         );
                     }
-                    KeyIdFormat::Any => {
-                        // TAP 12 proposes the wording "Clients MUST use each key only once during a
-                        // given signature verification". As the canonical key ID returned by the
-                        // key_id() method is a hash of the underlying key, we can check that no
-                        // other role has the same canonical key ID.
-                        if let Some(rhs) = contained_canonical_keyids
-                            .insert(canonical_key_id.clone(), keyid.clone())
-                        {
-                            return error::MultipleKeyIdsForOneKeySnafu {
-                                lhs: keyid.clone(),
-                                rhs,
-                            }
-                            .fail();
-                        }
-                    }
+                    KeyIdFormat::Any => {}
                 }
 
                 if key.verify(&data, &signature.sig) {
