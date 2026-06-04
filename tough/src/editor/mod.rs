@@ -82,6 +82,8 @@ pub struct RepositoryEditor {
 
     transport: Option<Box<dyn Transport>>,
     limits: Option<Limits>,
+
+    key_id_format: KeyIdFormat,
 }
 
 impl RepositoryEditor {
@@ -136,6 +138,7 @@ impl RepositoryEditor {
             signed_targets: None,
             transport: None,
             limits: None,
+            key_id_format: KeyIdFormat::HashedKey,
         })
     }
 
@@ -153,6 +156,7 @@ impl RepositoryEditor {
         editor.timestamp(repo.timestamp.signed)?;
         editor.transport = Some(repo.transport.clone());
         editor.limits = Some(repo.limits);
+        editor.key_id_format = repo.key_id_format;
         Ok(editor)
     }
 
@@ -561,7 +565,7 @@ impl RepositoryEditor {
                     })?;
             (KeyHolder::Delegations(parent), &mut targets.signed)
         };
-        parent.verify_role(&role, name, KeyIdFormat::Any)?;
+        parent.verify_role(&role, name, self.key_id_format)?;
         // Make sure the version isn't downgraded
         ensure!(
             role.signed.version >= current_targets.version,

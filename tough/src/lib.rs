@@ -350,6 +350,7 @@ pub struct Repository {
     metadata_base_url: Url,
     targets_base_url: Url,
     expiration_enforcement: ExpirationEnforcement,
+    key_id_format: KeyIdFormat,
     delegated_metadata_bytes: std::collections::HashMap<String, Vec<u8>>,
 }
 
@@ -445,6 +446,7 @@ impl Repository {
             metadata_base_url,
             targets_base_url,
             expiration_enforcement,
+            key_id_format,
             delegated_metadata_bytes,
         })
     }
