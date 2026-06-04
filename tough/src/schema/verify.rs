@@ -112,7 +112,9 @@ fn verify_common<T: Role + Serialize>(
                     KeyIdFormat::HashedKey => {
                         let canonical_keyid = key.key_id()?;
                         ensure!(
-                            *keyid == canonical_keyid,
+                            // Canonical key IDs are hex-encoded, so it's valid for them to be
+                            // represented using both upper and lower case letters.
+                            keyid.lowercase() == canonical_keyid.lowercase(),
                             error::InvalidKeyIdSnafu {
                                 keyid: keyid.clone(),
                                 calculated: canonical_keyid,

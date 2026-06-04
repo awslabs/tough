@@ -288,6 +288,12 @@ pub(super) enum KeyMaterial {
 #[serde(transparent)]
 pub struct KeyId(String);
 
+impl KeyId {
+    pub(super) fn lowercase(&self) -> KeyId {
+        KeyId(self.0.to_lowercase())
+    }
+}
+
 impl std::fmt::Display for KeyId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <String as std::fmt::Display>::fmt(&self.0, f)
