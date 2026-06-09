@@ -18,7 +18,8 @@
 //! To run all tests, including integration tests: `cargo test --all-features` or
 //! `cargo test --features 'http,integ'`.
 
-#![forbid(missing_debug_implementations, missing_copy_implementations)]
+#![forbid(missing_debug_implementations)]
+#![deny(missing_copy_implementations)]
 #![deny(rust_2018_idioms)]
 // missing_docs is on its own line to make it easy to comment out when making changes.
 #![deny(missing_docs)]

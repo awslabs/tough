@@ -9,15 +9,16 @@ use reqwest::header::{self, HeaderValue, ACCEPT_RANGES};
 use reqwest::{Client, ClientBuilder, Request, Response};
 use reqwest::{Error, Method};
 use rustls::crypto::{aws_lc_rs, CryptoProvider};
+use rustls_platform_verifier::BuilderVerifierExt;
 use snafu::ResultExt;
 use snafu::Snafu;
 use std::cmp::Ordering;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 use url::Url;
-
 /// A builder for [`HttpTransport`] which allows settings customization.
 ///
 /// # Example
@@ -32,7 +33,7 @@ use url::Url;
 ///
 /// See [`HttpTransport`] for proxy support and other behavior details.
 ///
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct HttpTransportBuilder {
     timeout: Duration,
     connect_timeout: Duration,
@@ -40,6 +41,9 @@ pub struct HttpTransportBuilder {
     initial_backoff: Duration,
     max_backoff: Duration,
     backoff_factor: f32,
+    crypto_provider: Option<Arc<CryptoProvider>>,
+    tls_config: Option<rustls::ClientConfig>,
+    tls_error: Option<String>,
 }
 
 impl Default for HttpTransportBuilder {
@@ -60,6 +64,9 @@ impl Default for HttpTransportBuilder {
             initial_backoff: std::time::Duration::from_millis(100),
             max_backoff: std::time::Duration::from_secs(1),
             backoff_factor: 1.5,
+            crypto_provider: None,
+            tls_config: None,
+            tls_error: None,
         }
     }
 }
@@ -114,8 +121,41 @@ impl HttpTransportBuilder {
         self
     }
 
+    /// Set a custom [`CryptoProvider`] for TLS connections.
+    ///
+    /// If not set, the globally installed provider (or the default aws-lc-rs provider) will be
+    /// used.
+    #[must_use]
+    pub fn crypto_provider(mut self, provider: CryptoProvider) -> Self {
+        self.crypto_provider = Some(Arc::new(provider));
+        self
+    }
+
     /// Construct an [`HttpTransport`] transport from this builder's settings.
-    pub fn build(self) -> HttpTransport {
+    pub fn build(mut self) -> HttpTransport {
+        // Pre-build the TLS config if a custom CryptoProvider was supplied.
+        // This avoids re-loading native certs on every request/retry.
+        if let Some(ref provider) = self.crypto_provider {
+            match rustls::ClientConfig::builder_with_provider(provider.clone())
+                .with_safe_default_protocol_versions()
+                .and_then(BuilderVerifierExt::with_platform_verifier)
+            {
+                Ok(config) => {
+                    let mut tls_config = config.with_no_client_auth();
+                    tls_config.alpn_protocols = if cfg!(feature = "http2") {
+                        vec![b"h2".to_vec(), b"http/1.1".to_vec()]
+                    } else {
+                        vec![b"http/1.1".to_vec()]
+                    };
+                    self.tls_config = Some(tls_config);
+                }
+                Err(e) => {
+                    self.tls_error = Some(format!(
+                        "TLS configuration is invalid for the given CryptoProvider: {e}"
+                    ));
+                }
+            }
+        }
         HttpTransport { settings: self }
     }
 }
@@ -133,7 +173,7 @@ impl HttpTransportBuilder {
 /// To use the `HttpTransport` with a proxy, specify the `HTTPS_PROXY` environment variable.
 /// The transport will also respect the `NO_PROXY` environment variable.
 ///
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct HttpTransport {
     settings: HttpTransportBuilder,
 }
@@ -329,11 +369,23 @@ impl RetryStream {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> Result<Poll<Option<Result<bytes::Bytes, TransportError>>>, HttpError> {
-        let client = ClientBuilder::new()
+        let mut client_builder = ClientBuilder::new()
             .timeout(self.settings.timeout)
-            .connect_timeout(self.settings.connect_timeout)
-            .build()
-            .context(HttpClientSnafu)?;
+            .connect_timeout(self.settings.connect_timeout);
+
+        // Surface any TLS configuration error that occurred during build().
+        if let Some(ref err) = self.settings.tls_error {
+            return Err(HttpError::TlsBuildError {
+                message: err.clone(),
+            });
+        }
+
+        // Use the pre-built TLS config if available (custom CryptoProvider path).
+        if let Some(ref tls_config) = self.settings.tls_config {
+            client_builder = client_builder.use_preconfigured_tls(tls_config.clone());
+        }
+
+        let client = client_builder.build().context(HttpClientSnafu)?;
 
         // build the request
         let request = build_request(&client, self.retry_state.next_byte, &self.url)?;
@@ -399,7 +451,7 @@ fn fetch_with_retries(r: RetryState, cs: &HttpTransportBuilder, url: &Url) -> Re
 
     RetryStream {
         retry_state: r,
-        settings: *cs,
+        settings: cs.clone(),
         url: url.clone(),
         request: RequestState::None,
         done: false,
@@ -541,6 +593,9 @@ pub enum HttpError {
 
     #[snafu(display("Unable to create HTTP request: {}", source))]
     RequestBuild { source: reqwest::Error },
+
+    #[snafu(display("TLS build error: {}", message))]
+    TlsBuildError { message: String },
 }
 
 /// Convert a URL `Url` and an `HttpError` into a `TransportError`
@@ -552,5 +607,26 @@ impl From<(Url, HttpError)> for TransportError {
             }
             _ => TransportError::new_with_cause(TransportErrorKind::Other, url, e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustls::crypto::aws_lc_rs;
+
+    #[test]
+    fn builder_accepts_custom_provider() {
+        let provider = aws_lc_rs::default_provider();
+        let transport = HttpTransportBuilder::new()
+            .crypto_provider(provider)
+            .build();
+        assert!(transport.settings.crypto_provider.is_some());
+    }
+
+    #[test]
+    fn default_builder_has_no_custom_provider() {
+        let transport = HttpTransportBuilder::new().build();
+        assert!(transport.settings.crypto_provider.is_none());
     }
 }

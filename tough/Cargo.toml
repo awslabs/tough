@@ -23,8 +23,10 @@ log = "0.4"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
-reqwest = { version = "0.13", optional = true, default-features = false, features = ["stream"] }
+reqwest = { version = "0.13", optional = true, default-features = false, features = ["stream", "rustls-no-provider"] }
 rustls = "0.23"
+rustls-native-certs = { version = "0.8", optional = true }
+rustls-platform-verifier = { version = "0.7", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_plain = "1"
@@ -49,7 +51,8 @@ tokio-test = "0.4"
 
 [features]
 fips = ["aws-lc-rs/fips", "rustls/fips"]
-http = ["reqwest"]
+http = ["reqwest", "rustls-platform-verifier"]
+http2 = ["http", "reqwest/http2"]
 
 # The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.
 integ = []
