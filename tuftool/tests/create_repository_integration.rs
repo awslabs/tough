@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use assert_cmd::cargo_bin_cmd;
-use chrono::Utc;
+use jiff::Timestamp;
 use std::env;
 use tempfile::TempDir;
 use test_utils::{days, dir_url};
@@ -118,11 +118,11 @@ async fn create_repository(root_key: &str, auto_generate: bool) {
     add_key_all_role(root_key, root_json.to_str().unwrap());
     sign_root_json(root_key, root_json.to_str().unwrap());
     // Use root.json file to generate metadata using create command.
-    let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
+    let timestamp_expiration = Timestamp::now() + days(3);
     let timestamp_version: u64 = 1234;
-    let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
+    let snapshot_expiration = Timestamp::now() + days(21);
     let snapshot_version: u64 = 5432;
-    let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
+    let targets_expiration = Timestamp::now() + days(13);
     let targets_version: u64 = 789;
     let targets_input_dir = test_utils::test_data()
         .join("tuf-reference-impl")
@@ -141,15 +141,15 @@ async fn create_repository(root_key: &str, auto_generate: bool) {
             "--root",
             root_json.to_str().unwrap(),
             "--targets-expires",
-            targets_expiration.to_rfc3339().as_str(),
+            targets_expiration.to_string().as_str(),
             "--targets-version",
             format!("{}", targets_version).as_str(),
             "--snapshot-expires",
-            snapshot_expiration.to_rfc3339().as_str(),
+            snapshot_expiration.to_string().as_str(),
             "--snapshot-version",
             format!("{}", snapshot_version).as_str(),
             "--timestamp-expires",
-            timestamp_expiration.to_rfc3339().as_str(),
+            timestamp_expiration.to_string().as_str(),
             "--timestamp-version",
             format!("{}", timestamp_version).as_str(),
         ])

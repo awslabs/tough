@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changes
+- Migrated from `chrono` to `jiff`. CLI behavior unchanged; `--expires` continues to accept RFC 3339 and `in N hours/days/weeks`. [#948]
+
+[#948]: https://github.com/awslabs/tough/pull/948
+
 ## [0.15.0] - 2026-04-24
 ### Changes
 - Replace `openssl` shell-out in `gen-rsa-key` with `aws-lc-rs` (thanks @jeremydosborn!) [#923]

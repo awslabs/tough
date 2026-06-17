@@ -22,10 +22,10 @@ aws-lc-rs = "1"
 aws-sdk-kms = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
 aws-sdk-ssm = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
 base64 = "0.22"
-chrono = { version = "0.4", default-features = false, features = ["alloc", "std", "clock"] }
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
 hex = "0.4"
+jiff = { version = "0.2", features = ["serde"] }
 log = "0.4"
 maplit = "1"
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }

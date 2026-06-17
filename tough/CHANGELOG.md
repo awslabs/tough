@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Breaking Changes
+- Migrated from `chrono` to `jiff`. Public API: `DateTime<Utc>` types replaced with `jiff::Timestamp` on `Role::expires`, `Root`/`Snapshot`/`Targets`/`Timestamp` `expires` fields, `RepositoryEditor::*_expires` setters, and the `SystemTimeSteppedBackward` error variant. Wire format unchanged (RFC 3339, `Z` suffix). [#948]
+
+[#948]: https://github.com/awslabs/tough/pull/948
+
 ## [0.22.0] - 2026-04-24
 ### Fixes
 - Update delegations code [#933]
