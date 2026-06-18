@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-06-18
+### Changes
+- Update `tough` to 0.23.0
+- Dependency updates
+
+
 ## [0.17.0] - 2026-04-24
 ### Changes
 - Update `tough` to 0.22.0
@@ -182,7 +188,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-ssm-v0.16.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-ssm-v0.18.0...develop
+[0.18.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.17.0...tough-ssm-v0.18.0
+[0.17.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.16.0...tough-ssm-v0.17.0
 [0.16.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.15.0...tough-ssm-v0.16.0
 [0.15.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.14.0...tough-ssm-v0.15.0
 [0.14.0]: https://github.com/awslabs/tough/compare/tough-ssm-v0.13.0...tough-ssm-v0.14.0

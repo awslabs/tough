@@ -97,7 +97,7 @@ impl ToxicTcpProxy {
 
         // Configure toxics
         let client = Client::new(&self.api_listen.to_string());
-        let proxy = Retry::spawn(retry_strategy(), || async {
+        let proxy = Retry::start(retry_strategy(), || async {
             client.proxy(&self.name).await.context(format!(
                 "Failed to find our configured proxy '{}'",
                 self.name
@@ -105,7 +105,7 @@ impl ToxicTcpProxy {
         })
         .await?;
         for toxic in &self.toxics {
-            Retry::spawn(retry_strategy(), || async {
+            Retry::start(retry_strategy(), || async {
                 proxy.add_toxic(toxic).await.context(format!(
                     "Failed to apply toxic {:?} to proxy '{}'",
                     toxic, self.name
