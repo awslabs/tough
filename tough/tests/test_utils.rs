@@ -5,9 +5,9 @@
 // cause compiler warnings for unused code, so we suppress them.
 #![allow(unused)]
 
+use chrono::TimeDelta;
 use futures::TryStreamExt;
 use futures_core::Stream;
-use jiff::SignedDuration;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use tough::IntoVec;
@@ -39,6 +39,6 @@ where
     stream.into_vec().await.unwrap()
 }
 
-pub fn days(value: i64) -> SignedDuration {
-    SignedDuration::from_hours(value * 24)
+pub fn days(value: i64) -> TimeDelta {
+    TimeDelta::try_days(value).unwrap()
 }

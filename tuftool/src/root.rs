@@ -9,8 +9,8 @@ use aws_lc_rs::encoding::{AsDer, Pkcs8V1Der};
 use aws_lc_rs::rand::SystemRandom;
 use aws_lc_rs::rsa::{KeySize, PrivateDecryptingKey};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use chrono::{DateTime, Timelike, Utc};
 use clap::Parser;
-use jiff::Timestamp;
 use log::warn;
 use maplit::hashmap;
 use snafu::{ensure, OptionExt, ResultExt};
@@ -50,7 +50,7 @@ pub(crate) enum Command {
         /// Expiration of root; can be in full RFC 3339 format, or something like 'in
         /// 7 days'
         #[arg(value_parser = parse_datetime)]
-        time: Timestamp,
+        time: DateTime<Utc>,
     },
     /// Generate a new RSA key pair, saving it to a file, and add it to a role
     GenRsaKey {
@@ -186,7 +186,7 @@ impl Command {
                     spec_version: crate::SPEC_VERSION.to_owned(),
                     consistent_snapshot: true,
                     version: NonZeroU64::new(init_version).unwrap(),
-                    expires: round_time(Timestamp::now()),
+                    expires: round_time(Utc::now()),
                     keys: HashMap::new(),
                     roles: hashmap! {
                         RoleType::Root => role_keys!(),
@@ -216,7 +216,7 @@ impl Command {
         write_file(path, root).await
     }
 
-    async fn expire(path: &Path, time: &Timestamp) -> Result<()> {
+    async fn expire(path: &Path, time: &DateTime<Utc>) -> Result<()> {
         let mut root: Signed<Root> = load_file(path).await?;
         root.signed.expires = round_time(*time);
         clear_sigs(&mut root);
@@ -429,9 +429,9 @@ impl Command {
     }
 }
 
-fn round_time(time: Timestamp) -> Timestamp {
-    // Truncate sub-second precision; jiff guarantees `from_second(as_second())` round-trips.
-    Timestamp::from_second(time.as_second()).unwrap()
+fn round_time(time: DateTime<Utc>) -> DateTime<Utc> {
+    // `Timelike::with_nanosecond` returns None only when passed a value >= 2_000_000_000
+    time.with_nanosecond(0).unwrap()
 }
 
 /// Removes signatures from a role. Useful if the content is updated.

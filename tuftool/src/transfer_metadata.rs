@@ -4,8 +4,8 @@
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
+use chrono::{DateTime, Utc};
 use clap::Parser;
-use jiff::Timestamp;
 use snafu::ResultExt;
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
@@ -42,7 +42,7 @@ pub(crate) struct TransferMetadataArgs {
     /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long = "snapshot-expires", value_parser = parse_datetime)]
-    snapshot_expires: Timestamp,
+    snapshot_expires: DateTime<Utc>,
     /// Version of snapshot.json file
     #[arg(long = "snapshot-version")]
     snapshot_version: NonZeroU64,
@@ -54,7 +54,7 @@ pub(crate) struct TransferMetadataArgs {
     /// Expiration of targets.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long = "targets-expires", value_parser = parse_datetime)]
-    targets_expires: Timestamp,
+    targets_expires: DateTime<Utc>,
     /// Version of targets.json file
     #[arg(long = "targets-version")]
     targets_version: NonZeroU64,
@@ -62,7 +62,7 @@ pub(crate) struct TransferMetadataArgs {
     /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long = "timestamp-expires", value_parser = parse_datetime)]
-    timestamp_expires: Timestamp,
+    timestamp_expires: DateTime<Utc>,
     /// Version of timestamp.json file
     #[arg(long = "timestamp-version")]
     timestamp_version: NonZeroU64,

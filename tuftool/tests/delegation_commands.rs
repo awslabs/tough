@@ -5,18 +5,18 @@ mod test_utils;
 
 use crate::test_utils::days;
 use assert_cmd::cargo_bin_cmd;
-use jiff::Timestamp;
+use chrono::Utc;
 use std::path::Path;
 use tempfile::TempDir;
 use test_utils::dir_url;
 use tough::{RepositoryLoader, TargetName};
 
 fn create_repo<P: AsRef<Path>>(repo_dir: P) {
-    let timestamp_expiration = Timestamp::now() + days(1);
+    let timestamp_expiration = Utc::now().checked_add_signed(days(1)).unwrap();
     let timestamp_version: u64 = 31;
-    let snapshot_expiration = Timestamp::now() + days(2);
+    let snapshot_expiration = Utc::now().checked_add_signed(days(2)).unwrap();
     let snapshot_version: u64 = 25;
-    let targets_expiration = Timestamp::now() + days(3);
+    let targets_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let targets_version: u64 = 17;
     let targets_input_dir = test_utils::test_data()
         .join("tuf-reference-impl")
@@ -37,15 +37,15 @@ fn create_repo<P: AsRef<Path>>(repo_dir: P) {
             "--root",
             root_json.to_str().unwrap(),
             "--targets-expires",
-            targets_expiration.to_string().as_str(),
+            targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", targets_version).as_str(),
             "--snapshot-expires",
-            snapshot_expiration.to_string().as_str(),
+            snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", snapshot_version).as_str(),
             "--timestamp-expires",
-            timestamp_expiration.to_string().as_str(),
+            timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", timestamp_version).as_str(),
         ])
@@ -64,18 +64,18 @@ async fn create_add_role_command() {
     let repo_dir = TempDir::new().unwrap();
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Timestamp::now() + days(6);
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
 
     // Create a repo using tuftool and the reference tuf implementation data
     create_repo(repo_dir.path());
 
     // Set new expiration date for the new role
-    let expiration = Timestamp::now() + days(4);
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -91,7 +91,7 @@ async fn create_add_role_command() {
             "-k",
             targets_key.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -117,7 +117,7 @@ async fn create_add_role_command() {
             "--metadata-url",
             metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "A",
             "-t",
@@ -126,11 +126,11 @@ async fn create_add_role_command() {
             "2",
             "--sign-all",
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
         ])
@@ -164,7 +164,7 @@ async fn create_add_role_command() {
             "-k",
             targets_key1.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -190,7 +190,7 @@ async fn create_add_role_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "B",
             "-t",
@@ -218,15 +218,15 @@ async fn create_add_role_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_targets_expiration.to_string().as_str(),
+            new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",
@@ -259,16 +259,16 @@ async fn update_target_command() {
     let repo_dir = TempDir::new().unwrap();
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
 
     // Create a repo using tuftool and the reference tuf implementation data
     create_repo(repo_dir.path());
 
     // Set new expiration date for the new role
-    let expiration = Timestamp::now() + days(4);
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -284,7 +284,7 @@ async fn update_target_command() {
             "-k",
             targets_key.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -310,7 +310,7 @@ async fn update_target_command() {
             "--metadata-url",
             metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "A",
             "-t",
@@ -319,11 +319,11 @@ async fn update_target_command() {
             "2",
             "--sign-all",
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
         ])
@@ -362,11 +362,11 @@ async fn update_target_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Timestamp::now() + days(6);
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -383,15 +383,15 @@ async fn update_target_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_targets_expiration.to_string().as_str(),
+            new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",
@@ -437,11 +437,11 @@ async fn add_key_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Timestamp::now() + days(4);
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -457,7 +457,7 @@ async fn add_key_command() {
             "-k",
             targets_key.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -483,7 +483,7 @@ async fn add_key_command() {
             "--metadata-url",
             metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "A",
             "-t",
@@ -492,11 +492,11 @@ async fn add_key_command() {
             "2",
             "--sign-all",
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
         ])
@@ -523,7 +523,7 @@ async fn add_key_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
             "--delegated-role",
@@ -550,15 +550,15 @@ async fn add_key_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--targets-version",
             "1",
             "--snapshot-expires",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             "1",
             "--timestamp-expires",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             "1",
         ])
@@ -580,7 +580,7 @@ async fn add_key_command() {
             "-k",
             targets_key1.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -606,7 +606,7 @@ async fn add_key_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "B",
             "-t",
@@ -634,15 +634,15 @@ async fn add_key_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_snapshot_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",
@@ -678,11 +678,11 @@ fn remove_key_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Timestamp::now() + days(4);
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -700,7 +700,7 @@ fn remove_key_command() {
             "-k",
             targets_key1.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -726,7 +726,7 @@ fn remove_key_command() {
             "--metadata-url",
             metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "A",
             "-t",
@@ -735,11 +735,11 @@ fn remove_key_command() {
             "2",
             "--sign-all",
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
         ])
@@ -759,7 +759,7 @@ fn remove_key_command() {
             "-o",
             key_out.path().to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
             "--keyid",
@@ -794,15 +794,15 @@ fn remove_key_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--targets-version",
             "1",
             "--snapshot-expires",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             "1",
             "--timestamp-expires",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             "1",
         ])
@@ -824,7 +824,7 @@ fn remove_key_command() {
             "-k",
             targets_key.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -850,7 +850,7 @@ fn remove_key_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "B",
             "-t",
@@ -875,11 +875,11 @@ async fn remove_role_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Timestamp::now() + days(4);
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -895,7 +895,7 @@ async fn remove_role_command() {
             "-k",
             targets_key.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -921,7 +921,7 @@ async fn remove_role_command() {
             "--metadata-url",
             metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "A",
             "-t",
@@ -930,11 +930,11 @@ async fn remove_role_command() {
             "2",
             "--sign-all",
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
         ])
@@ -968,7 +968,7 @@ async fn remove_role_command() {
             "-k",
             targets_key1.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -994,7 +994,7 @@ async fn remove_role_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "B",
             "-t",
@@ -1007,11 +1007,11 @@ async fn remove_role_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Timestamp::now() + days(6);
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1028,15 +1028,15 @@ async fn remove_role_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_targets_expiration.to_string().as_str(),
+            new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",
@@ -1078,11 +1078,11 @@ async fn remove_role_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Timestamp::now() + days(6);
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1099,15 +1099,15 @@ async fn remove_role_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_targets_expiration.to_string().as_str(),
+            new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",
@@ -1145,11 +1145,11 @@ async fn remove_role_recursive_command() {
     create_repo(repo_dir.path());
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let expiration = Timestamp::now() + days(4);
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -1165,7 +1165,7 @@ async fn remove_role_recursive_command() {
             "-k",
             targets_key.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -1191,7 +1191,7 @@ async fn remove_role_recursive_command() {
             "--metadata-url",
             metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "A",
             "-t",
@@ -1200,11 +1200,11 @@ async fn remove_role_recursive_command() {
             "2",
             "--sign-all",
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
         ])
@@ -1237,7 +1237,7 @@ async fn remove_role_recursive_command() {
             "-k",
             targets_key1.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -1263,7 +1263,7 @@ async fn remove_role_recursive_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             "B",
             "-t",
@@ -1276,11 +1276,11 @@ async fn remove_role_recursive_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Timestamp::now() + days(6);
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1297,15 +1297,15 @@ async fn remove_role_recursive_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_targets_expiration.to_string().as_str(),
+            new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",
@@ -1348,11 +1348,11 @@ async fn remove_role_recursive_command() {
 
     // update repo with new metadata
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Timestamp::now() + days(6);
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
     let update_out = TempDir::new().unwrap();
 
@@ -1369,15 +1369,15 @@ async fn remove_role_recursive_command() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_targets_expiration.to_string().as_str(),
+            new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",
@@ -1419,18 +1419,18 @@ async fn dubious_role_name() {
     let repo_dir = TempDir::new().unwrap();
 
     // Set new expiration dates and version numbers for the update command
-    let new_timestamp_expiration = Timestamp::now() + days(4);
+    let new_timestamp_expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let new_timestamp_version: u64 = 310;
-    let new_snapshot_expiration = Timestamp::now() + days(5);
+    let new_snapshot_expiration = Utc::now().checked_add_signed(days(5)).unwrap();
     let new_snapshot_version: u64 = 250;
-    let new_targets_expiration = Timestamp::now() + days(6);
+    let new_targets_expiration = Utc::now().checked_add_signed(days(6)).unwrap();
     let new_targets_version: u64 = 170;
 
     // Create a repo using tuftool and the reference tuf implementation data
     create_repo(repo_dir.path());
 
     // Set new expiration date for the new role
-    let expiration = Timestamp::now() + days(4);
+    let expiration = Utc::now().checked_add_signed(days(4)).unwrap();
     let metadata_base_url = &dir_url(repo_dir.path().join("metadata"));
     let meta_out = TempDir::new().unwrap();
 
@@ -1446,7 +1446,7 @@ async fn dubious_role_name() {
             "-k",
             targets_key.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -1472,7 +1472,7 @@ async fn dubious_role_name() {
             "--metadata-url",
             metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             dubious_role_name,
             "-t",
@@ -1481,11 +1481,11 @@ async fn dubious_role_name() {
             "2",
             "--sign-all",
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
         ])
@@ -1519,7 +1519,7 @@ async fn dubious_role_name() {
             "-k",
             targets_key1.to_str().unwrap(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "-v",
             "1",
         ])
@@ -1545,7 +1545,7 @@ async fn dubious_role_name() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "-e",
-            expiration.to_string().as_str(),
+            expiration.to_rfc3339().as_str(),
             "--delegated-role",
             funny_role_name,
             "-t",
@@ -1585,15 +1585,15 @@ async fn dubious_role_name() {
             "--metadata-url",
             updated_metadata_base_url.as_str(),
             "--targets-expires",
-            new_targets_expiration.to_string().as_str(),
+            new_targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", new_targets_version).as_str(),
             "--snapshot-expires",
-            new_snapshot_expiration.to_string().as_str(),
+            new_snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", new_snapshot_version).as_str(),
             "--timestamp-expires",
-            new_timestamp_expiration.to_string().as_str(),
+            new_timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", new_timestamp_version).as_str(),
             "--role",

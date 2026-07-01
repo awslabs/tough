@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use assert_cmd::cargo_bin_cmd;
-use jiff::{SignedDuration, Timestamp};
+use chrono::{TimeDelta, Utc};
 use std::path::{Path, PathBuf};
 use tough::IntoVec;
 use url::Url;
@@ -33,19 +33,19 @@ where
 }
 
 #[allow(unused)]
-pub fn days(value: i64) -> SignedDuration {
-    SignedDuration::from_hours(value * 24)
+pub fn days(value: i64) -> TimeDelta {
+    TimeDelta::try_days(value).unwrap()
 }
 
 /// Creates a repository with expired timestamp metadata.
 #[allow(unused)]
 pub fn create_expired_repo<P: AsRef<Path>>(repo_dir: P) {
     // Expired time stamp
-    let timestamp_expiration = Timestamp::now() + days(-1);
+    let timestamp_expiration = Utc::now().checked_add_signed(days(-1)).unwrap();
     let timestamp_version: u64 = 31;
-    let snapshot_expiration = Timestamp::now() + days(2);
+    let snapshot_expiration = Utc::now().checked_add_signed(days(2)).unwrap();
     let snapshot_version: u64 = 25;
-    let targets_expiration = Timestamp::now() + days(3);
+    let targets_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
     let targets_version: u64 = 17;
     let targets_input_dir = test_data().join("tuf-reference-impl").join("targets");
     let root_json = test_data().join("simple-rsa").join("root.json");
@@ -64,15 +64,15 @@ pub fn create_expired_repo<P: AsRef<Path>>(repo_dir: P) {
             "--root",
             root_json.to_str().unwrap(),
             "--targets-expires",
-            targets_expiration.to_string().as_str(),
+            targets_expiration.to_rfc3339().as_str(),
             "--targets-version",
             format!("{}", targets_version).as_str(),
             "--snapshot-expires",
-            snapshot_expiration.to_string().as_str(),
+            snapshot_expiration.to_rfc3339().as_str(),
             "--snapshot-version",
             format!("{}", snapshot_version).as_str(),
             "--timestamp-expires",
-            timestamp_expiration.to_string().as_str(),
+            timestamp_expiration.to_rfc3339().as_str(),
             "--timestamp-version",
             format!("{}", timestamp_version).as_str(),
         ])
