@@ -18,6 +18,7 @@ use crate::sign::Sign;
 pub use crate::transport::{FilesystemTransport, Transport};
 use crate::{encode_filename, TargetName};
 use aws_lc_rs::digest::{digest, Context, SHA256};
+use chrono::{DateTime, Utc};
 use globset::{Glob, GlobMatcher};
 use hex::ToHex;
 use olpc_cjson::CanonicalFormatter;
@@ -72,7 +73,7 @@ pub trait Role: Serialize {
     const TYPE: RoleType;
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
-    fn expires(&self) -> jiff::Timestamp;
+    fn expires(&self) -> DateTime<Utc>;
 
     /// An integer that is greater than 0. Clients MUST NOT replace a metadata file with a version
     /// number less than the one currently trusted.
@@ -149,7 +150,7 @@ pub struct Root {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
-    pub expires: jiff::Timestamp,
+    pub expires: DateTime<Utc>,
 
     /// The KEYID must be correct for the specified KEY. Clients MUST calculate each KEYID to verify
     /// this is correct for the associated key. Clients MUST ensure that for any KEYID represented
@@ -222,7 +223,7 @@ impl Root {
 impl Role for Root {
     const TYPE: RoleType = RoleType::Root;
 
-    fn expires(&self) -> jiff::Timestamp {
+    fn expires(&self) -> DateTime<Utc> {
         self.expires
     }
 
@@ -253,7 +254,7 @@ pub struct Snapshot {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
-    pub expires: jiff::Timestamp,
+    pub expires: DateTime<Utc>,
 
     /// A list of what the TUF spec calls 'METAFILES' (`Metafiles` objects). The TUF spec
     /// describes the hash key in 4.4: METAPATH is the file path of the metadata on the repository
@@ -336,7 +337,7 @@ pub struct Hashes {
 
 impl Snapshot {
     /// Create a new `Snapshot` object.
-    pub fn new(spec_version: String, version: NonZeroU64, expires: jiff::Timestamp) -> Self {
+    pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
         Snapshot {
             spec_version,
             version,
@@ -349,7 +350,7 @@ impl Snapshot {
 impl Role for Snapshot {
     const TYPE: RoleType = RoleType::Snapshot;
 
-    fn expires(&self) -> jiff::Timestamp {
+    fn expires(&self) -> DateTime<Utc> {
         self.expires
     }
 
@@ -394,7 +395,7 @@ pub struct Targets {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
-    pub expires: jiff::Timestamp,
+    pub expires: DateTime<Utc>,
 
     /// Each key of the TARGETS object is a TARGETPATH. A TARGETPATH is a path to a file that is
     /// relative to a mirror's base URL of targets.
@@ -499,7 +500,7 @@ impl Target {
 
 impl Targets {
     /// Create a new `Targets` object.
-    pub fn new(spec_version: String, version: NonZeroU64, expires: jiff::Timestamp) -> Self {
+    pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
         Targets {
             spec_version,
             version,
@@ -766,7 +767,7 @@ impl Targets {
 impl Role for Targets {
     const TYPE: RoleType = RoleType::Targets;
 
-    fn expires(&self) -> jiff::Timestamp {
+    fn expires(&self) -> DateTime<Utc> {
         self.expires
     }
 
@@ -811,7 +812,7 @@ impl DerefMut for DelegatedTargets {
 impl Role for DelegatedTargets {
     const TYPE: RoleType = RoleType::DelegatedTargets;
 
-    fn expires(&self) -> jiff::Timestamp {
+    fn expires(&self) -> DateTime<Utc> {
         self.targets.expires
     }
 
@@ -1141,7 +1142,7 @@ pub struct Timestamp {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
-    pub expires: jiff::Timestamp,
+    pub expires: DateTime<Utc>,
 
     /// METAFILES is the same as described for the snapshot.json file. In the case of the
     /// timestamp.json file, this MUST only include a description of the snapshot.json file.
@@ -1159,7 +1160,7 @@ pub struct Timestamp {
 
 impl Timestamp {
     /// Creates a new `Timestamp` object.
-    pub fn new(spec_version: String, version: NonZeroU64, expires: jiff::Timestamp) -> Self {
+    pub fn new(spec_version: String, version: NonZeroU64, expires: DateTime<Utc>) -> Self {
         Timestamp {
             spec_version,
             version,
@@ -1173,7 +1174,7 @@ impl Timestamp {
 impl Role for Timestamp {
     const TYPE: RoleType = RoleType::Timestamp;
 
-    fn expires(&self) -> jiff::Timestamp {
+    fn expires(&self) -> DateTime<Utc> {
         self.expires
     }
 
@@ -1212,7 +1213,7 @@ fn targets_iter_and_map_test() {
             signed: Targets {
                 spec_version: String::new(),
                 version: NonZeroU64::new(1).unwrap(),
-                expires: jiff::Timestamp::now(),
+                expires: Utc::now(),
                 targets: hashmap! {
                     TargetName::new("c.txt").unwrap() => nothing.clone(),
                 },
@@ -1236,7 +1237,7 @@ fn targets_iter_and_map_test() {
             signed: Targets {
                 spec_version: String::new(),
                 version: NonZeroU64::new(1).unwrap(),
-                expires: jiff::Timestamp::now(),
+                expires: Utc::now(),
                 targets: hashmap! {
                     TargetName::new("b.txt").unwrap() => nothing.clone(),
                 },
@@ -1253,7 +1254,7 @@ fn targets_iter_and_map_test() {
     let a = Targets {
         spec_version: String::new(),
         version: NonZeroU64::new(1).unwrap(),
-        expires: jiff::Timestamp::now(),
+        expires: Utc::now(),
         targets: hashmap! {
             TargetName::new("a.txt").unwrap() => nothing,
         },

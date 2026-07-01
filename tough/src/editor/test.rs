@@ -5,14 +5,14 @@
 mod tests {
     use crate::editor::RepositoryEditor;
     use crate::key_source::LocalKeySource;
-    use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp as TimestampRole};
+    use crate::schema::{Signed, Snapshot, Target, Targets, Timestamp};
     use crate::TargetName;
-    use jiff::{SignedDuration, Timestamp};
+    use chrono::{TimeDelta, Utc};
     use std::num::NonZeroU64;
     use std::path::PathBuf;
 
-    fn days(value: i64) -> SignedDuration {
-        SignedDuration::from_hours(value * 24)
+    fn days(value: i64) -> TimeDelta {
+        TimeDelta::try_days(value).unwrap()
     }
 
     // Path to the root.json in the reference implementation
@@ -113,11 +113,11 @@ mod tests {
         let root = root_path();
         let root_key = key_path();
         let key_source = LocalKeySource { path: root_key };
-        let timestamp_expiration = Timestamp::now() + days(3);
+        let timestamp_expiration = Utc::now().checked_add_signed(days(3)).unwrap();
         let timestamp_version = NonZeroU64::new(1234).unwrap();
-        let snapshot_expiration = Timestamp::now() + days(21);
+        let snapshot_expiration = Utc::now().checked_add_signed(days(21)).unwrap();
         let snapshot_version = NonZeroU64::new(5432).unwrap();
-        let targets_expiration = Timestamp::now() + days(13);
+        let targets_expiration = Utc::now().checked_add_signed(days(13)).unwrap();
         let targets_version = NonZeroU64::new(789).unwrap();
         let target1 = targets_path().join("file1.txt");
         let target2 = targets_path().join("file2.txt");
@@ -151,7 +151,7 @@ mod tests {
             "../../tests/data/tuf-reference-impl/metadata/snapshot.json"
         ))
         .unwrap();
-        let timestamp: Signed<TimestampRole> = serde_json::from_str(include_str!(
+        let timestamp: Signed<Timestamp> = serde_json::from_str(include_str!(
             "../../tests/data/tuf-reference-impl/metadata/timestamp.json"
         ))
         .unwrap();

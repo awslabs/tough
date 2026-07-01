@@ -5,8 +5,8 @@ use crate::build_targets;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
+use chrono::{DateTime, Utc};
 use clap::Parser;
-use jiff::Timestamp;
 use snafu::ResultExt;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
@@ -42,7 +42,7 @@ pub(crate) struct CreateArgs {
     /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    snapshot_expires: Timestamp,
+    snapshot_expires: DateTime<Utc>,
 
     /// Version of snapshot.json file
     #[arg(long)]
@@ -61,7 +61,7 @@ pub(crate) struct CreateArgs {
     /// Expiration of targets.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    targets_expires: Timestamp,
+    targets_expires: DateTime<Utc>,
 
     /// Version of targets.json file
     #[arg(long)]
@@ -70,7 +70,7 @@ pub(crate) struct CreateArgs {
     /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    timestamp_expires: Timestamp,
+    timestamp_expires: DateTime<Utc>,
 
     /// Version of timestamp.json file
     #[arg(long)]

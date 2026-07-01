@@ -1,7 +1,7 @@
 mod test_utils;
 
 use aws_lc_rs::rand::SystemRandom;
-use jiff::{civil, tz::TimeZone, Timestamp};
+use chrono::{DateTime, TimeZone, Utc};
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -18,11 +18,8 @@ use tough::{Prefix, RepositoryLoader, TargetName};
 /// Returns a date in the future when Rust programs will no longer exist. `MAX_DATETIME` is so huge
 /// that it serializes to something weird-looking, so we use something that is recognizable to
 /// humans as a date.
-fn later() -> Timestamp {
-    civil::date(2999, 1, 1)
-        .to_zoned(TimeZone::UTC)
-        .unwrap()
-        .timestamp()
+fn later() -> DateTime<Utc> {
+    Utc.with_ymd_and_hms(2999, 1, 1, 0, 0, 0).unwrap()
 }
 
 /// This test ensures that we can safely handle path-like target names with ../'s in them.

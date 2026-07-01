@@ -7,7 +7,7 @@
 
 use crate::schema::RoleType;
 use crate::{schema, TargetName, TransportError};
-use jiff::Timestamp;
+use chrono::{DateTime, Utc};
 use snafu::{Backtrace, Snafu};
 use std::io;
 use std::path::PathBuf;
@@ -471,8 +471,8 @@ pub enum Error {
         latest_known_time,
     ))]
     SystemTimeSteppedBackward {
-        sys_time: Timestamp,
-        latest_known_time: Timestamp,
+        sys_time: DateTime<Utc>,
+        latest_known_time: DateTime<Utc>,
     },
 
     #[snafu(display("Refusing to replace {} with requested {} for target {}", found, expected, path.display()))]

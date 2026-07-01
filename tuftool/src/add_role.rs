@@ -5,8 +5,8 @@ use crate::common::load_metadata_repo;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
+use chrono::{DateTime, Utc};
 use clap::Parser;
-use jiff::Timestamp;
 use snafu::{OptionExt, ResultExt};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
@@ -23,7 +23,7 @@ pub(crate) struct AddRoleArgs {
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(short, long, value_parser = parse_datetime)]
-    expires: Timestamp,
+    expires: DateTime<Utc>,
 
     /// Incoming metadata
     #[arg(short, long = "incoming-metadata")]
@@ -60,7 +60,7 @@ pub(crate) struct AddRoleArgs {
     /// Expiration of snapshot.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    snapshot_expires: Option<Timestamp>,
+    snapshot_expires: Option<DateTime<Utc>>,
     /// Version of snapshot.json file
     #[arg(long)]
     snapshot_version: Option<NonZeroU64>,
@@ -72,7 +72,7 @@ pub(crate) struct AddRoleArgs {
     /// Expiration of timestamp.json file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(long, value_parser = parse_datetime)]
-    timestamp_expires: Option<Timestamp>,
+    timestamp_expires: Option<DateTime<Utc>>,
     /// Version of timestamp.json file
     #[arg(long)]
     timestamp_version: Option<NonZeroU64>,
