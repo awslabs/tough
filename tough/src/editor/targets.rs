@@ -18,7 +18,7 @@ use crate::transport::{IntoVec, Transport};
 use crate::{encode_filename, Limits};
 use crate::{Repository, TargetName};
 use aws_lc_rs::rand::SystemRandom;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde_json::Value;
 use snafu::{OptionExt, ResultExt};
 use std::borrow::Cow;
@@ -73,7 +73,7 @@ pub struct TargetsEditor {
     /// Version of the `Targets`
     version: Option<NonZeroU64>,
     /// Expiration of the `Targets`
-    expires: Option<DateTime<Utc>>,
+    expires: Option<Timestamp>,
     /// New roles that were created with the editor
     new_roles: Option<Vec<DelegatedRole>>,
 
@@ -265,7 +265,7 @@ impl TargetsEditor {
     }
 
     /// Set the expiration
-    pub fn expires(&mut self, expires: DateTime<Utc>) -> &mut Self {
+    pub fn expires(&mut self, expires: Timestamp) -> &mut Self {
         self.expires = Some(expires);
         self
     }

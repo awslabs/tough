@@ -5,8 +5,8 @@ use crate::common::load_metadata_repo;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
-use chrono::{DateTime, Utc};
 use clap::Parser;
+use jiff::Timestamp;
 use snafu::ResultExt;
 use std::num::NonZeroU64;
 use std::path::PathBuf;
@@ -23,7 +23,7 @@ pub(crate) struct RemoveKeyArgs {
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(short, long, value_parser = parse_datetime)]
-    expires: DateTime<Utc>,
+    expires: Timestamp,
 
     /// Key files to sign with
     #[arg(short, long = "key", required = true)]

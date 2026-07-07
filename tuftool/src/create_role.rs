@@ -4,8 +4,8 @@
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
-use chrono::{DateTime, Utc};
 use clap::Parser;
+use jiff::Timestamp;
 use snafu::ResultExt;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -21,7 +21,7 @@ pub(crate) struct CreateRoleArgs {
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(short, long, required = true, value_parser = parse_datetime)]
-    expires: DateTime<Utc>,
+    expires: Timestamp,
 
     /// Key files to sign with
     #[arg(short, long, required = true)]

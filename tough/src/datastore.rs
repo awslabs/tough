@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::error::{self, Result};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use log::debug;
 use serde::Serialize;
 use snafu::{ensure, ResultExt};
@@ -85,7 +85,7 @@ impl Datastore {
 
     /// Ensures that system time has not stepped backward since it was last sampled. This function
     /// is protected by a lock guard to ensure thread safety.
-    pub(crate) async fn system_time(&self) -> Result<DateTime<Utc>> {
+    pub(crate) async fn system_time(&self) -> Result<Timestamp> {
         // Treat this function as a critical section. This lock is not used for anything else.
         let lock = self.time_lock.lock().await;
 
@@ -94,10 +94,10 @@ impl Datastore {
         let poss_latest_known_time = self
             .bytes(file)
             .await?
-            .map(|b| serde_json::from_slice::<DateTime<Utc>>(&b));
+            .map(|b| serde_json::from_slice::<Timestamp>(&b));
 
         // Get 'current' system time
-        let sys_time = Utc::now();
+        let sys_time = Timestamp::now();
 
         if let Some(Ok(latest_known_time)) = poss_latest_known_time {
             // Make sure the sampled system time did not go back in time
