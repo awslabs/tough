@@ -7,6 +7,7 @@ pub mod decoded;
 mod error;
 mod iter;
 pub mod key;
+mod ser;
 mod spki;
 mod verify;
 
@@ -149,6 +150,7 @@ pub struct Root {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
+    #[serde(serialize_with = "ser::serialize_timestamp")]
     pub expires: jiff::Timestamp,
 
     /// The KEYID must be correct for the specified KEY. Clients MUST calculate each KEYID to verify
@@ -253,6 +255,7 @@ pub struct Snapshot {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
+    #[serde(serialize_with = "ser::serialize_timestamp")]
     pub expires: jiff::Timestamp,
 
     /// A list of what the TUF spec calls 'METAFILES' (`Metafiles` objects). The TUF spec
@@ -394,6 +397,7 @@ pub struct Targets {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
+    #[serde(serialize_with = "ser::serialize_timestamp")]
     pub expires: jiff::Timestamp,
 
     /// Each key of the TARGETS object is a TARGETPATH. A TARGETPATH is a path to a file that is
@@ -1141,6 +1145,7 @@ pub struct Timestamp {
     pub version: NonZeroU64,
 
     /// Determines when metadata should be considered expired and no longer trusted by clients.
+    #[serde(serialize_with = "ser::serialize_timestamp")]
     pub expires: jiff::Timestamp,
 
     /// METAFILES is the same as described for the snapshot.json file. In the case of the
