@@ -3,18 +3,15 @@
 
 use crate::error::{self, Result};
 
-use chrono::{DateTime, FixedOffset, TimeDelta, Utc};
-use snafu::{ensure, OptionExt, ResultExt};
+use jiff::{SignedDuration, Timestamp};
+use snafu::{ensure, ResultExt};
 
 /// Parses a user-specified datetime, either in full RFC 3339 format, or a shorthand like "in 7
 /// days"
-pub(crate) fn parse_datetime(input: &str) -> Result<DateTime<Utc>> {
+pub(crate) fn parse_datetime(input: &str) -> Result<Timestamp> {
     // If the user gave an absolute date in a standard format, accept it.
-    let try_dt: std::result::Result<DateTime<FixedOffset>, chrono::format::ParseError> =
-        DateTime::parse_from_rfc3339(input);
-    if let Ok(dt) = try_dt {
-        let utc = dt.into();
-        return Ok(utc);
+    if let Ok(ts) = input.parse::<Timestamp>() {
+        return Ok(ts);
     }
 
     // Otherwise, pull apart a request like "in 5 days" to get an exact datetime.
@@ -23,15 +20,14 @@ pub(crate) fn parse_datetime(input: &str) -> Result<DateTime<Utc>> {
         parts.len() == 3,
         error::DateArgInvalidSnafu {
             input,
-            msg: "expected RFC 3339, or something like 'in 7 days'"
+            msg: "expected RFC 3339, or 3 space-separated values like 'in 7 days'",
         }
     );
     let unit_str = parts.pop().unwrap();
     let count_str = parts.pop().unwrap();
-    let prefix_str = parts.pop().unwrap();
-
+    let prefix = parts.pop().unwrap();
     ensure!(
-        prefix_str == "in",
+        prefix == "in",
         error::DateArgInvalidSnafu {
             input,
             msg: "expected RFC 3339, or prefix 'in', something like 'in 7 days'",
@@ -43,24 +39,27 @@ pub(crate) fn parse_datetime(input: &str) -> Result<DateTime<Utc>> {
         .context(error::DateArgCountSnafu { input })?;
 
     let duration = match unit_str {
-        "hour" | "hours" => {
-            TimeDelta::try_hours(i64::from(count)).context(error::DateArgInvalidSnafu {
-                input: count.to_string(),
-                msg: format!("unable to convert {count} to a number of hours"),
-            })?
-        }
-        "day" | "days" => {
-            TimeDelta::try_days(i64::from(count)).context(error::DateArgInvalidSnafu {
-                input: count.to_string(),
-                msg: format!("unable to convert {count} to a number of days"),
-            })?
-        }
-        "week" | "weeks" => {
-            TimeDelta::try_weeks(i64::from(count)).context(error::DateArgInvalidSnafu {
-                input: count.to_string(),
-                msg: format!("unable to convert {count} to a number of weeks"),
-            })?
-        }
+        "hour" | "hours" => SignedDuration::from_hours(i64::from(count)),
+        "day" | "days" => i64::from(count)
+            .checked_mul(24)
+            .map(SignedDuration::from_hours)
+            .ok_or_else(|| {
+                error::DateArgInvalidSnafu {
+                    input: count.to_string(),
+                    msg: format!("unable to convert {count} to a number of days"),
+                }
+                .build()
+            })?,
+        "week" | "weeks" => i64::from(count)
+            .checked_mul(24 * 7)
+            .map(SignedDuration::from_hours)
+            .ok_or_else(|| {
+                error::DateArgInvalidSnafu {
+                    input: count.to_string(),
+                    msg: format!("unable to convert {count} to a number of weeks"),
+                }
+                .build()
+            })?,
         _ => {
             return error::DateArgInvalidSnafu {
                 input,
@@ -70,7 +69,7 @@ pub(crate) fn parse_datetime(input: &str) -> Result<DateTime<Utc>> {
         }
     };
 
-    let now = Utc::now();
+    let now = Timestamp::now();
     let then = now + duration;
     Ok(then)
 }

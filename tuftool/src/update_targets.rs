@@ -6,8 +6,8 @@ use crate::common::load_metadata_repo;
 use crate::datetime::parse_datetime;
 use crate::error::{self, Result};
 use crate::source::parse_key_source;
-use chrono::{DateTime, Utc};
 use clap::Parser;
+use jiff::Timestamp;
 use snafu::ResultExt;
 use std::num::NonZeroU64;
 use std::num::NonZeroUsize;
@@ -21,7 +21,7 @@ pub(crate) struct UpdateTargetsArgs {
     /// Expiration of new role file; can be in full RFC 3339 format, or something like 'in
     /// 7 days'
     #[arg(short, long, value_parser = parse_datetime)]
-    expires: DateTime<Utc>,
+    expires: Timestamp,
 
     /// Follow symbolic links in the given directory when adding targets
     #[arg(short, long)]
