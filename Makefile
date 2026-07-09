@@ -13,7 +13,7 @@ cargo-deny:
 # checks each crate, and evaluates licenses. requires cargo-deny.
 .PHONY: check-licenses
 check-licenses: cargo-deny
-	cargo deny --all-features check --disable-fetch licenses bans sources
+	cargo deny --all-features check licenses bans sources
 
 # builds each crate, runs unit tests at the workspace level, and runs linting tools.
 .PHONY: build
