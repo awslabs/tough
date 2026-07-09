@@ -1,6 +1,6 @@
 [package]
 name = "tough-ssm"
-version = "0.18.0"
+version = "0.19.0"
 description = "Implements AWS SSM as a key source for TUF signing keys"
 authors = ["Zac Mrowicki <mrowicki@amazon.com>"]
 license = "MIT OR Apache-2.0"
@@ -16,7 +16,7 @@ aws-sdk-rust-rustls = []
 fips = ["tough/fips"]
 
 [dependencies]
-tough = { version = "0.23", path = "../tough", features = ["http"] }
+tough = { version = "0.24", path = "../tough", features = ["http"] }
 aws-sdk-ssm = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
 aws-config = { version = "1", default-features = false, features = ["credentials-process", "default-https-client", "rt-tokio"] }
 aws-smithy-http-client = { version = "1", features = ["rustls-aws-lc"] }
