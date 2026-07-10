@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-07-10
+### Changes
+- Update `tough` to 0.24.0
+- Dependency updates
+
 ## [0.16.0] - 2026-06-18
 ### Changes
 - Migrated from `chrono` to `jiff`. CLI behavior unchanged; `--expires` continues to accept RFC 3339 and `in N hours/days/weeks`. [#948]
@@ -312,7 +317,8 @@ Major update: much of the logic in `tuftool` has been factored out and added to 
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.16.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tuftool-v0.17.0...develop
+[0.17.0]: https://github.com/awslabs/tough/compare/tuftool-v0.16.0...tuftool-v0.17.0
 [0.16.0]: https://github.com/awslabs/tough/compare/tuftool-v0.15.0...tuftool-v0.16.0
 [0.15.0]: https://github.com/awslabs/tough/compare/tuftool-v0.14.0...tuftool-v0.15.0
 [0.14.0]: https://github.com/awslabs/tough/compare/tuftool-v0.13.0...tuftool-v0.14.0

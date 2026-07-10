@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-07-10
+### Fixes
+- Match `chrono`'s behavior when serializing the metadata expiration timestamp with `jiff` types to ensure repos published before the migration to `jiff` can be safely re-serialized without changing signed content [#952]
+
+### Changes
+- Dependency updates
+
+[#952]: https://github.com/awslabs/tough/pull/952
+
 ## [0.23.0] - 2026-06-18
 ### Breaking Changes
 - Migrated from `chrono` to `jiff`. Public API: `DateTime<Utc>` types replaced with `jiff::Timestamp` on `Role::expires`, `Root`/`Snapshot`/`Targets`/`Timestamp` `expires` fields, `RepositoryEditor::*_expires` setters, and the `SystemTimeSteppedBackward` error variant. Wire format unchanged (RFC 3339, `Z` suffix). [#948]
@@ -356,7 +365,8 @@ For changes that require modification of calling code see #120 and #121.
 ### Added
 - Everything!
 
-[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.23.0...develop
+[Unreleased]: https://github.com/awslabs/tough/compare/tough-v0.24.0...develop
+[0.24.0]: https://github.com/awslabs/tough/compare/tough-v0.23.0...tough-v0.24.0
 [0.23.0]: https://github.com/awslabs/tough/compare/tough-v0.22.0...tough-v0.23.0
 [0.22.0]: https://github.com/awslabs/tough/compare/tough-v0.21.0...tough-v0.22.0
 [0.21.0]: https://github.com/awslabs/tough/compare/tough-v0.20.0...tough-v0.21.0
