@@ -20,5 +20,5 @@ tough = { version = "0.24", path = "../tough", features = ["http"] }
 aws-sdk-ssm = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
 aws-config = { version = "1", default-features = false, features = ["credentials-process", "default-https-client", "rt-tokio"] }
 aws-smithy-http-client = { version = "1", features = ["rustls-aws-lc"] }
-snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
+snafu = { version = "0.9", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
