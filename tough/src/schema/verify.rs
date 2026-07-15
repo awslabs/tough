@@ -100,12 +100,11 @@ fn verify_common<T: Role + Serialize>(
                 // Note that we cannot use the canonical key ID for this, as it contains arbitrary
                 // user-defined fields. That'd allow a malformed root manifest to define multiple
                 // keys (with unique canonical key IDs) pointing to the same key material.
-                if let Some(rhs) = contained_materials.insert(key.material(), keyid.clone()) {
-                    return error::MultipleKeyIdsForOneKeySnafu {
-                        lhs: keyid.clone(),
-                        rhs,
-                    }
-                    .fail();
+                if contained_materials
+                    .insert(key.material(), keyid.clone())
+                    .is_some()
+                {
+                    continue;
                 }
 
                 match key_id_format {
@@ -261,7 +260,7 @@ mod tests {
             .expect_err("multiple key IDs pointing to the same key should not verify");
         assert!(matches!(
             err,
-            super::error::Error::MultipleKeyIdsForOneKey { .. }
+            super::error::Error::SignatureThreshold { .. }
         ));
     }
 }

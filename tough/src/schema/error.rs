@@ -58,9 +58,6 @@ pub enum Error {
         backtrace: Backtrace,
     },
 
-    #[snafu(display("Key IDs {} and {} point to the same key", lhs, rhs))]
-    MultipleKeyIdsForOneKey { lhs: KeyId, rhs: KeyId },
-
     /// Failed to decode a hexadecimal-encoded string.
     #[snafu(display("Invalid hex string: {}", source))]
     HexDecode {
