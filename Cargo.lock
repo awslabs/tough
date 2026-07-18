@@ -3430,6 +3430,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tough-pkcs11"
+version = "0.19.0"
+dependencies = [
+ "snafu",
+ "tough",
+]
+
+[[package]]
 name = "tough-ssm"
 version = "0.19.0"
 dependencies = [
