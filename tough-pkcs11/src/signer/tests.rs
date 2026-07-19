@@ -94,11 +94,12 @@ impl SoftHsmEnv {
         cmd
     }
 
-    fn generate_ecdsa_key(&self, token_label: &str, id: &str, label: &str) {
+    fn generate_key(&self, token_label: &str, id: &str, label: &str, key_type: &str) {
         let status = self
             .pksc11_tool(token_label)
             .arg("--keypairgen")
-            .arg("--key-type=EC:prime256v1")
+            .arg("--key-type")
+            .arg(key_type)
             .arg("--id")
             .arg(id)
             .arg("--label")
@@ -137,7 +138,7 @@ fn find_softhsm2_lib() -> PathBuf {
 fn test_match_key_by_id() {
     let env = SoftHsmEnv::setup();
     env.init_token(TEST_TOKEN_LABEL);
-    env.generate_ecdsa_key(TEST_TOKEN_LABEL, "01", TEST_KEY_LABEL);
+    env.generate_key(TEST_TOKEN_LABEL, "01", TEST_KEY_LABEL, "EC:prime256v1");
 
     let source = env.key_source(
         TokenId::Label(TEST_TOKEN_LABEL.into()),
@@ -158,7 +159,7 @@ fn test_match_key_by_id() {
 fn test_sign_ecdsa_p256() {
     let env = SoftHsmEnv::setup();
     env.init_token(TEST_TOKEN_LABEL);
-    env.generate_ecdsa_key(TEST_TOKEN_LABEL, "01", TEST_KEY_LABEL);
+    env.generate_key(TEST_TOKEN_LABEL, "01", TEST_KEY_LABEL, "EC:prime256v1");
 
     let source = env.key_source(
         TokenId::Label(TEST_TOKEN_LABEL.into()),
@@ -172,6 +173,26 @@ fn test_sign_ecdsa_p256() {
     } = key.pub_key()
     else {
         panic!("key is not ecdsa");
+    };
+
+    let signature = key.sign(b"test_message").unwrap();
+    key.pub_key().verify(b"test_message", &signature);
+}
+
+#[test]
+fn test_sign_ed25519() {
+    let env = SoftHsmEnv::setup();
+    env.init_token(TEST_TOKEN_LABEL);
+    env.generate_key(TEST_TOKEN_LABEL, "01", TEST_KEY_LABEL, "EC:edwards25519");
+
+    let source = env.key_source(
+        TokenId::Label(TEST_TOKEN_LABEL.into()),
+        KeyId::Label(TEST_KEY_LABEL.into()),
+    );
+
+    let key = source.to_key().unwrap();
+    let Key::Ed25519 { .. } = key.pub_key() else {
+        panic!("key is not ed25519");
     };
 
     let signature = key.sign(b"test_message").unwrap();

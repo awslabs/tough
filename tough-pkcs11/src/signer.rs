@@ -123,6 +123,7 @@ fn key_type(session: &Session, key: ObjectHandle) -> Result<KeyType> {
 fn export_public_key(session: &Session, pubkey: ObjectHandle) -> Result<Key> {
     match key_type(session, pubkey)? {
         KeyType::EC => ec::export_pubkey(session, pubkey),
+        KeyType::EC_EDWARDS => ec::export_pubkey(session, pubkey),
         // TODO: provide more info
         _ => Err(Error::UnsupportedKeyType),
     }
@@ -134,6 +135,7 @@ fn sign(session: &Session, pubkey: &Key, privkey: ObjectHandle, message: &[u8]) 
             scheme: EcdsaScheme::EcdsaSha2Nistp256,
             ..
         } => ec::sign_p256(session, privkey, message),
+        Key::Ed25519 { .. } => ec::sign_ed25519(session, privkey, message),
         _ => Err(Error::UnsupportedKeyType),
     }
 }
