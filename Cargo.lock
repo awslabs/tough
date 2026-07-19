@@ -3569,6 +3569,7 @@ dependencies = [
  "aws-lc-rs",
  "cryptoki",
  "p256",
+ "pem",
  "snafu",
  "tempfile",
  "tokio",

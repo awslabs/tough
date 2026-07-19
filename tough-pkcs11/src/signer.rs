@@ -3,6 +3,7 @@
 
 mod ec;
 mod obj;
+mod rsa;
 
 #[cfg(test)]
 mod tests;
@@ -21,8 +22,8 @@ use cryptoki::{
     types::AuthPin,
 };
 use snafu::{ensure, ResultExt};
-use tough::schema::key::EcdsaScheme;
 use tough::schema::key::Key;
+use tough::schema::key::{EcdsaScheme, RsaScheme};
 
 use crate::error::{self, Error, Result};
 
@@ -124,6 +125,7 @@ fn export_public_key(session: &Session, pubkey: ObjectHandle) -> Result<Key> {
     match key_type(session, pubkey)? {
         KeyType::EC => ec::export_pubkey(session, pubkey),
         KeyType::EC_EDWARDS => ec::export_pubkey(session, pubkey),
+        KeyType::RSA => rsa::export_pubkey(session, pubkey),
         // TODO: provide more info
         _ => Err(Error::UnsupportedKeyType),
     }
@@ -136,6 +138,10 @@ fn sign(session: &Session, pubkey: &Key, privkey: ObjectHandle, message: &[u8]) 
             ..
         } => ec::sign_p256(session, privkey, message),
         Key::Ed25519 { .. } => ec::sign_ed25519(session, privkey, message),
+        Key::Rsa {
+            scheme: RsaScheme::RsassaPssSha256,
+            ..
+        } => rsa::sign_pss_sha256(session, privkey, message),
         _ => Err(Error::UnsupportedKeyType),
     }
 }

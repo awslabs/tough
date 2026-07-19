@@ -198,3 +198,23 @@ fn test_sign_ed25519() {
     let signature = key.sign(b"test_message").unwrap();
     key.pub_key().verify(b"test_message", &signature);
 }
+
+#[test]
+fn test_sign_rsa() {
+    let env = SoftHsmEnv::setup();
+    env.init_token(TEST_TOKEN_LABEL);
+    env.generate_key(TEST_TOKEN_LABEL, "01", TEST_KEY_LABEL, "RSA:2048");
+
+    let source = env.key_source(
+        TokenId::Label(TEST_TOKEN_LABEL.into()),
+        KeyId::Label(TEST_KEY_LABEL.into()),
+    );
+
+    let key = source.to_key().unwrap();
+    let Key::Rsa { .. } = key.pub_key() else {
+        panic!("key is not rsa");
+    };
+
+    let signature = key.sign(b"test_message").unwrap();
+    key.pub_key().verify(b"test_message", &signature);
+}

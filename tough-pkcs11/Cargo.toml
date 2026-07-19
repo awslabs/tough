@@ -12,6 +12,7 @@ edition = "2018"
 aws-lc-rs = "1"
 cryptoki = "0.12.0"
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa-core"] }
+pem = "3.0.6"
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1.53.0", features = ["rt"] }
 tough = { version = "0.24", path = "../tough" }
