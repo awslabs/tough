@@ -9,5 +9,12 @@ keywords = ["TUF", "PKCS11"]
 edition = "2018"
 
 [dependencies]
-tough = { version = "0.24", path = "../tough" }
+aws-lc-rs = "1"
+cryptoki = "0.12.0"
+p256 = { version = "0.14.0", default-features = false, features = ["ecdsa-core"] }
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
+tokio = { version = "1.53.0", features = ["rt"] }
+tough = { version = "0.24", path = "../tough" }
+
+[dev-dependencies]
+tempfile = "3.27.0"

@@ -1,13 +1,14 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+pub mod error;
+mod signer;
+
 use tough::async_trait;
 use tough::key_source::KeySource;
 use tough::sign::Sign;
 
-/// Implements the KeySource trait for keys that live in AWS SSM.
-#[derive(Debug)]
-pub struct Pkcs11KeySource {}
+pub use signer::{KeyId, Pkcs11KeySource, TokenId};
 
 /// Implements the KeySource trait.
 #[async_trait]
