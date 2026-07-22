@@ -7,11 +7,16 @@ use jiff::{SignedDuration, Timestamp};
 use snafu::{ensure, ResultExt};
 
 /// Parses a user-specified datetime, either in full RFC 3339 format, or a shorthand like "in 7
-/// days"
+/// days".
+///
+/// The TUF specification requires metadata `expires` timestamps in whole seconds, UTC, with no
+/// sub-second component (`YYYY-MM-DDTHH:MM:SSZ`). RFC 3339 input can carry fractional seconds (for
+/// example `2030-01-01T00:00:00.5Z`), and `Timestamp::now()` always has a sub-second component, so
+/// the returned value is truncated to whole seconds.
 pub(crate) fn parse_datetime(input: &str) -> Result<Timestamp> {
     // If the user gave an absolute date in a standard format, accept it.
     if let Ok(ts) = input.parse::<Timestamp>() {
-        return Ok(ts);
+        return Ok(truncate_to_seconds(ts));
     }
 
     // Otherwise, pull apart a request like "in 5 days" to get an exact datetime.
@@ -71,5 +76,37 @@ pub(crate) fn parse_datetime(input: &str) -> Result<Timestamp> {
 
     let now = Timestamp::now();
     let then = now + duration;
-    Ok(then)
+    Ok(truncate_to_seconds(then))
+}
+
+/// Truncates a timestamp to whole seconds, dropping any sub-second component, so it can be rendered
+/// in the whole-second RFC 3339 form the TUF spec requires for `expires`.
+fn truncate_to_seconds(ts: Timestamp) -> Timestamp {
+    // The whole-second value of an in-range timestamp is itself in range, so this cannot fail; fall
+    // back to the original on the theoretical error rather than panicking.
+    Timestamp::from_second(ts.as_second()).unwrap_or(ts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_datetime;
+
+    #[test]
+    fn rfc3339_fractional_seconds_are_truncated() {
+        let ts = parse_datetime("2030-01-01T00:00:00.5Z").unwrap();
+        assert_eq!(ts.subsec_nanosecond(), 0);
+        assert_eq!(ts.to_string(), "2030-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn rfc3339_whole_seconds_unchanged() {
+        let ts = parse_datetime("2030-01-01T00:00:00Z").unwrap();
+        assert_eq!(ts.to_string(), "2030-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn relative_datetime_has_no_subsecond() {
+        let ts = parse_datetime("in 7 days").unwrap();
+        assert_eq!(ts.subsec_nanosecond(), 0);
+    }
 }
