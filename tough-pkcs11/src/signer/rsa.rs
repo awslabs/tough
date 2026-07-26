@@ -39,9 +39,12 @@ pub fn export_pubkey(session: &Session, pubkey: ObjectHandle) -> Result<Key> {
         }
     }
 
-    // TODO: add more info to the error
-    let modulus = modulus.context(error::UnexpectedResponseSnafu)?;
-    let exponent = exponent.context(error::UnexpectedResponseSnafu)?;
+    let modulus = modulus.context(error::UnexpectedResponseSnafu {
+        reason: "failed to get modulus",
+    })?;
+    let exponent = exponent.context(error::UnexpectedResponseSnafu {
+        reason: "failed to get exponent",
+    })?;
 
     let rsa = PublicKeyComponents {
         n: modulus,
@@ -50,7 +53,9 @@ pub fn export_pubkey(session: &Session, pubkey: ObjectHandle) -> Result<Key> {
     .to_parsed_public_key(&RSA_PSS_2048_8192_SHA256)
     .context(error::ParsePubkeySnafu)?;
 
-    let der = rsa.as_der().ok().context(error::UnexpectedResponseSnafu)?;
+    let der = rsa.as_der().ok().context(error::UnexpectedResponseSnafu {
+        reason: "failed to serialise RSA public key to DER",
+    })?;
 
     let key = pem::encode_config(
         &pem::Pem::new("PUBLIC KEY".to_owned(), der.as_ref()),
@@ -59,7 +64,9 @@ pub fn export_pubkey(session: &Session, pubkey: ObjectHandle) -> Result<Key> {
 
     Ok(Key::Rsa {
         keyval: RsaKey {
-            public: key.parse().ok().context(error::UnexpectedResponseSnafu)?,
+            public: key.parse().ok().context(error::UnexpectedResponseSnafu {
+                reason: "failed to parse RSA pubkey",
+            })?,
             _extra: HashMap::new(),
         },
         scheme: RsaScheme::RsassaPssSha256,

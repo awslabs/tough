@@ -2,6 +2,8 @@ use aws_lc_rs::error::KeyRejected;
 use pk11_uri_parser::PK11URIError;
 use snafu::{Backtrace, Snafu};
 
+use crate::TokenId;
+
 /// Alias for `Result<T, Error>`.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -23,9 +25,8 @@ pub enum Error {
     #[snafu(display("failed to get key object"))]
     GetKey { source: cryptoki::error::Error },
 
-    // TODO: add token info
-    #[snafu(display("token not found"))]
-    TokenNotFound,
+    #[snafu(display("token not found (searched for {token_id:?})"))]
+    TokenNotFound { token_id: TokenId },
 
     #[snafu(display("key not found"))]
     KeyNotFound,
@@ -42,11 +43,11 @@ pub enum Error {
     #[snafu(display("failed to parse public key"))]
     ParsePubkey { source: KeyRejected },
 
-    #[snafu(display("token return unexpected response"))]
-    UnexpectedResponse,
+    #[snafu(display("token return unexpected response: {reason}"))]
+    UnexpectedResponse { reason: &'static str },
 
-    #[snafu(display("unsupported key type"))]
-    UnsupportedKeyType,
+    #[snafu(display("unsupported key type, got: {got}"))]
+    UnsupportedKeyType { got: String },
 
     #[snafu(display("failed to sign"))]
     SigningFailed { source: cryptoki::error::Error },

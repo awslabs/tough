@@ -5,6 +5,7 @@ mod ec;
 mod obj;
 mod rsa;
 
+mod debug;
 #[cfg(test)]
 mod tests;
 
@@ -106,7 +107,9 @@ fn find_slot(pkcs11: &Pkcs11, token_id: &TokenId) -> Result<Slot> {
             return Ok(slot);
         }
     }
-    Err(Error::TokenNotFound)
+    Err(Error::TokenNotFound {
+        token_id: token_id.to_owned(),
+    })
 }
 
 fn key_type(session: &Session, key: ObjectHandle) -> Result<KeyType> {
@@ -117,7 +120,9 @@ fn key_type(session: &Session, key: ObjectHandle) -> Result<KeyType> {
         .next()
     {
         Some(Attribute::KeyType(kt)) => Ok(kt),
-        _ => Err(Error::UnexpectedResponse),
+        _ => Err(Error::UnexpectedResponse {
+            reason: "failed to get key attributes ",
+        }),
     }
 }
 
@@ -126,8 +131,7 @@ fn export_public_key(session: &Session, pubkey: ObjectHandle) -> Result<Key> {
         KeyType::EC => ec::export_pubkey(session, pubkey),
         KeyType::EC_EDWARDS => ec::export_pubkey(session, pubkey),
         KeyType::RSA => rsa::export_pubkey(session, pubkey),
-        // TODO: provide more info
-        _ => Err(Error::UnsupportedKeyType),
+        k => Err(Error::UnsupportedKeyType { got: k.to_string() }),
     }
 }
 
@@ -142,7 +146,9 @@ fn sign(session: &Session, pubkey: &Key, privkey: ObjectHandle, message: &[u8]) 
             scheme: RsaScheme::RsassaPssSha256,
             ..
         } => rsa::sign_pss_sha256(session, privkey, message),
-        _ => Err(Error::UnsupportedKeyType),
+        k => Err(Error::UnsupportedKeyType {
+            got: format!("{:?}", k),
+        }),
     }
 }
 

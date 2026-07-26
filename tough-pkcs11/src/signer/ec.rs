@@ -31,7 +31,9 @@ const ED25519_PARAMS_STR: [u8; 14] = [
 ];
 
 fn export_p256(point: &[u8]) -> Result<Key> {
-    let sec1 = unwrap_p256_der1_to_sec1(point).context(error::UnexpectedResponseSnafu)?;
+    let sec1 = unwrap_p256_der1_to_sec1(point).context(error::UnexpectedResponseSnafu {
+        reason: "failed to parse P256 point",
+    })?;
 
     let parsed = UnparsedPublicKey::new(&signature::ECDSA_P256_SHA256_ASN1, sec1)
         .parse()
@@ -50,7 +52,9 @@ fn export_p256(point: &[u8]) -> Result<Key> {
 fn export_ed25519(point: &[u8]) -> Result<Key> {
     // TUF/tough stores the bare 32-byte Ed25519 public key (hex-encoded), so
     // there's no SEC1/DER re-encoding to do like there is for P-256.
-    let raw = unwrap_ed25519_der_to_raw(point).context(error::UnexpectedResponseSnafu)?;
+    let raw = unwrap_ed25519_der_to_raw(point).context(error::UnexpectedResponseSnafu {
+        reason: "failed to parse ed25519 point",
+    })?;
 
     Ok(Key::Ed25519 {
         keyval: Ed25519Key {
@@ -76,16 +80,21 @@ pub fn export_pubkey(session: &Session, pubkey: ObjectHandle) -> Result<Key> {
         }
     }
 
-    // TODO: add more info to the error
-    let ec_params = params.context(error::UnexpectedResponseSnafu)?;
-    let point = point.context(error::UnexpectedResponseSnafu)?;
+    let ec_params = params.context(error::UnexpectedResponseSnafu {
+        reason: "failed to get EC params",
+    })?;
+    let point = point.context(error::UnexpectedResponseSnafu {
+        reason: "failed to get EC point",
+    })?;
 
     if ec_params == P256_OID_DER {
         export_p256(&point)
     } else if ec_params == ED25519_OID_DER || ec_params == ED25519_PARAMS_STR {
         export_ed25519(&point)
     } else {
-        Err(error::Error::UnsupportedKeyType)
+        Err(error::Error::UnsupportedKeyType {
+            got: format!("EC params {}", super::debug::oid_to_string(&ec_params)),
+        })
     }
 }
 
