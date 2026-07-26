@@ -344,6 +344,11 @@ pub(crate) enum Error {
         source: tokio::task::JoinError,
         backtrace: Backtrace,
     },
+
+    #[snafu(display("Failed to parse PKCS11 URI"))]
+    Pkcs11UrlParse {
+        source: tough_pkcs11::error::ParseUriError,
+    },
 }
 
 // Extracts the status code from a reqwest::Error and converts it to a string to be displayed

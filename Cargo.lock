@@ -3767,6 +3767,7 @@ dependencies = [
  "tokio",
  "tough",
  "tough-kms",
+ "tough-pkcs11",
  "tough-ssm",
  "url",
  "walkdir",

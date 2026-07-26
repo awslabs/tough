@@ -9,13 +9,17 @@
 //! This module parses a key source command line parameter as a URL, relative to `file://$PWD`,
 //! then matches the URL scheme against ones we understand.
 //!
-//! Currently supported key sources are local files and AWS SSM.
+//! Currently supported key sources are local files, AWS SSM and PKCS#11.
 //!
 //! Examples of currently supported formats:
+//!
+//! # Files
 //!
 //! Local files may be specified using a path or "file:///" prefixed path:
 //! "./a/key/file/here"
 //! "file:///./a/key/file/here" (notice the 3 slashes after the colon)
+//!
+//! # AWS SSM
 //!
 //! Keys stored in AWS SSM use a special format:
 //! "aws-ssm://<aws profile>/key/path/in/SSM?kms-key-id=12345"
@@ -32,6 +36,30 @@
 //!
 //! You may also skip the profile bit and just use your local environment's default profile:
 //! "aws-ssm:///a/key" (notice the 3 slashes after the colon)
+//!
+//! # PKCS#11
+//!
+//! PKCS11 uses RFC 7512 URI scheme:
+//!
+//! ```txt
+//! pkcs11:slot-id=0;id=%02?module-path=/usr/local/lib/libykcs11.so&pin-source=/run/pin
+//! ```
+//!
+//! There are a couple of parts:
+//! - Slot identifier (required), one of:
+//!   * `token=` - Find slot by token label
+//!   * `serial=` - Find slot by token serial number
+//!   * `slot-id=` - Find slot by its numeric ID
+//! - Key identifier (required), one of:
+//!   * `object=` - Find key by label
+//!   * `id=` - Find key by ID (often percent-encoded)
+//! - Query:
+//!   * `module-path=` (required) - path to the pkcs11 .so/.dylib/.dll file.
+//!   * `pin-source=` (optional) - path to the file with PIN.
+//!   * `pin-value=` (optional) - inline PIN. NOTE: this not recommended to
+//!     use this option, because PIN can be leaked in the process list and in
+//!     error messages.
+//!
 
 use crate::error::{self, Result};
 use snafu::ResultExt;
@@ -53,6 +81,11 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
     let path_or_url = parse_path_or_url(input)?;
     match path_or_url {
         PathOrUrl::Path(path) => Ok(Box::new(LocalKeySource { path })),
+        PathOrUrl::Pkcs11Url(url) => {
+            let key_source =
+                tough_pkcs11::uri::parse_key_source(&url).context(error::Pkcs11UrlParseSnafu)?;
+            Ok(Box::new(key_source))
+        }
         PathOrUrl::Url(url) => {
             match url.scheme() {
                 #[cfg(any(feature = "aws-sdk-rust", feature = "aws-sdk-rust-rustls"))]
@@ -92,6 +125,7 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
                     client: None,
                     signing_algorithm: KmsSigningAlgorithm::RsassaPssSha256,
                 })),
+
                 _ => error::UnrecognizedSchemeSnafu {
                     scheme: url.scheme(),
                 }
@@ -106,6 +140,7 @@ pub(crate) fn parse_key_source(input: &str) -> Result<Box<dyn KeySource>> {
 enum PathOrUrl {
     Path(PathBuf),
     Url(Url),
+    Pkcs11Url(String),
 }
 
 fn parse_path_or_url(s: &str) -> Result<PathOrUrl> {
@@ -119,6 +154,20 @@ fn parse_path_or_url(s: &str) -> Result<PathOrUrl> {
         Ok(PathOrUrl::Url(
             Url::parse(s).context(error::UrlParseSnafu { url: s })?,
         ))
+    } else if s.starts_with("pkcs11:") {
+        // RFC 7512 dictates that the pkcs11 url consists of:
+        //
+        //     "pkcs11:" pk11-path [ "?" pk11-query ]
+        //
+        // But, for consistency with other key sources, let's allow the "pkcs11://"
+        // scheme. Just replace it with the "pkcs11:" before parsing.
+        let input = if let Some(suffix) = s.strip_prefix("pkcs11://") {
+            format!("pkcs11:{suffix}")
+        } else {
+            s.to_string()
+        };
+
+        Ok(PathOrUrl::Pkcs11Url(input))
     } else {
         // It's not one of our known schemes and it's not a file:// scheme, treat is as a path.
         Ok(PathOrUrl::Path(PathBuf::from(s)))
