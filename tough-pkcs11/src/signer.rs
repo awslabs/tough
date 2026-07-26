@@ -27,7 +27,7 @@ use tough::schema::key::{EcdsaScheme, RsaScheme};
 
 use crate::error::{self, Error, Result};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenId {
     /// Match by `CKT_TOKEN_LABEL` - `token=` in the URI.
     Label(String),
@@ -37,7 +37,7 @@ pub enum TokenId {
     SlotId(u64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyId {
     /// Match by `CKA_LABEL` - `object=` in the URI.
     Label(String),
@@ -48,10 +48,10 @@ pub enum KeyId {
 /// Implements the KeySource trait for keys that live in AWS SSM.
 #[derive(Debug, Clone)]
 pub struct Pkcs11KeySource {
-    module_path: PathBuf,
-    token: TokenId,
-    key: KeyId,
-    pin: Option<AuthPin>,
+    pub module_path: PathBuf,
+    pub token: TokenId,
+    pub key: KeyId,
+    pub pin: Option<AuthPin>,
 }
 
 fn key_source_to_pkcs11_key(source: &Pkcs11KeySource) -> Result<Pkcs11Key> {

@@ -13,9 +13,12 @@ aws-lc-rs = "1"
 cryptoki = "0.12.0"
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa-core"] }
 pem = "3.0.6"
+percent-encoding = "2.3.2"
+pk11-uri-parser = "0.1.5"
 snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
 tokio = { version = "1.53.0", features = ["rt"] }
 tough = { version = "0.24", path = "../tough" }
 
 [dev-dependencies]
+secrecy = "0.10.3"
 tempfile = "3.27.0"

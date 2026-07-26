@@ -3,6 +3,7 @@
 
 pub mod error;
 mod signer;
+pub mod uri;
 
 use aws_lc_rs::rand::SecureRandom;
 use snafu::ResultExt;

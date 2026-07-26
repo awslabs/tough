@@ -2415,6 +2415,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "pk11-uri-parser"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50f14f8e63b84d5a0970a50afa1d1ec88e22eb0a76dc8460fc57acceb5ff9d2e"
+dependencies = [
+ "once_cell",
+ "regex",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3570,6 +3580,9 @@ dependencies = [
  "cryptoki",
  "p256",
  "pem",
+ "percent-encoding",
+ "pk11-uri-parser",
+ "secrecy",
  "snafu",
  "tempfile",
  "tokio",

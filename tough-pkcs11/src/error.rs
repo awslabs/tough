@@ -1,4 +1,5 @@
 use aws_lc_rs::error::KeyRejected;
+use pk11_uri_parser::PK11URIError;
 use snafu::{Backtrace, Snafu};
 
 /// Alias for `Result<T, Error>`.
@@ -57,6 +58,31 @@ pub enum Error {
     JoinSpawnBlockingTask {
         source: tokio::task::JoinError,
         backtrace: Backtrace,
+    },
+}
+
+/// The error type for URI parsing.
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+#[non_exhaustive]
+#[allow(missing_docs)]
+pub enum ParseUriError {
+    #[snafu(display("failed to parse URI: {source}"))]
+    Pk11UriError { source: PK11URIError },
+
+    #[snafu(display("failed to decode field {field:?}: {cause}"))]
+    DecodeField { cause: String, field: &'static str },
+
+    #[snafu(display("pkcs11 URI requires {what}"))]
+    Requires { what: &'static str },
+
+    #[snafu(display("pkcs11 URI requires one of {oneof}"))]
+    Conflict { oneof: &'static str },
+
+    #[snafu(display("failed to read PIN from {path}: {source}"))]
+    PinReadingFailed {
+        source: std::io::Error,
+        path: String,
     },
 }
 
