@@ -1,3 +1,5 @@
+#![cfg(feature = "test-softhsm")]
+
 use std::{
     path::{Path, PathBuf},
     sync::{Mutex, MutexGuard},
