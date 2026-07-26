@@ -42,3 +42,11 @@ jobs:
       - run: rustup component add rustfmt
       - run: rustup component add clippy
       - run: make ${{ matrix.make_target }}
+      - name: Install pkcs11-tool and SoftHSM (Linux only)
+        if: matrix.os == 'ubuntu-latest' && matrix.make_target == 'integ'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opensc softhsm2
+      - name: Run PKCS11/SoftHSM integration target (Linux only)
+        if: matrix.os == 'ubuntu-latest' && matrix.make_target == 'integ'
+        run: make integ-pkcs11-softhsm
