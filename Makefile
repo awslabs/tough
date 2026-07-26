@@ -25,6 +25,7 @@ build:
 	cargo build --locked -p tough
 	cargo build --locked -p tough-ssm
 	cargo build --locked -p tough-kms
+	cargo build --locked -p tough-pkcs11
 	cargo build --locked -p tuftool
 	cargo test --locked
 
@@ -49,3 +50,6 @@ integ-fips: noxious
 	set +e
 	cargo test --manifest-path tough/Cargo.toml --features 'fips' --locked
 	cargo test --manifest-path tough/Cargo.toml --all-features --locked
+
+integ-pkcs11-softhsm:
+	cargo test --manifest-path tough-pkcs11/Cargo.toml --features test-softhsm

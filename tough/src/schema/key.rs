@@ -151,7 +151,7 @@ impl Key {
     }
 
     /// Verify a signature of an object made with this key.
-    pub(super) fn verify(&self, msg: &[u8], signature: &[u8]) -> bool {
+    pub fn verify(&self, msg: &[u8], signature: &[u8]) -> bool {
         let (alg, public_key): (&dyn VerificationAlgorithm, untrusted::Input<'_>) = match self {
             Key::Ecdsa {
                 scheme: EcdsaScheme::EcdsaSha2Nistp256,
