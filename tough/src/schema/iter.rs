@@ -1,5 +1,4 @@
-use crate::schema::decoded::{Decoded, Hex};
-use crate::schema::key::Key;
+use crate::schema::key::{Key, KeyId};
 use std::collections::HashMap;
 
 /// The iterator produced by `Root::keys`.
@@ -8,9 +7,9 @@ use std::collections::HashMap;
 // fine otherwise.
 pub(super) struct KeysIter<'a> {
     /// The key IDs permitted to sign a role.
-    pub(super) keyids_iter: std::slice::Iter<'a, Decoded<Hex>>,
+    pub(super) keyids_iter: std::slice::Iter<'a, KeyId>,
     /// The `keys` field of `Root`, so that we can look up the `Key` by its key ID.
-    pub(super) keys: &'a HashMap<Decoded<Hex>, Key>,
+    pub(super) keys: &'a HashMap<KeyId, Key>,
 }
 
 impl<'a> Iterator for KeysIter<'a> {

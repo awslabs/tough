@@ -2,6 +2,7 @@
 
 #![allow(clippy::default_trait_access)]
 
+use crate::schema::key::KeyId;
 use crate::schema::RoleType;
 use crate::TargetName;
 use snafu::{Backtrace, Snafu};
@@ -19,7 +20,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// A duplicate key ID was present in the root metadata.
     #[snafu(display("Duplicate key ID: {}", keyid))]
-    DuplicateKeyId { keyid: String },
+    DuplicateKeyId { keyid: KeyId },
 
     /// A duplicate role was present in the delegations metadata.
     #[snafu(display("Duplicate role name: {}", name))]
@@ -52,8 +53,8 @@ pub enum Error {
     /// metadata.
     #[snafu(display("Invalid key ID {}: calculated {}", keyid, calculated))]
     InvalidKeyId {
-        keyid: String,
-        calculated: String,
+        keyid: KeyId,
+        calculated: KeyId,
         backtrace: Backtrace,
     },
 

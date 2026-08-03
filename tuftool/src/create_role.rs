@@ -12,9 +12,7 @@ use std::num::NonZeroU64;
 use std::path::PathBuf;
 use tough::editor::targets::TargetsEditor;
 use tough::key_source::KeySource;
-use tough::schema::decoded::Decoded;
-use tough::schema::decoded::Hex;
-use tough::schema::key::Key;
+use tough::schema::key::{Key, KeyId};
 
 #[derive(Debug, Parser)]
 pub(crate) struct CreateRoleArgs {
@@ -65,7 +63,7 @@ impl CreateRoleArgs {
     }
 }
 
-async fn key_hash_map(keys: &[Box<dyn KeySource>]) -> HashMap<Decoded<Hex>, Key> {
+async fn key_hash_map(keys: &[Box<dyn KeySource>]) -> HashMap<KeyId, Key> {
     let mut key_pairs = HashMap::new();
     for source in keys {
         let key_pair = source.as_sign().await.unwrap().tuf_key();

@@ -14,14 +14,13 @@ use crate::editor::targets::TargetsEditor;
 use crate::error::{self, Result};
 use crate::fetch::fetch_max_size;
 use crate::key_source::KeySource;
-use crate::schema::decoded::{Decoded, Hex};
-use crate::schema::key::Key;
+use crate::schema::key::{Key, KeyId};
 use crate::schema::{
     Hashes, KeyHolder, Metafile, PathSet, Role, RoleType, Root, Signed, Snapshot, Target, Targets,
     Timestamp,
 };
 use crate::transport::{IntoVec, Transport};
-use crate::{encode_filename, Limits};
+use crate::{encode_filename, KeyIdFormat, Limits};
 use crate::{Repository, TargetName};
 use aws_lc_rs::digest::{SHA256, SHA256_OUTPUT_LEN};
 use aws_lc_rs::rand::SystemRandom;
@@ -83,6 +82,8 @@ pub struct RepositoryEditor {
 
     transport: Option<Box<dyn Transport>>,
     limits: Option<Limits>,
+
+    key_id_format: KeyIdFormat,
 }
 
 impl RepositoryEditor {
@@ -137,6 +138,7 @@ impl RepositoryEditor {
             signed_targets: None,
             transport: None,
             limits: None,
+            key_id_format: KeyIdFormat::HashedKey,
         })
     }
 
@@ -154,6 +156,7 @@ impl RepositoryEditor {
         editor.timestamp(repo.timestamp.signed)?;
         editor.transport = Some(repo.transport.clone());
         editor.limits = Some(repo.limits);
+        editor.key_id_format = repo.key_id_format;
         Ok(editor)
     }
 
@@ -562,7 +565,7 @@ impl RepositoryEditor {
                     })?;
             (KeyHolder::Delegations(parent), &mut targets.signed)
         };
-        parent.verify_role(&role, name)?;
+        parent.verify_role(&role, name, self.key_id_format)?;
         // Make sure the version isn't downgraded
         ensure!(
             role.signed.version >= current_targets.version,
@@ -647,7 +650,7 @@ impl RepositoryEditor {
                     role: RoleType::Targets,
                 })?;
             // verify the role
-            key_holder.verify_role(&new_role, &name)?;
+            key_holder.verify_role(&new_role, &name, KeyIdFormat::Any)?;
             // add the new role
             delegations
                 .roles
@@ -669,7 +672,7 @@ impl RepositoryEditor {
         paths: PathSet,
         terminating: bool,
         threshold: NonZeroU64,
-        keys: Option<HashMap<Decoded<Hex>, Key>>,
+        keys: Option<HashMap<KeyId, Key>>,
     ) -> Result<&mut Self> {
         let limits = self.limits.context(error::MissingLimitsSnafu)?;
         let transport = self

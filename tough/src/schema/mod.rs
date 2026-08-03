@@ -14,7 +14,7 @@ mod verify;
 use crate::schema::decoded::{Decoded, Hex};
 pub use crate::schema::error::{Error, Result};
 use crate::schema::iter::KeysIter;
-use crate::schema::key::Key;
+use crate::schema::key::{Key, KeyId};
 use crate::sign::Sign;
 pub use crate::transport::{FilesystemTransport, Transport};
 use crate::{encode_filename, TargetName};
@@ -111,7 +111,7 @@ pub struct Signed<T> {
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Signature {
     /// The key ID (listed in root.json) that made this signature.
-    pub keyid: Decoded<Hex>,
+    pub keyid: KeyId,
     /// A hex-encoded signature of the canonical JSON form of a role.
     pub sig: Decoded<Hex>,
 }
@@ -157,7 +157,7 @@ pub struct Root {
     /// this is correct for the associated key. Clients MUST ensure that for any KEYID represented
     /// in this key list and in other files, only one unique key has that KEYID.
     #[serde(deserialize_with = "de::deserialize_keys")]
-    pub keys: HashMap<Decoded<Hex>, Key>,
+    pub keys: HashMap<KeyId, Key>,
 
     /// A list of roles, the keys associated with each role, and the threshold of signatures used
     /// for each role.
@@ -183,7 +183,7 @@ pub struct Root {
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub struct RoleKeys {
     /// The key IDs used for the role.
-    pub keyids: Vec<Decoded<Hex>>,
+    pub keyids: Vec<KeyId>,
 
     /// The threshold of signatures required to validate the role.
     pub threshold: NonZeroU64,
@@ -211,7 +211,7 @@ impl Root {
 
     /// Given an object/key that impls Sign, return the corresponding
     /// key ID from Root
-    pub fn key_id(&self, key_pair: &dyn Sign) -> Option<Decoded<Hex>> {
+    pub fn key_id(&self, key_pair: &dyn Sign) -> Option<KeyId> {
         for (key_id, key) in &self.keys {
             if key_pair.tuf_key() == *key {
                 return Some(key_id.clone());
@@ -888,7 +888,7 @@ pub struct Delegations {
     /// replacement of delegated targets roles keys is done by changing the keys in this field in
     /// the delegating role's metadata.
     #[serde(deserialize_with = "de::deserialize_keys")]
-    pub keys: HashMap<Decoded<Hex>, Key>,
+    pub keys: HashMap<KeyId, Key>,
 
     /// The list of delegated roles.
     pub roles: Vec<DelegatedRole>,
@@ -901,7 +901,7 @@ pub struct DelegatedRole {
     pub name: String,
 
     /// The key IDs used by this role.
-    pub keyids: Vec<Decoded<Hex>>,
+    pub keyids: Vec<KeyId>,
 
     /// The threshold of signatures required to validate the role.
     pub threshold: NonZeroU64,
@@ -1105,7 +1105,7 @@ impl Delegations {
 
     /// Given an object/key that impls Sign, return the corresponding
     /// key ID from Delegation
-    pub fn key_id(&self, key_pair: &dyn Sign) -> Option<Decoded<Hex>> {
+    pub fn key_id(&self, key_pair: &dyn Sign) -> Option<KeyId> {
         for (key_id, key) in &self.keys {
             if key_pair.tuf_key() == *key {
                 return Some(key_id.clone());

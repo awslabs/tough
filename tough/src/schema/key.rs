@@ -81,7 +81,7 @@ pub enum Key {
 }
 
 /// Used to identify the RSA signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum RsaScheme {
     /// `rsassa-pss-sha256`: RSA Probabilistic signature scheme with appendix.
@@ -100,7 +100,7 @@ pub struct RsaKey {
 }
 
 /// Used to identify the `EdDSA` signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum Ed25519Scheme {
     /// 'ed25519': Elliptic curve digital signature algorithm based on Twisted Edwards curves.
@@ -119,7 +119,7 @@ pub struct Ed25519Key {
 }
 
 /// Used to identify the ECDSA signature scheme in use.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum EcdsaScheme {
     /// `ecdsa-sha2-nistp256`: Elliptic Curve Digital Signature Algorithm with NIST P-256 curve
@@ -140,14 +140,14 @@ pub struct EcdsaKey {
 
 impl Key {
     /// Calculate the key ID for this key.
-    pub fn key_id(&self) -> Result<Decoded<Hex>> {
+    pub fn key_id(&self) -> Result<KeyId> {
         let mut buf = Vec::new();
         let mut ser = serde_json::Serializer::with_formatter(&mut buf, CanonicalFormatter::new());
         self.serialize(&mut ser)
             .context(error::JsonSerializationSnafu {
                 what: "key".to_owned(),
             })?;
-        Ok(digest(&SHA256, &buf).as_ref().to_vec().into())
+        Ok(KeyId(hex::encode(digest(&SHA256, &buf))))
     }
 
     /// Verify a signature of an object made with this key.
@@ -186,6 +186,39 @@ impl Key {
 
         alg.verify_sig(public_key.as_slice_less_safe(), msg, signature)
             .is_ok()
+    }
+
+    /// Return the underlying key material, without any attached metadata. This is meant to be used
+    /// to check whether two keys point to the same underlying key material: it doesn't contain any
+    /// arbitrary metadata.
+    pub(super) fn material(&self) -> KeyMaterial {
+        // It's intentional that we explicitly match over every field of the struct (and nested
+        // structs too). Whenever a new field is added we want a compiler error to be triggered
+        // here, to evaluate whether the new field needs to be added to the key material.
+        match self.clone() {
+            Key::Rsa {
+                keyval: RsaKey { public, _extra: _ },
+                scheme,
+                _extra: _,
+            } => KeyMaterial::Rsa { scheme, public },
+
+            Key::Ed25519 {
+                keyval: Ed25519Key { public, _extra: _ },
+                scheme,
+                _extra: _,
+            } => KeyMaterial::Ed25519 { scheme, public },
+
+            Key::Ecdsa {
+                keyval: EcdsaKey { public, _extra: _ },
+                scheme,
+                _extra: _,
+            }
+            | Key::EcdsaOld {
+                keyval: EcdsaKey { public, _extra: _ },
+                scheme,
+                _extra: _,
+            } => KeyMaterial::Ecdsa { scheme, public },
+        }
     }
 }
 
@@ -227,6 +260,51 @@ impl FromStr for Key {
         } else {
             Err(KeyParseError(()))
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(super) enum KeyMaterial {
+    Rsa {
+        scheme: RsaScheme,
+        public: Decoded<RsaPem>,
+    },
+    Ed25519 {
+        scheme: Ed25519Scheme,
+        public: Decoded<Hex>,
+    },
+    Ecdsa {
+        scheme: EcdsaScheme,
+        public: Decoded<EcdsaFlex>,
+    },
+}
+
+/// Unique identifier representing a key.
+///
+/// TUF version 1.0.0 (section 4.2) mandates that KEYID must be hexdigest of the SHA-256 hash of
+/// the canonical JSON form of the key. TAP 12 changes the definition to allow arbitrary strings to
+/// be key IDs.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
+pub struct KeyId(String);
+
+impl KeyId {
+    pub(super) fn lowercase(&self) -> KeyId {
+        KeyId(self.0.to_lowercase())
+    }
+}
+
+impl std::fmt::Display for KeyId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <String as std::fmt::Display>::fmt(&self.0, f)
+    }
+}
+
+impl std::str::FromStr for KeyId {
+    type Err = KeyParseError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(KeyId(s.into()))
     }
 }
 
