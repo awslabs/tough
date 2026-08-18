@@ -1,5 +1,5 @@
 use crate::SafeUrlPath;
-#[cfg(feature = "http")]
+#[cfg(feature = "http-custom-provider")]
 use crate::{HttpTransport, HttpTransportBuilder};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -215,15 +215,15 @@ impl Transport for FilesystemTransport {
 
 // =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=   =^..^=
 
-/// A Transport that provides support for both local files and, if the `http` feature is enabled,
-/// HTTP-transported files.
-// `Copy` cannot be implemented when the `http` feature is enabled because `HttpTransport`
+/// A Transport that provides support for both local files and, if an HTTP transport feature is
+/// enabled, HTTP-transported files.
+// `Copy` cannot be implemented when an HTTP transport feature is enabled because `HttpTransport`
 // contains an `Arc<CryptoProvider>` which is not `Copy`.
 #[derive(Debug, Clone)]
 #[allow(missing_copy_implementations)]
 pub struct DefaultTransport {
     file: FilesystemTransport,
-    #[cfg(feature = "http")]
+    #[cfg(feature = "http-custom-provider")]
     http: HttpTransport,
 }
 
@@ -231,7 +231,7 @@ impl Default for DefaultTransport {
     fn default() -> Self {
         Self {
             file: FilesystemTransport,
-            #[cfg(feature = "http")]
+            #[cfg(feature = "http-custom-provider")]
             http: HttpTransport::default(),
         }
     }
@@ -244,7 +244,7 @@ impl DefaultTransport {
     }
 }
 
-#[cfg(feature = "http")]
+#[cfg(feature = "http-custom-provider")]
 impl DefaultTransport {
     /// Create a new `DefaultTransport` with potentially customized settings.
     pub fn new_with_http_settings(builder: HttpTransportBuilder) -> Self {
@@ -270,7 +270,7 @@ impl Transport for DefaultTransport {
 }
 
 impl DefaultTransport {
-    #[cfg(not(feature = "http"))]
+    #[cfg(not(feature = "http-custom-provider"))]
     #[allow(clippy::trivially_copy_pass_by_ref, clippy::unused_self)]
     async fn handle_http(&self, url: Url) -> Result<TransportStream, TransportError> {
         Err(TransportError::new_with_cause(
@@ -280,7 +280,7 @@ impl DefaultTransport {
         ))
     }
 
-    #[cfg(feature = "http")]
+    #[cfg(feature = "http-custom-provider")]
     async fn handle_http(&self, url: Url) -> Result<TransportStream, TransportError> {
         self.http.fetch(url).await
     }

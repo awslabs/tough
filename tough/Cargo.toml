@@ -24,7 +24,7 @@ olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
 pem = "3"
 percent-encoding = "2"
 reqwest = { version = "0.13", optional = true, default-features = false, features = ["stream", "rustls-no-provider"] }
-rustls = "0.23"
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = { version = "0.8", optional = true }
 rustls-platform-verifier = { version = "0.7", optional = true }
 serde = { version = "1", features = ["derive"] }
@@ -46,12 +46,14 @@ failure-server = { path = "../integ/failure-server" }
 hex-literal = "0.4"
 httptest = "0.16"
 maplit = "1"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-test = "0.4"
 
 [features]
 fips = ["aws-lc-rs/fips", "rustls/fips"]
-http = ["reqwest", "rustls-platform-verifier"]
+http = ["http-custom-provider", "rustls/aws_lc_rs"]
+http-custom-provider = ["reqwest", "rustls-platform-verifier"]
 http2 = ["http", "reqwest/http2"]
 
 # The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.

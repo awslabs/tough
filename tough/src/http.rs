@@ -8,7 +8,9 @@ use log::trace;
 use reqwest::header::{self, HeaderValue, ACCEPT_RANGES};
 use reqwest::{Client, ClientBuilder, Request, Response};
 use reqwest::{Error, Method};
-use rustls::crypto::{aws_lc_rs, CryptoProvider};
+#[cfg(feature = "http")]
+use rustls::crypto::aws_lc_rs;
+use rustls::crypto::CryptoProvider;
 use rustls_platform_verifier::BuilderVerifierExt;
 use snafu::ResultExt;
 use snafu::Snafu;
@@ -48,13 +50,16 @@ pub struct HttpTransportBuilder {
 
 impl Default for HttpTransportBuilder {
     fn default() -> Self {
+        #[cfg(feature = "http")]
         // Set the aws_lc_rs CryptoProvider for rustls. This is to ensure that the reqwest client
         // is using a FIPS enabled aws_lc_rs when creating a client. Otherwise, ring is used:
         // https://github.com/seanmonstar/reqwest/blob/d85f44b217f36f8bef065fe95877eab98c52c2e5/src/async_impl/client.rs#L577-L587
         // This can be called successfully at most once in any process execution: https://docs.rs/rustls/latest/rustls/crypto/struct.CryptoProvider.html#method.install_default
         // The return type is Result<(), Arc<Self>>, which can be dropped.
-        if CryptoProvider::get_default().is_none() {
-            let _ = aws_lc_rs::default_provider().install_default();
+        {
+            if CryptoProvider::get_default().is_none() {
+                let _ = aws_lc_rs::default_provider().install_default();
+            }
         }
         Self {
             timeout: std::time::Duration::from_secs(30),
@@ -124,7 +129,9 @@ impl HttpTransportBuilder {
     /// Set a custom [`CryptoProvider`] for TLS connections.
     ///
     /// If not set, the globally installed provider (or the default aws-lc-rs provider) will be
-    /// used.
+    /// used. When only the `http-custom-provider` feature is enabled, constructing this builder
+    /// never installs a process-wide provider; callers must pass one here or install one before
+    /// building the HTTP client.
     #[must_use]
     pub fn crypto_provider(mut self, provider: CryptoProvider) -> Self {
         self.crypto_provider = Some(Arc::new(provider));
@@ -613,11 +620,11 @@ impl From<(Url, HttpError)> for TransportError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustls::crypto::aws_lc_rs;
+    use rustls::crypto::ring;
 
     #[test]
     fn builder_accepts_custom_provider() {
-        let provider = aws_lc_rs::default_provider();
+        let provider = ring::default_provider();
         let transport = HttpTransportBuilder::new()
             .crypto_provider(provider)
             .build();
