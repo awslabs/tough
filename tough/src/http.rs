@@ -620,11 +620,11 @@ impl From<(Url, HttpError)> for TransportError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustls::crypto::ring;
+    use rustls::crypto::aws_lc_rs;
 
     #[test]
     fn builder_accepts_custom_provider() {
-        let provider = ring::default_provider();
+        let provider = aws_lc_rs::default_provider();
         let transport = HttpTransportBuilder::new()
             .crypto_provider(provider)
             .build();
