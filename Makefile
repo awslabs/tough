@@ -37,11 +37,12 @@ build:
 noxious:
 	cargo install --locked --git https://github.com/cbgbt/noxious.git --tag v1.0.5
 
-# checks tough tests with and without the http feature. http testing requires noxious-server.
+# checks tough tests without HTTP and with each HTTP provider mode. integration testing requires noxious-server.
 .PHONY: integ
 integ: noxious
 	set +e
 	cargo test --manifest-path tough/Cargo.toml --features '' --locked
+	cargo test --manifest-path tough/Cargo.toml --features 'http-custom-provider' --locked
 	cargo test --manifest-path tough/Cargo.toml --features 'http' --features 'integ' --locked
 
 # tests tough fips features with and without the http feature.

@@ -36,7 +36,7 @@ mod datastore;
 pub mod editor;
 pub mod error;
 mod fetch;
-#[cfg(feature = "http")]
+#[cfg(feature = "http-custom-provider")]
 pub mod http;
 mod io;
 pub mod key_source;
@@ -50,7 +50,7 @@ use crate::datastore::Datastore;
 use crate::error::Result;
 use crate::fetch::{fetch_max_size, fetch_sha256};
 /// An HTTP transport that includes retries.
-#[cfg(feature = "http")]
+#[cfg(feature = "http-custom-provider")]
 pub use crate::http::{HttpTransport, HttpTransportBuilder};
 use crate::io::is_dir;
 use crate::schema::{
@@ -1338,7 +1338,7 @@ async fn load_delegations(
         let role_meta = snapshot
             .signed
             .meta
-            .get(&format!("{}.json", &delegated_role.name));
+            .get(&format!("{}.json", delegated_role.name));
 
         if role_meta.is_none() {
             // 5.6.7: If any metadata requested in steps 5.6.7.1 - 5.6.7.2 cannot be downloaded nor validated, end the search and report that the target cannot be found.
@@ -1349,7 +1349,7 @@ async fn load_delegations(
         let path = if consistent_snapshot {
             format!(
                 "{}.{}.json",
-                &role_meta.version,
+                role_meta.version,
                 encode_filename(&delegated_role.name)
             )
         } else {
