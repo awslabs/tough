@@ -55,7 +55,7 @@ impl IntegServers {
         // Make sure we're starting from scratch
         self.teardown()?;
 
-        self.toxic_static_http_server.start()?;
+        self.toxic_static_http_server.start().await?;
         self.toxic_tcp_proxy.start().await?;
         sleep(Duration::from_secs(1)); // give the servers a chance to start
 

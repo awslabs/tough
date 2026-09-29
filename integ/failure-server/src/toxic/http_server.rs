@@ -6,7 +6,8 @@
 use super::ToSocketAddrsExt;
 use anyhow::{Context, Result};
 use axum::{
-    http::{Request, StatusCode},
+    extract::Request,
+    http::StatusCode,
     middleware::{self, Next},
     response::Response,
     Router,
@@ -25,7 +26,7 @@ const LATENCY_PROBABILITY: f64 = 0.1;
 /// The server implementation is "toxic" in that it introduces artificial faults at the HTTP layer.
 #[derive(Debug)]
 pub(crate) struct ToxicStaticHttpServer {
-    /// The proxy's listen address. Written to `ProxyConfig`.
+    /// The proxy's listen address.
     listen: SocketAddr,
 
     /// The path to serve static content from.
@@ -53,7 +54,7 @@ impl ToxicStaticHttpServer {
     }
 
     /// Starts the HTTP server.
-    pub(crate) fn start(&mut self) -> Result<()> {
+    pub(crate) async fn start(&mut self) -> Result<()> {
         // Stop any existing server
         self.stop().ok();
 
@@ -63,13 +64,18 @@ impl ToxicStaticHttpServer {
         let error_layer = middleware::from_fn(maybe_return_error);
 
         let app = Router::new()
-            .nest_service("/", ServeDir::new(&self.serve_dir))
+            .fallback_service(ServeDir::new(&self.serve_dir))
             .layer(error_layer)
             .layer(latency_layer);
-        let server = axum::Server::bind(&self.listen).serve(app.into_make_service());
 
-        self.running_server = Some(tokio::spawn(async {
-            server.await.context("Failed to run ToxicStaticHttpServer")
+        let listener = tokio::net::TcpListener::bind(self.listen)
+            .await
+            .with_context(|| format!("Failed to bind ToxicStaticHttpServer at {}", self.listen))?;
+
+        self.running_server = Some(tokio::spawn(async move {
+            axum::serve(listener, app)
+                .await
+                .context("Failed to run ToxicStaticHttpServer")
         }));
 
         Ok(())
@@ -87,7 +93,7 @@ impl ToxicStaticHttpServer {
 }
 
 /// Middleware for chaotically returning a 503 error.
-async fn maybe_return_error<B>(req: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
+async fn maybe_return_error(req: Request, next: Next) -> Result<Response, StatusCode> {
     if rand::random::<f64>() < ERR_503_PROBABILITY {
         Err(StatusCode::SERVICE_UNAVAILABLE)
     } else {
