@@ -1,18 +1,27 @@
 //! This module sets up 2 HTTP servers.
-//!   * ToxicStaticHttpServer: serves TUF repo files on port 10101, with occasional random 503s.
-//!   * ToxicTcpProxy: proxies to the TUF repo on port 10102, with occasional toxic behavior.
+//!   * `ToxicStaticHttpServer`: serves TUF repo files on port 10101, with occasional random 503s.
+//!   * `ToxicTcpProxy`: proxies to the TUF repo on port 10102, with occasional toxic behavior.
+//!
+//! Both are entirely in-process — no external binaries are required.
 use anyhow::Result;
-use noxious_client::{StreamDirection, Toxic, ToxicKind};
 use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
-use toxic::{ToxicStaticHttpServer, ToxicTcpProxy};
+use toxic::{FaultConfig, ToxicStaticHttpServer, ToxicTcpProxy};
 
 mod toxic;
 
 const STATIC_HTTP_SERVER_LISTEN: &str = "127.0.0.1:10101";
 const TCP_PROXY_LISTEN: &str = "127.0.0.1:10102";
-const TCP_PROXY_CONFIG_API_LISTEN: &str = "127.0.0.1:8472";
+
+/// Fault-injection knobs for the TCP proxy. Chosen to roughly reproduce the failure frequency of
+/// the previous `noxious` configuration (`SlowClose { delay: 500 } @ 0.75` +
+/// `Timeout { timeout: 100 } @ 0.5`, both downstream).
+const TCP_PROXY_FAULTS: FaultConfig = FaultConfig {
+    terminate_probability: 0.5,
+    slow_close_probability: 0.75,
+    slow_close_delay: Duration::from_millis(500),
+};
 
 pub struct IntegServers {
     toxic_tcp_proxy: ToxicTcpProxy,
@@ -24,23 +33,10 @@ impl IntegServers {
         let tuf_reference_repo = tuf_reference_repo.as_ref().to_owned();
 
         let toxic_tcp_proxy = ToxicTcpProxy::new(
-            "toxictuf".to_string(),
             TCP_PROXY_LISTEN,
             STATIC_HTTP_SERVER_LISTEN,
-            TCP_PROXY_CONFIG_API_LISTEN,
-        )?
-        .with_toxic(Toxic {
-            name: "slowclose".to_string(),
-            kind: ToxicKind::SlowClose { delay: 500 },
-            toxicity: 0.75,
-            direction: StreamDirection::Downstream,
-        })
-        .with_toxic(Toxic {
-            name: "timeout".to_string(),
-            kind: ToxicKind::Timeout { timeout: 100 },
-            toxicity: 0.5,
-            direction: StreamDirection::Downstream,
-        });
+            TCP_PROXY_FAULTS,
+        )?;
 
         let toxic_static_http_server =
             ToxicStaticHttpServer::new(STATIC_HTTP_SERVER_LISTEN, tuf_reference_repo)?;
@@ -55,7 +51,7 @@ impl IntegServers {
         // Make sure we're starting from scratch
         self.teardown()?;
 
-        self.toxic_static_http_server.start()?;
+        self.toxic_static_http_server.start().await?;
         self.toxic_tcp_proxy.start().await?;
         sleep(Duration::from_secs(1)); // give the servers a chance to start
 

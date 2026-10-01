@@ -9,43 +9,41 @@ keywords = ["tuf", "update", "repository"]
 edition = "2018"
 
 [dependencies]
-async-recursion = "1"
-async-trait = "0.1"
-aws-lc-rs = "1"
-bytes = "1"
-dyn-clone = "1"
-futures = "0.3"
-futures-core = "0.3"
-globset = { version = "0.4" }
-hex = "0.4"
-jiff = { version = "0.2", features = ["serde"] }
-log = "0.4"
+async-recursion.workspace = true
+async-trait.workspace = true
+aws-lc-rs.workspace = true
+bytes.workspace = true
+dyn-clone.workspace = true
+futures.workspace = true
+futures-core.workspace = true
+globset.workspace = true
+hex.workspace = true
+jiff.workspace = true
+log.workspace = true
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
-pem = "3"
-percent-encoding = "2"
-reqwest = { version = "0.13", optional = true, default-features = false, features = ["stream", "rustls-no-provider"] }
-rustls = "0.23"
-rustls-native-certs = { version = "0.8", optional = true }
-rustls-platform-verifier = { version = "0.7", optional = true }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_plain = "1"
-snafu = { version = "0.8", features = ["futures"] }
-tempfile = "3"
-tokio = { version = "1", default-features = false, features = ["io-util", "sync", "fs", "rt", "time"] }
-tokio-util = { version = "0.7", features = ["io"] }
-typed-path = "0.9"
-# pinned due to aws-lc-rs locked to this version
-# https://github.com/aws/aws-lc-rs/issues/468
-untrusted = "0.7.1"
-url = "2"
-walkdir = "2"
+pem.workspace = true
+percent-encoding.workspace = true
+reqwest = { workspace = true, optional = true, default-features = false, features = ["stream", "rustls-no-provider"] }
+rustls.workspace = true
+rustls-native-certs = { workspace = true, optional = true }
+rustls-platform-verifier = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+serde_plain.workspace = true
+snafu = { workspace = true, features = ["futures"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["io-util", "sync", "fs", "rt", "time"] }
+tokio-util.workspace = true
+typed-path.workspace = true
+untrusted.workspace = true
+url.workspace = true
+walkdir.workspace = true
 
 [dev-dependencies]
 failure-server = { path = "../integ/failure-server" }
-hex-literal = "0.4"
-httptest = "0.16"
-maplit = "1"
+hex-literal.workspace = true
+httptest.workspace = true
+maplit.workspace = true
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-test = "0.4"
 
@@ -54,5 +52,6 @@ fips = ["aws-lc-rs/fips", "rustls/fips"]
 http = ["reqwest", "rustls-platform-verifier"]
 http2 = ["http", "reqwest/http2"]
 
-# The `integ` feature enables integration tests. These tests require `noxious-server` to be installed on the host.
+# The `integ` feature enables integration tests. The chaos proxy runs in-process
+# (via the `failure-server` crate); no external binaries are required.
 integ = []

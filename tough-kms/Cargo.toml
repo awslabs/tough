@@ -17,21 +17,21 @@ fips = ["aws-lc-rs/fips", "tough/fips"]
 
 [dependencies]
 tough = { version = "0.24", path = "../tough", features = ["http"] }
-aws-config = { version = "1", default-features = false, features = ["credentials-process", "default-https-client", "rt-tokio"] }
-aws-lc-rs = "1"
-aws-sdk-kms = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
-aws-smithy-http-client = { version = "1", features = ["rustls-aws-lc"] }
-snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
-tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
-pem = "3"
+aws-config.workspace = true
+aws-lc-rs.workspace = true
+aws-sdk-kms.workspace = true
+aws-smithy-http-client.workspace = true
+snafu = { workspace = true, features = ["backtraces-impl-backtrace-crate"] }
+tokio = { workspace = true, features = ["fs", "io-util", "time", "macros", "rt-multi-thread"] }
+pem.workspace = true
 
 [dev-dependencies]
-aws-smithy-runtime = "1"
-aws-smithy-http = "0.63"
-aws-smithy-http-client = { version = "1", features = ["test-util"] }
-aws-smithy-types = "1"
-base64 = "0.22"
-bytes = "1"
-http = "1"
-serde = "1"
-serde_json = "1"
+aws-smithy-runtime.workspace = true
+aws-smithy-http.workspace = true
+aws-smithy-http-client = { workspace = true, features = ["test-util"] }
+aws-smithy-types.workspace = true
+base64.workspace = true
+bytes.workspace = true
+http.workspace = true
+serde.workspace = true
+serde_json.workspace = true

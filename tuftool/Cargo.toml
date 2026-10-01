@@ -17,35 +17,35 @@ aws-sdk-rust-rustls = []
 fips = ["tough/fips", "rustls/fips"]
 
 [dependencies]
-aws-config = { version = "1", default-features = false, features = ["credentials-process", "default-https-client", "rt-tokio"] }
-aws-lc-rs = "1"
-aws-sdk-kms = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
-aws-sdk-ssm = { version = "1", default-features = false, features = ["behavior-version-latest", "default-https-client", "rt-tokio"] }
-base64 = "0.22"
-clap = { version = "4", features = ["derive"] }
-futures = "0.3"
-hex = "0.4"
-jiff = { version = "0.2", features = ["serde"] }
-log = "0.4"
-maplit = "1"
+aws-config.workspace = true
+aws-lc-rs.workspace = true
+aws-sdk-kms.workspace = true
+aws-sdk-ssm.workspace = true
+base64.workspace = true
+clap.workspace = true
+futures.workspace = true
+hex.workspace = true
+jiff.workspace = true
+log.workspace = true
+maplit.workspace = true
 olpc-cjson = { version = "0.1", path = "../olpc-cjson" }
-rayon = "1"
-reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "stream"] }
-rustls = "0.23"
-serde = "1"
-serde_json = "1"
-simplelog = "0.12"
-snafu = { version = "0.8", features = ["backtraces-impl-backtrace-crate"] }
-tempfile = "3"
-tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+rayon.workspace = true
+reqwest = { workspace = true, default-features = false, features = ["rustls-no-provider", "stream"] }
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+simplelog.workspace = true
+snafu = { workspace = true, features = ["backtraces-impl-backtrace-crate"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 tough = { version = "0.24", path = "../tough", features = ["http"] }
 tough-kms = { version = "0.16", path = "../tough-kms" }
 tough-ssm = { version = "0.19", path = "../tough-ssm" }
-url = "2"
-walkdir = "2"
+url.workspace = true
+walkdir.workspace = true
 
 [dev-dependencies]
-assert_cmd = "2.1"
-futures = "0.3"
-futures-core = "0.3"
-httptest = "0.16"
+assert_cmd.workspace = true
+futures.workspace = true
+futures-core.workspace = true
+httptest.workspace = true

@@ -9,9 +9,9 @@ keywords = ["json"]
 edition = "2018"
 
 [dependencies]
-serde = "1"
-serde_json = "1"
-unicode-normalization = "0.1"
+serde.workspace = true
+serde_json.workspace = true
+unicode-normalization.workspace = true
 
 [dev-dependencies]
-serde_derive = "1"
+serde_derive.workspace = true
