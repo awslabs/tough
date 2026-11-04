@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::net::{SocketAddr, ToSocketAddrs};
 
 pub(crate) use http_server::ToxicStaticHttpServer;
-pub(crate) use tcp_proxy::ToxicTcpProxy;
+pub(crate) use tcp_proxy::{FaultConfig, ToxicTcpProxy};
 
 mod http_server;
 mod tcp_proxy;
