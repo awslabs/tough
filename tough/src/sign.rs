@@ -170,7 +170,11 @@ impl Sign for SignKeyPair {
 /// implements the Sign trait
 /// Accepted Keys: ED25519 pkcs8, Ecdsa pkcs8, RSA
 pub fn parse_keypair(key: &[u8]) -> Result<impl Sign> {
-    if let Ok(ed25519_key_pair) = Ed25519KeyPair::from_pkcs8(key) {
+    if let Ok(ed25519_key_pair) = Ed25519KeyPair::from_pkcs8(key).or_else(|e| {
+        ring_legacy_ed25519_to_rfc5958(key)
+            .ok_or(e)
+            .and_then(|k| Ed25519KeyPair::from_pkcs8(&k))
+    }) {
         Ok(SignKeyPair::ED25519(ed25519_key_pair))
     } else if let Ok(ecdsa_key_pair) =
         EcdsaKeyPair::from_pkcs8(&aws_lc_rs::signature::ECDSA_P256_SHA256_ASN1_SIGNING, key)
@@ -192,5 +196,59 @@ pub fn parse_keypair(key: &[u8]) -> Result<impl Sign> {
         }
     } else {
         error::KeyUnrecognizedSnafu.fail()
+    }
+}
+
+/// Re-encodes a ring-style PKCS#8 v2 Ed25519 key, whose public key is explicitly tagged
+/// (`a1 23 03 21 00 ..`), into the RFC 5958 IMPLICIT form (`81 21 00 ..`) that aws-lc accepts.
+/// Returns `None` if `key` is not in that layout.
+fn ring_legacy_ed25519_to_rfc5958(key: &[u8]) -> Option<Vec<u8>> {
+    const PREFIX: [u8; 16] = [
+        0x30, 0x53, 0x02, 0x01, 0x01, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04,
+        0x20,
+    ];
+    const LEGACY_PUB: [u8; 5] = [0xa1, 0x23, 0x03, 0x21, 0x00];
+    if key.len() != 85 || key[..16] != PREFIX || key[48..53] != LEGACY_PUB {
+        return None;
+    }
+    let mut out = Vec::with_capacity(83);
+    out.extend_from_slice(&[0x30, 0x51]);
+    out.extend_from_slice(&key[2..48]);
+    out.extend_from_slice(&[0x81, 0x21, 0x00]);
+    out.extend_from_slice(&key[53..]);
+    Some(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn test_data(name: &str) -> Vec<u8> {
+        std::fs::read(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests")
+                .join("data")
+                .join(name),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn parses_ring_legacy_ed25519_pkcs8() {
+        for name in ["targetskey", "targetskey-1"] {
+            let key = test_data(name);
+            let keypair = parse_keypair(&key).unwrap();
+            match keypair.tuf_key() {
+                Key::Ed25519 { keyval, .. } => assert_eq!(*keyval.public, key[53..]),
+                other => panic!("{}: expected an Ed25519 key, got {:?}", name, other),
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_non_legacy_input_for_rewrite() {
+        assert!(ring_legacy_ed25519_to_rfc5958(&[0u8; 85]).is_none());
+        assert!(ring_legacy_ed25519_to_rfc5958(&test_data("snakeoil.pem")).is_none());
     }
 }
