@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changes
+- `serde_json` is an optional feature (on by default).
+- New `sonic-rs` feature: `CanonicalFormatter` also implements `sonic_rs::format::Formatter`, so a graph can use `default-features = false, features = ["sonic-rs"]` and leave `serde_json` out.
+
 ## [0.1.4] - 2023-10-10
 ### Changes
 - Fix 128bit integer serialization (thanks @aumetra) [#820]
