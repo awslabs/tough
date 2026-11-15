@@ -209,6 +209,7 @@ fn write_number<W: Write + ?Sized>(writer: &mut W, value: &str) -> Result<()> {
 }
 
 #[cfg(all(test, feature = "serde_json"))]
+#[allow(clippy::unicode_not_nfc, clippy::doc_markdown)]
 mod tests {
     use crate::CanonicalFormatter;
     use serde::Serialize;
