@@ -22,6 +22,9 @@ build:
 	cargo fmt -- --check
 	cargo clippy --locked -- -D warnings
 	cargo build --locked -p olpc-cjson
+	cargo build --locked -p olpc-cjson --no-default-features --features sonic-rs
+	cargo clippy --locked -p olpc-cjson --no-default-features --features sonic-rs -- -D warnings
+	cargo test --locked -p olpc-cjson --all-features
 	cargo build --locked -p tough
 	cargo build --locked -p tough-ssm
 	cargo build --locked -p tough-kms

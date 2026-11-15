@@ -11,6 +11,8 @@ This crate is not developed or endorsed by OLPC; use of the term is solely to di
 
 [xkcd]: https://xkcd.com/927/
 
+The `serde_json` feature (on by default) implements `serde_json::ser::Formatter`; the `sonic-rs` feature implements `sonic_rs::format::Formatter`. Use `default-features = false, features = ["sonic-rs"]` to leave `serde_json` out of the dependency graph.
+
 ```rust
 use olpc_cjson::CanonicalFormatter;
 use serde::Serialize;
