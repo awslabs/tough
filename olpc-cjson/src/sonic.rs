@@ -257,7 +257,7 @@ mod tests {
         r#""é""#,
         r#""Å Å""#,
         r#"{"a\"b": 1, "a": 2, "a\\": 3, "a\u0001": 4, "b": 5}"#,
-        r#"{"é": 1, "é": 2, "z": 3}"#,
+        r#"{"e\u0301": 1, "z": 3, "a": 2}"#,
         r#"{"nested": {"bad": true, "good": false}, "b": 2, "a": 1, "c": {"h": {"h": -5, "i": 3}, "a": null, "x": {}}}"#,
         r#"[{"b": [], "a": {}}, [[], [{}]], "x", null, false, -0, 0]"#,
         r#"{"signed": {"_type": "timestamp", "spec_version": "1.0.0", "version": 1604605512, "expires": "2020-11-12T19:45:12.613154979Z", "meta": {"snapshot.json": {"length": 1278, "hashes": {"sha256": "56c4ecc3b331f6154d9a5005f6e2978e4198cc8c3b79746c25a592043a2d83d4"}, "version": 1604605512}}}}"#,
