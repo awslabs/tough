@@ -22,4 +22,6 @@ jobs:
       - run: cargo test --locked -p olpc-cjson
       - run: cargo test --locked -p olpc-cjson --no-default-features --features sonic-rs
       - name: serde_json is not in the graph with default-features off
-        run: "! cargo tree --locked -p olpc-cjson --no-default-features --features sonic-rs -e normal -i serde_json"
+        run: |
+          cargo tree --locked -p olpc-cjson --no-default-features --features sonic-rs -e normal | tee tree.txt
+          ! grep -q serde_json tree.txt
