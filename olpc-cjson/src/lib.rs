@@ -1,7 +1,8 @@
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! `olpc-cjson` provides a [`serde_json::Formatter`] to serialize data as [canonical JSON], as
+//! `olpc-cjson` provides a [`serde_json::Formatter`] (feature `serde_json`, on by default) and a
+//! `sonic_rs::format::Formatter` (feature `sonic-rs`) to serialize data as [canonical JSON], as
 //! defined by OLPC and used in [TUF].
 //!
 //! [`serde_json::Formatter`]: ../serde_json/ser/trait.Formatter.html
@@ -18,7 +19,10 @@
 //!
 //! [xkcd]: https://xkcd.com/927/
 //!
-//! ```rust
+//! With `serde_json`:
+//!
+#![cfg_attr(feature = "serde_json", doc = "```rust")]
+#![cfg_attr(not(feature = "serde_json"), doc = "```ignore")]
 //! use olpc_cjson::CanonicalFormatter;
 //! use serde::Serialize;
 //! use serde_json::json;
@@ -29,15 +33,31 @@
 //! value.serialize(&mut ser).unwrap();
 //! assert_eq!(buf, br#"{"a":"qwerty","b":12}"#);
 //! ```
+//!
+//! With `sonic-rs`:
+//!
+#![cfg_attr(feature = "sonic-rs", doc = "```rust")]
+#![cfg_attr(not(feature = "sonic-rs"), doc = "```ignore")]
+//! use olpc_cjson::CanonicalFormatter;
+//! use serde::Serialize;
+//!
+//! let value: sonic_rs::Value = sonic_rs::from_str(r#"{"b": 12, "a": "qwerty"}"#).unwrap();
+//! let mut ser = sonic_rs::Serializer::with_formatter(Vec::new(), CanonicalFormatter::new());
+//! value.serialize(&mut ser).unwrap();
+//! assert_eq!(ser.into_inner(), br#"{"a":"qwerty","b":12}"#);
+//! ```
 
 #![deny(rust_2018_idioms)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::must_use_candidate)]
 
+#[cfg(feature = "serde_json")]
 use serde::Serialize;
+#[cfg(feature = "serde_json")]
 use serde_json::ser::{CharEscape, CompactFormatter, Formatter, Serializer};
 use std::collections::BTreeMap;
-use std::io::{Error, ErrorKind, Result, Write};
+use std::io::{Error, Result, Write};
+#[cfg(feature = "serde_json")]
 use unicode_normalization::UnicodeNormalization;
 
 /// A [`Formatter`] that produces canonical JSON.
@@ -45,7 +65,7 @@ use unicode_normalization::UnicodeNormalization;
 /// See the [crate-level documentation](../index.html) for more detail.
 ///
 /// [`Formatter`]: ../serde_json/ser/trait.Formatter.html
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct CanonicalFormatter {
     object_stack: Vec<Object>,
 }
@@ -69,7 +89,7 @@ pub struct CanonicalFormatter {
 /// \---- // jump back if more values are present
 /// end_object       // write the object (sorted by its keys) to the writer received by the method
 /// ```
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct Object {
     obj: BTreeMap<Vec<u8>, Vec<u8>>,
     next_key: Vec<u8>,
@@ -112,6 +132,7 @@ impl CanonicalFormatter {
 
 /// Wraps `serde_json::CompactFormatter` to use the appropriate writer (see
 /// `CanonicalFormatter::writer`).
+#[cfg(feature = "serde_json")]
 macro_rules! wrapper {
     ($f:ident) => {
         fn $f<W: Write + ?Sized>(&mut self, writer: &mut W) -> Result<()> {
@@ -129,13 +150,17 @@ macro_rules! wrapper {
 /// This is used in three places. Write it once.
 macro_rules! float_err {
     () => {
-        Err(Error::new(
-            ErrorKind::InvalidInput,
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
             "floating point numbers are not allowed in canonical JSON",
         ))
     };
 }
 
+#[cfg(feature = "sonic-rs")]
+mod sonic;
+
+#[cfg(feature = "serde_json")]
 impl Formatter for CanonicalFormatter {
     wrapper!(write_null);
     wrapper!(write_bool, bool);
@@ -287,7 +312,7 @@ impl Formatter for CanonicalFormatter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serde_json"))]
 mod tests {
     use crate::CanonicalFormatter;
     use serde::Serialize;
